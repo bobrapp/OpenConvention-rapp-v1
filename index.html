@@ -16,17 +16,24 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark">r4</span>
-        <span class="brand-text">networking</span>
+        <span class="brand-text" id="brand-text">networking</span>
       </div>
+      <div class="topbar-right">
+      <div class="lang-switch" id="lang-switch"></div>
       <button class="icon-btn" data-action="open-settings" aria-label="settings">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
       </button>
+      </div>
     </header>
+    <div id="hl-strip"></div>
     <main id="view" class="view"></main>
     <nav class="tabbar" id="tabbar"></nav>
   </div>
   <div id="sheet-root"></div>
+  <div id="alert-root"></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="vendor/qrcode.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
