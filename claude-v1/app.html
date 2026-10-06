@@ -679,9 +679,10 @@ function summaryPrompt(p){
     'If we have not met yet, "note" asks for a short conversation instead.' + fence(JSON.stringify(facts(p)));
 }
 function batchPrompt(list){
-  return 'Write a short summary of each person below for a report to my team. ' + RULES + ' ' +
-    'Reply with only a JSON array of {"id": string, "summary": string}, one per person, keeping each id exactly. ' +
-    'Each summary is 2 sentences: who they are and what they care about, then what we discussed and the next step.' + fence(JSON.stringify(list.map(facts)));
+  return 'Write a short summary and a follow-up message for each person below, people I met at ' + cfg().event + '. ' + RULES + ' ' +
+    'Reply with only a JSON array of {"id": string, "summary": string, "note": string}, one per person, keeping each id exactly. ' +
+    '"summary" is 2 sentences for my team: who they are and what they care about, then what we discussed and the next step. ' +
+    '"note" is a message of 3 to 5 sentences from me to them: greet them by first name, mention the event, what we discussed and the next step.' + fence(JSON.stringify(list.map(facts)));
 }
 async function runImport(kind, text, day){
   text = text.trim(); if (!text) { toast('Paste some text first.'); return; }
@@ -1019,12 +1020,13 @@ function paintTimer(){
 function beep(){ try { if (!audio) return; [0, .35, .7].forEach(t => { const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
   g.gain.setValueAtTime(.25, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + t + .28); o.start(audio.currentTime + t); o.stop(audio.currentTime + t + .3); }); } catch (e) {} }
 
-const unwritten = () => S.people.filter(p => p.status === 'met' && !(p.ai && p.ai.summary)).slice(0, 25);
+const BATCH = 12;
+const unwritten = () => S.people.filter(p => p.status === 'met' && !(p.ai && p.ai.summary));
 function renderReport(){
   const md = buildReport();
   return '<section><div class="sec-head"><h2>team report</h2></div><p class="small muted">Built from your people log, sessions and follow-ups. It updates as you add notes.</p>' +
     '<div class="row"><button class="btn primary" data-act="copyReport">copy report</button>' + (dl ? '<button class="btn" data-act="saveReport">save as a file</button>' : '') + '<button class="btn" data-act="recap">today\'s recap</button></div>' +
-    (ask && unwritten().length ? '<div class="note info"><p>' + (ui.writing ? 'Claude is writing…' : unwritten().length + (unwritten().length === 1 ? ' person has' : ' people have') + ' a template summary. Claude can write them from your notes.') + '</p><button class="btn small" data-act="writeAll"' + (ui.writing ? ' disabled' : '') + '>write them</button></div>' : '') +
+    (ask && unwritten().length ? '<div class="note info"><p>' + (ui.writing ? 'Claude is writing…' : unwritten().length + (unwritten().length === 1 ? ' person has' : ' people have') + ' a template summary and follow-up note. Claude can write them from your notes' + (unwritten().length > BATCH ? ', ' + BATCH + ' at a time.' : '.')) + '</p><button class="btn small" data-act="writeAll"' + (ui.writing ? ' disabled' : '') + '>write them</button></div>' : '') +
     '<div class="report">' + mdToHtml(md) + '</div></section>';
 }
 
@@ -1206,11 +1208,12 @@ const acts = {
       if (out) out.textContent = p ? summary(p) : ''; if (btn) btn.disabled = false; toast(msg); }
   },
   clearSummary(d){ const p = person(d.id); if (!p) return; delete p.ai; save('people'); acts.viewPerson({id:p.id}); },
-  async writeAll(){ const list = unwritten(); if (!ask || !list.length || ui.writing) return;
+  async writeAll(){ const list = unwritten().slice(0, BATCH), sent = new Set(list.map(p => p.id)); if (!ask || !list.length || ui.writing) return;
     ui.writing = true; render();
     try { const raw = await ask.json(batchPrompt(list), {modelTier:'quick', cache:false}); let n = 0;
-      for (const r of Array.isArray(raw) ? raw : []){ const p = r && person(String(r.id)), sum = clean(r && r.summary, 700);
-        if (p && sum) { p.ai = {...(p.ai || {}), summary:sum, at:todayISO()}; n++; } }
+      for (const r of Array.isArray(raw) ? raw : []){ const id = r && String(r.id); if (!sent.has(id)) continue; sent.delete(id);
+        const p = person(id), sum = clean(r.summary, 700), msg = String(r.note || '').trim().slice(0, 1400);
+        if (p && sum) { p.ai = {...(p.ai || {}), summary:sum, ...(msg ? {note:msg} : {}), at:todayISO()}; n++; } }
       if (n) save('people'); toast(n ? 'Wrote ' + n + (n === 1 ? ' summary' : ' summaries') : 'Claude’s reply could not be read. Try again.');
     } catch (e) { toast(askFail(e)); }
     ui.writing = false; softRender();

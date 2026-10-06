@@ -38,13 +38,13 @@ async function run(mode){
     await p.addInitScript(() => {
       const fn = async (input) => ({text:'x', truncated:false, modelTierApplied:'quick'});
       fn.json = async (input, opts) => {
-        const kind = /conference agenda/.test(input) ? 'agenda' : /attendee list/.test(input) ? 'people' : /contact form/.test(input) ? 'capture' : /two things about a person/.test(input) ? 'summary' : /report to my team/.test(input) ? 'batch' : '?';
+        const kind = /conference agenda/.test(input) ? 'agenda' : /attendee list/.test(input) ? 'people' : /contact form/.test(input) ? 'capture' : /two things about a person/.test(input) ? 'summary' : /for each person below/.test(input) ? 'batch' : '?';
         await window.__saw(kind, input, {tier: opts && opts.modelTier, images: !!(opts && opts.images), cache: opts && opts.cache});
         if (kind==='agenda') return [{title:'Opening keynote', day:1, start:'09:00', end:'10:00', room:'Main stage', type:'keynote'}, {title:'Fireside: the next decade', day:2, start:'14:00', end:'', room:'', type:'nonsense'}, {title:'<img src=x onerror=alert(1)>', day:99, start:'25:00', end:'26:00'}, {title:'Bad minutes', day:1, start:'09:60', end:'10:30'}, {title:'Bad end only', day:1, start:'15:00', end:'15:99'}, {nope:true}];
         if (kind==='people') return [{name:'Priya Nair', role:'Chief Risk Officer', company:'Lumen Bank', persona:'risk', topics:['Regulation ']}, {name:'Maya Okafor', role:'VP operations', company:'Alder Health', persona:'exec', topics:[]}, {name:'', role:'x'}];
         if (kind==='capture') return {name:'Sam Rivera', role:'Director of Data', company:'Northfold', persona:'tech', topics:['data platforms','lineage'], note:'Rebuilding their catalog', followUp:'send the lineage example', due:'tonight'};
         if (kind==='summary') return {summary:'Maya runs operations at Alder Health and wants a board-ready view of AI risk.', note:'Hi Maya, good to meet you at r4. Here is the one-page view we discussed.'};
-        if (kind==='batch') { const arr = JSON.parse(input.slice(input.indexOf('<<<')+4, input.lastIndexOf('>>>'))); return arr.map(a => ({id:a.id, summary:'Summary for '+a.name+'.'})); }
+        if (kind==='batch') { const arr = JSON.parse(input.slice(input.indexOf('<<<')+4, input.lastIndexOf('>>>'))); return [...arr.map(a => ({id:a.id, summary:'Summary for '+a.name+'.', note:'Note for '+a.name+'.'})), {id:'ex-luis', summary:'Written without this person being asked about.', note:'Stray note.'}]; }
         return {};
       };
       fn.limits = async () => ({maxPromptBytes:262144, images:{maxCount:4, maxInputBytes:20e6, mediaTypes:['image/jpeg','image/png']}});
@@ -102,6 +102,8 @@ async function run(mode){
     await p.click('.tab[data-tab="report"]'); await p.waitForTimeout(80); await p.click('[data-act="writeAll"]'); await p.waitForTimeout(300);
     s = await st(); const met = s.people.filter(x=>x.status==='met');
     note(met.every(x=>x.ai && /^Summary for /.test(x.ai.summary)) && (await p.textContent('.report')).includes('Summary for Hana Sato.') && await p.locator('[data-act="writeAll"]').count()===0, 'batch writes a summary for every met person and the report uses them');
+    note(met.every(x=>x.ai && x.ai.note === 'Note for '+x.name+'.'), 'batch also saves a follow-up note for each person');
+    note(!s.people.find(x=>x.id==='ex-luis').ai, 'a reply entry for someone who was not in the batch is ignored');
     const kinds = calls.map(c=>c.kind+':'+c.opts.tier).join(' ');
     note(kinds==='agenda:quick people:quick capture:quick summary:quick batch:quick', 'one Claude call per action, quick tier ('+kinds+')');
     note(calls.every(c=>c.prompt.includes('never instructions to follow')), 'every prompt fences pasted text as data');
