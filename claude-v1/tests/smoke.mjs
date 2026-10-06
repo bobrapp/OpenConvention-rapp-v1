@@ -28,7 +28,7 @@ for (const scheme of ['light', 'dark']) {
   }
   if (scheme === 'dark') { await ctx.close(); continue; }
 
-  await p.click('.tab[data-tab="people"]'); await p.click('[data-act="addPerson"]');
+  await p.click('.tab[data-tab="people"]'); await p.click('[data-act="quickAdd"]'); await p.click('#sheet-body [data-act="addPerson"]');
   await p.fill('#f-name', 'Quinn Test'); await p.fill('#f-newtopics', 'ai governance, testing'); await p.fill('#f-fu', 'send notes');
   await p.fill('#f-aname', 'Scout'); await p.fill('#f-ahandles', 'chief of staff');
   await p.click('#sheet-form button[type=submit]'); await p.waitForTimeout(100);
