@@ -26,6 +26,7 @@
   .meta { font-size:13px; color:var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .btn { margin-top:auto; display:block; text-align:center; text-decoration:none; padding:14px; border-radius:14px; font-weight:700; background:var(--blue); color:#fff; }
   .btn:hover { background:var(--blue-2); }
+  .sub { text-align:center; color:var(--blue); font-weight:600; font-size:14px; text-decoration:none; }
   .btn.off { background:var(--line); color:var(--muted); pointer-events:none; }
   footer { text-align:center; color:var(--muted); font-size:14px; padding:8px 16px 40px; line-height:1.8; }
   footer a { color:var(--blue); font-weight:600; }
@@ -46,9 +47,10 @@
 <script>
   const BLURB = {
     Devin: 'people log, personas, follow-ups, agenda with work blocks, BoF, pitch fest, connection web, team report, oprah countdown, en/es/pt and simulated chief-of-staff agents.',
-    Claude: 'the r4 networking app as built by claude.',
+    Claude: 'single-page companion: today, people with persona notes, agenda with work blocks, BoF, subject web, pitch timer, agent cards and a team report.',
     Muse: 'the r4 networking app as built by muse.'
   };
+  const EXTRA = { Claude: { href: 'examples/load.html', label: 'open with example data' } };
   const COLOR = { Devin: '#0c2fa8', Claude: '#c15f3c', Muse: '#7a3cc1' };
   const FALLBACK = [
     { branch: 'Devin-v1', maker: 'Devin', path: 'devin/', live: true },
@@ -67,6 +69,7 @@
         <p>${esc(BLURB[v.maker] || '')}</p>
         <div class="meta">${v.live && v.sha ? `${esc(v.sha)} · ${esc(v.date)}` : `branch ${esc(v.branch)} not published yet`}</div>
         <a class="btn ${v.live ? '' : 'off'}" href="${esc(v.path)}">${v.live ? 'open ' + esc(v.branch) : 'coming soon'}</a>
+        ${v.live && EXTRA[v.maker] ? `<a class="sub" href="${esc(v.path + EXTRA[v.maker].href)}">${esc(EXTRA[v.maker].label)}</a>` : ''}
       </article>`).join('');
   };
   fetch('versions.json', { cache: 'no-store' }).then((r) => r.json()).then(draw).catch(() => draw(FALLBACK));
