@@ -40,7 +40,7 @@ async function run(mode){
       fn.json = async (input, opts) => {
         const kind = /conference agenda/.test(input) ? 'agenda' : /attendee list/.test(input) ? 'people' : /contact form/.test(input) ? 'capture' : /two things about a person/.test(input) ? 'summary' : /report to my team/.test(input) ? 'batch' : '?';
         await window.__saw(kind, input, {tier: opts && opts.modelTier, images: !!(opts && opts.images), cache: opts && opts.cache});
-        if (kind==='agenda') return [{title:'Opening keynote', day:1, start:'09:00', end:'10:00', room:'Main stage', type:'keynote'}, {title:'Fireside: the next decade', day:2, start:'14:00', end:'', room:'', type:'nonsense'}, {title:'<img src=x onerror=alert(1)>', day:99, start:'25:00', end:'26:00'}, {nope:true}];
+        if (kind==='agenda') return [{title:'Opening keynote', day:1, start:'09:00', end:'10:00', room:'Main stage', type:'keynote'}, {title:'Fireside: the next decade', day:2, start:'14:00', end:'', room:'', type:'nonsense'}, {title:'<img src=x onerror=alert(1)>', day:99, start:'25:00', end:'26:00'}, {title:'Bad minutes', day:1, start:'09:60', end:'10:30'}, {title:'Bad end only', day:1, start:'15:00', end:'15:99'}, {nope:true}];
         if (kind==='people') return [{name:'Priya Nair', role:'Chief Risk Officer', company:'Lumen Bank', persona:'risk', topics:['Regulation ']}, {name:'Maya Okafor', role:'VP operations', company:'Alder Health', persona:'exec', topics:[]}, {name:'', role:'x'}];
         if (kind==='capture') return {name:'Sam Rivera', role:'Director of Data', company:'Northfold', persona:'tech', topics:['data platforms','lineage'], note:'Rebuilding their catalog', followUp:'send the lineage example', due:'tonight'};
         if (kind==='summary') return {summary:'Maya runs operations at Alder Health and wants a board-ready view of AI risk.', note:'Hi Maya, good to meet you at r4. Here is the one-page view we discussed.'};
@@ -59,11 +59,11 @@ async function run(mode){
   await p.click('.tab[data-tab="agenda"]'); await p.click('[data-act="importOpen"]'); await p.fill('#f-paste', AGENDA); await p.click('#sheet-form button[type=submit]'); await p.waitForSelector('#imp-0');
   const rows = await p.$$eval('label.item', els => els.map(e => e.innerText.replace(/\n+/g,' | ')));
   if (mode==='local') note(rows.length===7 && /9:00 am to 10:00 am/.test(rows[0]) && /11:30 am to 12:15 pm/.test(rows[2]) && /12:15 pm to 1:30 pm/.test(rows[3]) && /1:30 pm to 2:15 pm/.test(rows[4]) && /day 2/.test(rows[5]) && /4:30 pm to 5:15 pm/.test(rows[6]), 'local agenda rules read 7 sessions with the right times and days');
-  else note(rows.length===2 && /day 2/.test(rows[1]) && /2:00 pm to 2:45 pm/.test(rows[1]) && !rows.join().includes('<img'), 'claude agenda reply is validated: bad rows dropped, missing end filled');
+  else note(rows.length===3 && /day 2/.test(rows[1]) && /2:00 pm to 2:45 pm/.test(rows[1]) && /Bad end only/.test(rows[2]) && /3:00 pm to 3:45 pm/.test(rows[2]) && !rows.join().includes('<img') && !rows.join().includes('Bad minutes'), 'claude agenda reply is validated: out-of-range times dropped, bad or missing end filled');
   if (mode==='local') await p.uncheck('#imp-3');
   await p.click('#sheet-form button[type=submit]'); await p.waitForTimeout(150);
   let s = await st();
-  note(s.sessions.length === before.sessions.length + (mode==='local' ? 4 : 1), mode+': sessions added, unticked and already-present ones skipped');
+  note(s.sessions.length === before.sessions.length + (mode==='local' ? 4 : 2), mode+': sessions added, unticked and already-present ones skipped');
 
   // people import
   await p.click('.tab[data-tab="people"]'); await p.click('[data-act="importOpen"]'); await p.fill('#f-paste', PEOPLE); await p.click('#sheet-form button[type=submit]'); await p.waitForSelector('#imp-0');

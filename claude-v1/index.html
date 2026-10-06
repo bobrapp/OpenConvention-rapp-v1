@@ -628,7 +628,7 @@ function localCapture(text){
   return {name:clean(m ? m[1] : t.split('.')[0], 80), role:clean(role, 80), company:clean(company, 80), persona:guessPersona(role), topics:[], note:clean(rest, 400), followUp:'', due:''};
 }
 function normSession(x, dflt){
-  const t = v => /^\d{1,2}:\d{2}$/.test(String(v || '')) && mins(v) < 1440 ? hhmm(mins(v)) : null;
+  const t = v => { const m = String(v ?? '').match(/^(\d{1,2}):(\d{2})$/); return m && +m[1] < 24 && +m[2] < 60 ? hhmm(+m[1] * 60 + +m[2]) : null; };
   if (!x || typeof x !== 'object' || !clean(x.title)) return null; const start = t(x.start); if (!start) return null;
   let end = t(x.end); if (!end || mins(end) <= mins(start)) end = hhmm(Math.min(1439, mins(start) + 45));
   const day = Number.isFinite(+x.day) && +x.day >= 1 ? Math.min(cfg().days, Math.round(+x.day)) - 1 : dflt;
