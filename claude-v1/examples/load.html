@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Load example data</title>
+<style>body{font:16px system-ui;margin:0;padding:24px 16px;max-width:560px;margin-inline:auto;line-height:1.5}button,a{font:inherit}</style></head>
+<body>
+<h1>Load example data</h1>
+<p>This writes the example people, sessions, goals and pitches into this browser's storage for the app. Everything is marked as an example and can be cleared from inside the app.</p>
+<p><button id="go" type="button">Load examples and open the app</button> <a href="../index.html">Open the app without them</a></p>
+<p id="msg" role="status"></p>
+<script>
+document.getElementById('go').addEventListener('click', async () => {
+  const msg = document.getElementById('msg');
+  try {
+    const data = await (await fetch('examples.json')).json();
+    localStorage.setItem('r4companion.v1', JSON.stringify(data));
+    location.href = '../index.html';
+  } catch (e) { msg.textContent = 'Could not load the examples. Serve this folder over http (see the README) and try again.'; }
+});
+</script>
+</body></html>
