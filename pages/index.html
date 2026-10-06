@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>r4 networking · pick a version</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c2fa8'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='700'%3Er4%3C/text%3E%3C/svg%3E">
+<style>
+  :root { --blue:#0c2fa8; --blue-2:#1f5cff; --ink:#0e1530; --muted:#5b6482; --line:#e4e8f2; --bg:#f4f6fb; --ok:#11845b; --soon:#a15c00; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:linear-gradient(135deg, var(--blue), var(--blue-2)); color:#fff; padding:48px 20px 72px; text-align:center; }
+  header .brand { font-size:14px; letter-spacing:.08em; opacity:.85; }
+  header h1 { margin:10px 0 8px; font-size:34px; font-weight:800; letter-spacing:-.01em; }
+  header p { margin:0 auto; max-width:520px; opacity:.9; line-height:1.5; }
+  main { max-width:980px; margin:-44px auto 0; padding:0 16px 40px; }
+  .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background:#fff; border-radius:20px; padding:22px; box-shadow:0 10px 30px rgba(12,47,168,.10); display:flex; flex-direction:column; gap:12px; }
+  .top { display:flex; align-items:center; justify-content:space-between; }
+  .mark { width:48px; height:48px; border-radius:14px; display:grid; place-items:center; color:#fff; font-weight:800; font-size:20px; }
+  .pill { font-size:12px; font-weight:700; padding:5px 10px; border-radius:999px; }
+  .pill.live { background:#e3f6ee; color:var(--ok); }
+  .pill.soon { background:#fff1dc; color:var(--soon); }
+  .card h2 { margin:0; font-size:22px; }
+  .card p { margin:0; color:var(--muted); line-height:1.5; font-size:15px; }
+  .meta { font-size:13px; color:var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .btn { margin-top:auto; display:block; text-align:center; text-decoration:none; padding:14px; border-radius:14px; font-weight:700; background:var(--blue); color:#fff; }
+  .btn:hover { background:var(--blue-2); }
+  .btn.off { background:var(--line); color:var(--muted); pointer-events:none; }
+  footer { text-align:center; color:var(--muted); font-size:14px; padding:8px 16px 40px; line-height:1.8; }
+  footer a { color:var(--blue); font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">openconvention · r4 networking</div>
+  <h1>pick a version</h1>
+  <p>the same r4 networking companion, built three ways. open one on your phone and make your conference time count.</p>
+</header>
+<main><div class="grid" id="grid"></div></main>
+<footer>
+  <a href="https://github.com/bobrapp/OpenConvention-rapp-v1">source on github</a> ·
+  <a href="https://github.com/bobrapp/OpenConvention-rapp-v1/tree/Devin-v1/Rapp-Prompts">rapp-prompts</a><br>
+  each version keeps its own data in your browser.
+</footer>
+<script>
+  const BLURB = {
+    Devin: 'people log, personas, follow-ups, agenda with work blocks, BoF, pitch fest, connection web, team report, oprah countdown, en/es/pt and simulated chief-of-staff agents.',
+    Claude: 'the r4 networking app as built by claude.',
+    Muse: 'the r4 networking app as built by muse.'
+  };
+  const COLOR = { Devin: '#0c2fa8', Claude: '#c15f3c', Muse: '#7a3cc1' };
+  const FALLBACK = [
+    { branch: 'Devin-v1', maker: 'Devin', path: 'devin/', live: true },
+    { branch: 'Claude-v1', maker: 'Claude', path: 'claude/', live: false },
+    { branch: 'Muse-v1', maker: 'Muse', path: 'muse/', live: false }
+  ];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const draw = (vs) => {
+    document.getElementById('grid').innerHTML = vs.map((v) => `
+      <article class="card">
+        <div class="top">
+          <div class="mark" style="background:${COLOR[v.maker] || '#0c2fa8'}">${esc(v.maker[0])}</div>
+          <span class="pill ${v.live ? 'live' : 'soon'}">${v.live ? 'live' : 'coming soon'}</span>
+        </div>
+        <h2>${esc(v.branch)}</h2>
+        <p>${esc(BLURB[v.maker] || '')}</p>
+        <div class="meta">${v.live && v.sha ? `${esc(v.sha)} · ${esc(v.date)}` : `branch ${esc(v.branch)} not published yet`}</div>
+        <a class="btn ${v.live ? '' : 'off'}" href="${esc(v.path)}">${v.live ? 'open ' + esc(v.branch) : 'coming soon'}</a>
+      </article>`).join('');
+  };
+  fetch('versions.json', { cache: 'no-store' }).then((r) => r.json()).then(draw).catch(() => draw(FALLBACK));
+</script>
+</body>
+</html>
