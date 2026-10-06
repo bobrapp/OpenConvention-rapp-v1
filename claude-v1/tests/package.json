@@ -2,6 +2,6 @@
   "name": "r4-companion-smoke",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node smoke.mjs" },
+  "scripts": { "test": "node smoke.mjs && node import.mjs" },
   "devDependencies": { "playwright": "^1.55.0" }
 }
