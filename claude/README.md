@@ -35,7 +35,7 @@ The app works by itself and does more when the page can ask Claude.
 | Paste an attendee list | Reads `name, role, company` per line | Claude reads other layouts and picks personas |
 | Log someone from one line | Fills name, role, company and note | Also fills subjects, follow-up and due date |
 | Photo of a badge or card | Not offered | Claude reads the photo |
-| Summaries and follow-up notes | Templates built from your tags | Claude writes them from your notes, one person or all at once |
+| Summaries and follow-up notes | Templates built from your tags | Claude writes both from your notes, for one person or for everyone you have met (12 per request) |
 
 Whatever is read, by rules or by Claude, is shown for you to check before it is saved. Pasted text is sent to Claude as data to read, and every reply is validated before use.
 
