@@ -241,6 +241,8 @@
       state.cosSeeded = true;
     }
     state.agents = { ...freshAgents(), ...(state.agents || {}) };
+    state.me = { role: '', company: '', linkedin: '', email: '', phone: '', lookingFor: '', canOffer: '', discoverable: true, ...state.me };
+    state.passport = { scans: 0, coffee: false, ...(state.passport || {}) }; state.passport.stamps = state.passport.stamps || {};
   }
   const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 
@@ -563,6 +565,7 @@
       tk.forEach((s) => s.takeaways.split('\n').filter(Boolean).forEach((x) => L.push(`- ${x} _(${s.title})_`)));
     }
     const due = state.people.filter((p) => p.followUp?.action && !p.followUp.done && p.followUp.due <= day + 1);
+    const ps = passportScore(); L.push(`## ${t('networking passport')}`); L.push(`- ${ps.n}/9${ps.bingo ? ` · ${t('bingo!')}` : ''}: ${PASSPORT.filter((_x, i) => ps.on[i]).map((x) => t(x[1])).join(', ') || '—'}`);
     L.push(`## ${t('follow-ups for tomorrow')}`);
     if (due.length) due.forEach((p) => L.push(`- ${p.name}: ${p.followUp.action}`)); else L.push(`- ${t('all clear')}`);
     if (day + 1 < state.me.days) {
@@ -637,6 +640,7 @@
 
   // ---------- icons ----------
   const I = {
+    meet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h.01M17.5 17.5H21V21h-3.5z"/></svg>',
     today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
     people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16.5 14.6c2.8.2 5 1.9 5 4.9"/></svg>',
     agenda: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
@@ -646,7 +650,7 @@
     agents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 3v4M9 12h.01M15 12h.01M9.5 15.5h5"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   };
-  const TABS = [['today', _('today')], ['people', _('people')], ['agenda', _('agenda')], ['connect', _('connect')], ['agents', _('agents')], ['pitch', _('pitch fest')], ['report', _('report')]];
+  const TABS = [['today', _('today')], ['people', _('people')], ['meet', _('meet')], ['agenda', _('agenda')], ['connect', _('connect')], ['agents', _('agents')], ['pitch', _('pitch fest')], ['report', _('report')]];
 
   // ---------- components ----------
   const personaTag = (p) => `<span class="persona-tag ${persona(p).cls}">${esc(plabel(p))}</span>`;
@@ -683,6 +687,7 @@
         <button class="btn coral sm" data-action="enable-alerts">${notif === 'granted' ? `✓ ${t('alerts on')}` : t('turn on alerts')}</button>
         <button class="btn light sm" data-action="hl-ics" data-id="${s.id}">${t('add to calendar with reminders')}</button>
         <button class="btn light sm" data-action="edit-session" data-id="${s.id}">${t('edit time')}</button>
+        <button class="btn light sm" data-action="room-open" data-kind="line" data-id="${s.id}">${t('find line buddies')}</button>
       </div>
       <details class="hl-prep"><summary>${t('get ready checklist')} · ${done}/${PREP.length}</summary>
         ${PREP.map(([k, l]) => `<label class="check"><input type="checkbox" data-action="prep" data-k="${k}" ${state.prep[k] ? 'checked' : ''}/> ${t(l)}</label>`).join('')}
@@ -712,7 +717,7 @@
         <div class="stat"><b>${due.length}</b><span>${t('follow-ups open')}</span></div>
         <div class="stat"><b>${nextIn === null ? '—' : isEventDay() ? fmtDur(nextIn) : fmtTime(items[0].start)}</b><span>${isEventDay() ? t('until next up') : t('first up')}</span></div>
       </div>
-      ${agentTodayCard()}
+      ${agentTodayCard()}${meetTodayCard()}
       <div class="row" style="gap:8px">
         <button class="btn block" data-action="add-person">${t('log someone i met')}</button>
         <button class="btn secondary block" data-action="go" data-tab="pitch">${t('pitch fest')}</button>
@@ -1151,6 +1156,7 @@
         <label class="check" style="margin-top:10px"><input type="checkbox" data-action="agent-autobook" ${ag.autoBook ? 'checked' : ''}/> ${t('book accepted meetings without asking me')}</label>
         <button class="btn block" style="margin-top:12px" data-action="agent-run" ${ui.agentRunning ? 'disabled' : ''}>${ui.agentRunning ? t('agents are talking…') : t('let my agents network')}</button>
       </div>
+      ${agentPodHtml()}
       <h2 class="section">${t('ready for your ok')} <small>${pending.length}</small></h2>
       ${pending.map(proposalCard).join('') || `<div class="card empty small">${t('nothing waiting. run your agents to line up meetings.')}</div>`}
       ${booked.length ? `<h2 class="section">${t('booked by agents')} <small>${booked.length}</small></h2>${booked.map(proposalCard).join('')}` : ''}
@@ -1175,7 +1181,7 @@
       <div class="row" style="margin-bottom:14px">${avatar(p, true)}<div class="grow"><div style="font-weight:600">${esc(p.role || '—')}</div><div class="muted">${esc(p.company || '')}</div>
         <div class="row wrap" style="gap:6px;margin-top:6px">${personaTag(p)}<span class="chip ${p.status === 'met' ? 'good' : 'warn'}">${p.status === 'met' ? t('met day {n}', { n: p.day + 1 }) : t('to meet')}</span><span class="chip ${p.priority === 'hot' ? 'bad' : ''}">${prioLabel(p.priority)}</span></div></div></div>
       <div class="card ${persona(p).cls}" style="border-top:5px solid var(--pc)"><h3>${t('persona summary')}</h3><p style="margin-bottom:10px">${esc(s.headline)}</p>
-        <dl class="kv"><dt>${t('focus')}</dt><dd>${esc(s.focus)}</dd><dt>${t('looking for')}</dt><dd>${esc(s.wants)}</dd><dt>${t('you can offer')}</dt><dd>${esc(s.offer)}</dd>${p.metAt ? `<dt>${t('met at')}</dt><dd>${esc(p.metAt)}</dd>` : ''}${p.notes ? `<dt>${t('notes')}</dt><dd>${esc(p.notes)}</dd>` : ''}</dl>
+        <dl class="kv">${p.linkedin ? `<dt>linkedin</dt><dd><a href="${esc(p.linkedin)}" target="_blank" rel="noopener">${esc(p.linkedin.replace(/^https?:\/\/(www\.)?/, ''))}</a></dd>` : ''}<dt>${t('focus')}</dt><dd>${esc(s.focus)}</dd><dt>${t('looking for')}</dt><dd>${esc(s.wants)}</dd><dt>${t('you can offer')}</dt><dd>${esc(s.offer)}</dd>${p.metAt ? `<dt>${t('met at')}</dt><dd>${esc(p.metAt)}</dd>` : ''}${p.notes ? `<dt>${t('notes')}</dt><dd>${esc(p.notes)}</dd>` : ''}</dl>
         <p class="small" style="margin-top:10px;background:var(--blue-soft);padding:10px;border-radius:10px"><b>${t('how to approach:')}</b> ${esc(s.approach)}</p></div>
       <div class="card"><h3>${t('resources to share')}</h3>${s.resources.map((r, i) => `<div class="resource"><span class="ico">${i + 1}</span><div><b>${esc(r.title)}</b><div class="muted">${esc(r.desc)}</div></div></div>`).join('')}</div>
       <form class="card" data-form="followup" data-id="${p.id}"><h3>${t('follow-up')}</h3>
@@ -1252,6 +1258,7 @@
         <div class="field"><label>${t('takeaways (one per line, goes in your report)')}</label><textarea name="takeaways">${esc(s.takeaways)}</textarea></div>
         <button class="btn sm">${t('save notes')}</button></form>
       <div class="row wrap" style="gap:8px">
+        <button class="btn sm" data-action="room-open" data-id="${s.id}">${t('back-channel')}</button>${s.featured ? `<button class="btn sm" data-action="room-open" data-kind="line" data-id="${s.id}">${t('find line buddies')}</button>` : ''}
         <button class="btn secondary sm" data-action="toggle-going" data-id="${s.id}">${s.status === 'going' ? t('mark as maybe') : t('mark as going')}</button>
         <button class="btn secondary sm" data-action="export-one" data-id="${s.id}">${t('add to calendar')}</button>
         <button class="btn secondary sm" data-action="edit-session" data-id="${s.id}">${t('edit')}</button>
@@ -1271,7 +1278,7 @@
       <div class="card" style="margin-top:14px"><h3>${t('your data')}</h3><p class="small muted" style="margin-bottom:10px">${t('everything stays on this device (browser storage). back it up or move it to another device with export / import.')}</p>
         <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
         <button class="btn secondary sm" data-action="reset-demo">${t('reset to demo data')}</button><button class="btn danger sm" data-action="clear-all">${t('start fresh (empty)')}</button></div>
-        <input type="file" id="json-file" accept="application/json,.json" hidden /></div>`);
+        <input type="file" id="json-file" accept="application/json,.json" hidden /></div>${backendCard()}`);
   }
   function goalsSheet() {
     openSheet(t('my goals'), `<form data-form="goals">${state.goals.map((g) => `<div class="card tight"><div class="field"><label>${g.auto ? t('goal (auto-tracked)') : t('goal (tracked by hand)')}</label><input name="text-${g.id}" value="${esc(goalText(g))}" /></div>
@@ -1289,7 +1296,7 @@
     $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}"><span class="tab-ico">${I[k]}</span>${t(l)}</button>`).join('');
     const hl = headliner();
     $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${hl.id}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
-    const views = { today: viewToday, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewAgents, pitch: viewPitch, report: viewReport };
+    const views = { today: viewToday, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewAgents, meet: viewMeet, pitch: viewPitch, report: viewReport };
     $('#view').innerHTML = views[ui.tab]();
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
@@ -1461,6 +1468,618 @@
     },
   };
 
+  // ---------- meet: my card, tap & scan, passport, micro-communities ----------
+  if (window.qrcode?.stringToBytesFuncs?.['UTF-8']) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  const comm = { api: null, ready: false, mode: 'demo', error: '', pods: [], msgs: {}, offers: [], roulette: null, directory: [], openPod: null, agentPod: null };
+  Object.assign(ui, { meetSeg: 'card', cardQr: 'linkedin', podView: '', boardSeg: 'all', offerKind: 'give' });
+  const HOUR = 3600e3;
+  const atMs = (day, hhmm) => { const d = dayDate(day); const [h, m] = String(hhmm).split(':').map(Number); d.setHours(h, m || 0, 0, 0); return d.getTime(); };
+  const normLinkedIn = (s) => {
+    s = String(s || '').trim(); if (!s) return '';
+    if (/^https?:\/\//i.test(s)) return s;
+    return s.includes('linkedin.com') ? `https://${s.replace(/^\/+/, '')}` : `https://www.linkedin.com/in/${s.replace(/^@/, '')}`;
+  };
+  const myCompany = () => state.me.company || state.me.team || '';
+  function cardData() {
+    const m = state.me;
+    const o = { v: 1, n: m.name, r: m.role, c: myCompany(), l: normLinkedIn(m.linkedin), m: m.email, i: m.interests.slice(0, 4), f: m.lookingFor, o: m.canOffer };
+    Object.keys(o).forEach((k) => { if (o[k] === '' || o[k] == null || (Array.isArray(o[k]) && !o[k].length)) delete o[k]; });
+    return o;
+  }
+  const appBase = () => `${location.origin}${location.pathname}`;
+  const myCardLink = () => `${appBase()}#card=${b64e(JSON.stringify(cardData()))}`;
+  const podLink = (p) => `${appBase()}#pod=${p.code}`;
+  const vEsc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (c) => `\\${c}`);
+  function vcard() {
+    const m = state.me; const parts = String(m.name).trim().split(/\s+/); const fam = parts.length > 1 ? parts.pop() : '';
+    return ['BEGIN:VCARD', 'VERSION:3.0', `N:${vEsc(titleCase(fam))};${vEsc(titleCase(parts.join(' ')))};;;`, `FN:${vEsc(titleCase(m.name))}`,
+      myCompany() ? `ORG:${vEsc(myCompany())}` : '', m.role ? `TITLE:${vEsc(m.role)}` : '',
+      m.email ? `EMAIL;TYPE=INTERNET:${m.email}` : '', m.phone ? `TEL;TYPE=CELL:${m.phone}` : '',
+      m.linkedin ? `URL:${normLinkedIn(m.linkedin)}` : '', `NOTE:${vEsc(t('met at {event}', { event: m.eventName }))}`, 'END:VCARD'].filter(Boolean).join('\r\n');
+  }
+  const qrTargets = () => ({ linkedin: normLinkedIn(state.me.linkedin), contact: vcard(), app: myCardLink() });
+  const QR_KINDS = [['linkedin', _('linkedin')], ['contact', _('contact card')], ['app', _('app card')]];
+  const QR_HINT = { linkedin: _('any phone camera opens your linkedin profile.'), contact: _('any phone camera offers to save you as a contact.'), app: _('people using this app get your card in their people log.') };
+
+  // ---- badge & lock-screen wallpaper ----
+  function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function wrapText(ctx, text, x, y, maxW, lh, maxLines = 3) {
+    let line = ''; let n = 0;
+    for (const w of String(text).split(/\s+/)) {
+      const test = line ? `${line} ${w}` : w;
+      if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y + n * lh); n++; line = w; if (n >= maxLines) return y + n * lh; } else line = test;
+    }
+    if (line) { ctx.fillText(line, x, y + n * lh); n++; }
+    return y + n * lh;
+  }
+  function drawQr(ctx, text, x, y, size) {
+    const q = qrcode(0, 'M'); q.addData(text); q.make(); const n = q.getModuleCount(); const cell = size / (n + 4);
+    ctx.fillStyle = '#fff'; rr(ctx, x, y, size, size, size * 0.06); ctx.fill(); ctx.fillStyle = '#0a1033';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) ctx.fillRect(x + (c + 2) * cell, y + (r + 2) * cell, Math.ceil(cell), Math.ceil(cell));
+  }
+  function badgeCanvas(kind) {
+    const wall = kind === 'wall'; const W = wall ? 1170 : 1200; const Hh = wall ? 2532 : 1800;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = Hh; const ctx = cv.getContext('2d');
+    const F = (w, px) => `${w} ${px}px Outfit, system-ui, -apple-system, sans-serif`;
+    const g = ctx.createLinearGradient(0, 0, W, Hh); g.addColorStop(0, '#0c2bd8'); g.addColorStop(1, '#0a1033');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hh);
+    ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.beginPath(); ctx.arc(W * 0.92, wall ? 900 : 120, W * 0.42, 0, Math.PI * 2); ctx.fill();
+    const x = 90; const mw = W - 180; let y = wall ? 1000 : 150;
+    ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#ffc23d'; ctx.font = F(600, 42);
+    ctx.fillText(`${state.me.eventName} · ${t('let us connect')}`, x, y); y += 120;
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 104); y = wrapText(ctx, titleCase(state.me.name), x, y, mw, 112, 2);
+    ctx.font = F(400, 46); ctx.fillStyle = 'rgba(255,255,255,.82)';
+    const sub = [state.me.role, myCompany()].filter(Boolean).join(' · ');
+    if (sub) y = wrapText(ctx, sub, x, y + 4, mw, 56, 2);
+    y += 50; ctx.font = F(600, 38); ctx.fillStyle = '#ffc23d'; ctx.fillText(t('ask me about'), x, y); y += 26;
+    ctx.font = F(600, 44); let px = x;
+    state.me.interests.slice(0, 3).forEach((tp) => {
+      const w = ctx.measureText(tp).width + 64;
+      if (px + w > x + mw) { px = x; y += 96; }
+      ctx.fillStyle = 'rgba(255,255,255,.16)'; rr(ctx, px, y, w, 80, 40); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(tp, px + 32, y + 55); px += w + 18;
+    });
+    y += 150;
+    if (state.me.lookingFor) { ctx.font = F(600, 38); ctx.fillStyle = '#ffc23d'; ctx.fillText(t('looking for'), x, y); ctx.font = F(400, 46); ctx.fillStyle = '#fff'; wrapText(ctx, state.me.lookingFor, x, y + 62, mw, 58, 2); }
+    const qs = wall ? 560 : 580; const qx = (W - qs) / 2; const qy = Hh - qs - (wall ? 250 : 150);
+    const target = qrTargets()[ui.cardQr] || myCardLink();
+    drawQr(ctx, target, qx, qy, qs);
+    ctx.font = F(500, 38); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.textAlign = 'center';
+    ctx.fillText(t('scan to connect'), W / 2, qy + qs + 70); ctx.textAlign = 'left';
+    return cv;
+  }
+  function saveCanvas(cv, name) {
+    cv.toBlob((b) => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }, 'image/png');
+  }
+
+  // ---- importing people from scans ----
+  const nowSessionTitle = () => { const d = currentDay(); const m = new Date().getHours() * 60 + new Date().getMinutes(); const s = isEventDay() && dayItems(d).find((x) => x.status === 'going' && toMin(x.start) <= m && toMin(x.end) >= m); return s ? s.title : ''; };
+  const hhmmNow = () => `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`;
+  function addScannedPerson(o) {
+    let p = state.people.find((x) => x.name.toLowerCase() === String(o.name).toLowerCase() || (o.linkedin && x.linkedin === o.linkedin));
+    const isNew = !p;
+    if (!p) {
+      p = { id: uid(), name: String(o.name), role: String(o.role || ''), company: String(o.company || ''), persona: /chief of staff/i.test(o.role || '') ? 'cos' : 'peer', topics: (o.topics || []).map((x) => String(x).toLowerCase()).slice(0, 6), status: 'met', priority: 'warm', lookingFor: String(o.lookingFor || ''), canOffer: String(o.canOffer || ''), notes: '', metAt: nowSessionTitle() || t('scanned at {event}', { event: state.me.eventName }), day: currentDay(), followUp: { action: t('connect on linkedin'), due: currentDay() + 1, done: false }, createdAt: Date.now(), imported: true };
+      state.people.unshift(p);
+    }
+    Object.assign(p, { status: 'met', linkedin: o.linkedin || p.linkedin || '', email: o.email || p.email || '', phone: o.phone || p.phone || '' });
+    p.notes = [p.notes, t('scanned their card at {time}', { time: fmtTime(hhmmNow()) })].filter(Boolean).join('\n');
+    state.passport.scans = (state.passport.scans || 0) + 1;
+    save(); return { p, isNew };
+  }
+  function parseVcard(s) {
+    const get = (k) => (s.match(new RegExp(`^${k}[^:\\n]*:(.*)$`, 'mi')) || [])[1]?.replace(/\\([,;\\])/g, '$1').replace(/\\n/g, ' ').trim() || '';
+    return { name: get('FN') || get('N').split(';').reverse().join(' ').trim(), role: get('TITLE'), company: get('ORG').split(';')[0], email: get('EMAIL'), phone: get('TEL'), linkedin: (s.match(/https?:\/\/[^\s]*linkedin\.com[^\s]*/i) || [])[0] || get('URL') };
+  }
+  function scanPreview(o) {
+    ui.pendingScan = o;
+    openSheet(t('add this person?'), `<div class="card"><div class="row">${avatar({ name: o.name, persona: 'peer' }, true)}<div class="grow"><b>${esc(o.name)}</b><div class="small muted">${esc([o.role, o.company].filter(Boolean).join(' · '))}</div>
+      ${o.topics?.length ? `<div class="row wrap" style="gap:4px;margin-top:6px">${o.topics.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : ''}</div></div>
+      ${o.linkedin ? `<p class="small" style="margin-top:8px">${esc(o.linkedin)}</p>` : ''}</div>
+      <p class="small muted">${t('it goes into your people log on this device only, marked as met {when}.', { when: esc(nowSessionTitle() || dayLabel(currentDay())) })}</p>
+      <div class="row" style="gap:8px"><button class="btn block" data-action="scan-confirm">${t('add to my people')}</button>${o.linkedin ? `<a class="btn secondary block" href="${esc(o.linkedin)}" target="_blank" rel="noopener">${t('open linkedin')}</a>` : ''}</div>`);
+  }
+  function handleScanned(raw) {
+    const s = String(raw || '').trim();
+    try {
+      let m = s.match(/#card=([\w-]+)/);
+      if (m) { const c = JSON.parse(b64d(m[1])); if (!c.n) throw new Error('bad'); if (c.n === state.me.name && (c.l || '') === normLinkedIn(state.me.linkedin)) { toast(t('that is your own card')); return; } scanPreview({ name: c.n, role: c.r, company: c.c, linkedin: c.l, email: c.m, topics: c.i || [], lookingFor: c.f, canOffer: c.o }); return; }
+      if (/#agent=/.test(s)) { closeSheet(); const p = importCard(s); toast(t('{name}\'s agent card added', { name: first(p.name) })); go('agents'); return; }
+      m = s.match(/#pod=([A-Za-z0-9]{6})/) || s.match(/^([A-Z0-9]{6})$/);
+      if (m) { joinConsent(m[1].toUpperCase()); return; }
+      if (/BEGIN:VCARD/i.test(s)) { const o = parseVcard(s); if (o.name) { scanPreview(o); return; } }
+      m = s.match(/linkedin\.com\/in\/([^/?#\s]+)/i);
+      if (m) { const slug = decodeURIComponent(m[1]).replace(/-?[0-9a-f]{6,}$/i, '').replace(/[-_]+/g, ' ').trim(); scanPreview({ name: slug || t('linkedin contact'), linkedin: s.startsWith('http') ? s : `https://${s}` }); return; }
+    } catch { toast(t('could not read that code')); return; }
+    openSheet(t('scanned'), `<div class="template-box">${esc(s)}</div><p class="small muted">${t('this is not a card this app knows.')}</p><button class="btn secondary sm" data-action="copy-text" data-text="${esc(s)}">${t('copy')}</button>`);
+  }
+
+  // ---- scanner ----
+  let scanStream = null; let scanRaf = 0;
+  function stopScan() { cancelAnimationFrame(scanRaf); scanRaf = 0; if (scanStream) scanStream.getTracks().forEach((x) => x.stop()); scanStream = null; }
+  function decodeImageData(img) { return window.jsQR ? jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' }) : null; }
+  async function scanSheet() {
+    openSheet(t('scan a card'), `<div class="scan-box" id="scan-box"><video id="scan-video" playsinline muted></video><div class="scan-frame"></div></div>
+      <p class="small muted" id="scan-msg">${t('point your camera at a qr code: someone\'s card, a linkedin code or a pod code.')}</p>
+      <div class="row wrap" style="gap:8px"><label class="btn secondary sm">${t('scan from a photo')}<input type="file" id="scan-file" accept="image/*" hidden /></label></div>
+      <form data-form="scan-paste" class="row" style="margin-top:12px"><input class="search" style="margin:0" name="text" placeholder="${t('or paste a link or pod code')}" required /><button class="btn sm">${t('go')}</button></form>`);
+    const msg = $('#scan-msg');
+    if (!navigator.mediaDevices?.getUserMedia) { $('#scan-box').hidden = true; msg.textContent = t('this browser cannot open the camera here. use a photo or paste the link.'); return; }
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      const v = $('#scan-video'); if (!v) { stopScan(); return; }
+      v.srcObject = scanStream; await v.play();
+      const cv = document.createElement('canvas'); const ctx = cv.getContext('2d', { willReadFrequently: true });
+      const loop = () => {
+        if (!$('#scan-video')) { stopScan(); return; }
+        if (v.readyState >= 2 && v.videoWidth) {
+          const sc = Math.min(1, 640 / v.videoWidth); cv.width = v.videoWidth * sc; cv.height = v.videoHeight * sc;
+          ctx.drawImage(v, 0, 0, cv.width, cv.height);
+          const code = decodeImageData(ctx.getImageData(0, 0, cv.width, cv.height));
+          if (code?.data) { stopScan(); handleScanned(code.data); return; }
+        }
+        scanRaf = requestAnimationFrame(loop);
+      };
+      loop();
+    } catch { $('#scan-box').hidden = true; msg.textContent = t('camera blocked. allow camera access, or use a photo or paste the link.'); }
+  }
+  function scanFile(file) {
+    const img = new Image(); img.onload = () => {
+      const sc = Math.min(1, 1200 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = img.width * sc; cv.height = img.height * sc;
+      const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      const code = decodeImageData(ctx.getImageData(0, 0, cv.width, cv.height)); URL.revokeObjectURL(img.src);
+      if (code?.data) { stopScan(); handleScanned(code.data); } else toast(t('no qr code found in that photo'));
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
+  // ---- tap to connect (web nfc) ----
+  const hasNfc = () => 'NDEFReader' in window;
+  async function nfcWrite() {
+    try { const nd = new NDEFReader(); toast(t('hold a blank nfc sticker to the back of your phone')); await nd.write({ records: [{ recordType: 'url', data: myCardLink() }] }); toast(t('your card is on the sticker')); } catch (e) { toast(t('nfc write did not work: {e}', { e: e.message || e })); }
+  }
+  async function nfcRead() {
+    try {
+      const nd = new NDEFReader(); await nd.scan(); toast(t('ready. tap a phone or sticker to the back of yours'));
+      nd.onreading = (ev) => { for (const r of ev.message.records) { if (r.recordType === 'url' || r.recordType === 'text') { handleScanned(new TextDecoder(r.encoding || 'utf-8').decode(r.data)); break; } } };
+    } catch (e) { toast(t('nfc did not start: {e}', { e: e.message || e })); }
+  }
+  function nfcHelp() {
+    openSheet(t('tap to connect'), `<div class="card"><h3>${t('android (chrome)')}</h3><p class="small">${hasNfc() ? t('this phone supports tap to connect. write your card to a sticker, or read someone else\'s.') : t('open this app in chrome on android to write and read nfc stickers.')}</p>
+      ${hasNfc() ? `<div class="row wrap" style="gap:8px;margin-top:8px"><button class="btn sm" data-action="nfc-write">${t('write my card to a sticker')}</button><button class="btn secondary sm" data-action="nfc-read">${t('read a tap')}</button></div>` : ''}</div>
+      <div class="card"><h3>${t('iphone')}</h3><p class="small">${t('iphones cannot write nfc from a web page, but they read stickers. put a sticker with your link on your badge, and an iphone opens it with a tap.')}</p>
+        <ol class="small" style="padding-left:18px;margin:8px 0"><li>${t('buy ntag215 or ntag216 stickers (ntag213 is too small for the app card).')}</li><li>${t('copy your link below.')}</li><li>${t('write it with a free nfc writer app (e.g. nfc tools) as a url record.')}</li><li>${t('stick it on the back of your badge.')}</li></ol>
+        <div class="row wrap" style="gap:8px"><button class="btn sm" data-action="copy-text" data-text="${esc(myCardLink())}">${t('copy app card link')}</button>${state.me.linkedin ? `<button class="btn secondary sm" data-action="copy-text" data-text="${esc(normLinkedIn(state.me.linkedin))}">${t('copy linkedin link')}</button>` : ''}</div></div>
+      <div class="card"><h3>${t('everyone')}</h3><p class="small">${t('share sends your card through airdrop, whatsapp, linkedin messages or text.')}</p><button class="btn sm" data-action="card-share">${t('share my card')}</button></div>`);
+  }
+
+  // ---- passport / bingo ----
+  const PASSPORT = [
+    ['cos', _('met a chief of staff'), () => met().some((p) => p.persona === 'cos')],
+    ['pt', _('met someone who speaks portuguese'), () => false],
+    ['bof', _('joined a birds-of-a-feather'), () => state.sessions.some((s) => s.type === 'bof' && s.status === 'going' && s.attendees.length)],
+    ['scan', _('scanned someone\'s card'), () => (state.passport.scans || 0) > 0],
+    ['oprah', _('saw oprah live'), () => false],
+    ['pod', _('joined a pop-up pod'), () => comm.pods.some((p) => p.kind === 'pod' || p.kind === 'agent')],
+    ['pitch', _('sparked a connection at pitch fest'), () => state.pitches.some((p) => p.sparked.length)],
+    ['coffee', _('had a roulette coffee'), () => !!state.passport.coffee],
+    ['give', _('posted a give or an ask'), () => comm.offers.some((o) => o.user_id === comm.api?.me)],
+  ];
+  const stamped = (k, fn) => !!state.passport.stamps[k] || fn();
+  function passportScore() {
+    const on = PASSPORT.map(([k, , fn]) => stamped(k, fn));
+    const lines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+    return { on, n: on.filter(Boolean).length, bingo: lines.filter((l) => l.every((i) => on[i])).length };
+  }
+  function passportHtml() {
+    const { on, n, bingo } = passportScore();
+    return `<div class="card"><div class="row between"><h3>${t('networking passport')}</h3><span class="chip ${bingo ? 'good' : ''}">${n}/9${bingo ? ` · ${t('bingo!')}` : ''}</span></div>
+      <p class="small muted" style="margin-bottom:10px">${t('a light game that gives you an excuse to say hello. squares stamp themselves as you use the app; tap one to stamp it by hand.')}</p>
+      <div class="bingo">${PASSPORT.map(([k, l], i) => `<button class="sq ${on[i] ? 'on' : ''}" data-action="stamp" data-k="${k}"><span>${on[i] ? '★' : i + 1}</span>${t(l)}</button>`).join('')}</div>
+      ${n === 9 ? `<p class="small" style="margin-top:10px"><b>${t('full card. show this screen at the slalom booth.')}</b></p>` : ''}</div>`;
+  }
+
+  // ---- community backend glue ----
+  const profilePayload = () => ({ name: state.me.name, role: state.me.role || '', company: myCompany(), linkedin: normLinkedIn(state.me.linkedin), topics: state.me.interests, looking_for: state.me.lookingFor || '', can_offer: state.me.canOffer || '', discoverable: state.me.discoverable !== false, persona: 'attendee' });
+  const syncProfile = () => comm.api?.upsertProfile(profilePayload()).catch((e) => console.warn('profile', e));
+  let commT = 0;
+  const commRefresh = () => { clearTimeout(commT); commT = setTimeout(commLoad, 150); };
+  async function commStart() {
+    if (!window.R4Backend) return;
+    comm.api = await R4Backend.start({ t });
+    comm.mode = comm.api.mode; comm.error = comm.api.error || '';
+    comm.api.subscribe(commRefresh);
+    await syncProfile();
+    await commLoad();
+  }
+  async function commLoad() {
+    if (!comm.api) return;
+    try {
+      const [pods, offers, roulette] = await Promise.all([comm.api.myPods(), comm.api.offers(), comm.api.rouletteMine()]);
+      const wasMatched = comm.roulette?.partner;
+      Object.assign(comm, { pods, offers, roulette, ready: true });
+      if (roulette?.partner && !wasMatched && comm.ready) toast(t('coffee roulette: you have a match!'));
+      if (comm.openPod && !$('#pod-sheet')) comm.openPod = null;
+      if (comm.openPod) comm.msgs[comm.openPod] = await comm.api.messages(comm.openPod);
+    } catch (e) { comm.error = String(e.message || e); }
+    refreshCommUi();
+  }
+  function refreshCommUi() {
+    const p = comm.pods.find((x) => x.id === comm.openPod);
+    if (p && $('#pod-sheet')) { $('#pod-members').innerHTML = membersHtml(p); $('#pod-msgs').innerHTML = msgsHtml(p); }
+    const a = document.activeElement;
+    const typing = a && $('#view').contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
+    if (!typing && ['meet', 'today', 'agents'].includes(ui.tab)) render();
+  }
+  const commErr = (e) => { toast(t('community: {e}', { e: e.message || e })); console.warn(e); };
+  const untilText = (ms) => { const m = Math.round(ms / 60000); return m < 60 ? t('{n} min', { n: Math.max(1, m) }) : m < 48 * 60 ? t('{n} h', { n: Math.round(m / 60) }) : t('{n} days', { n: Math.round(m / 1440) }); };
+  const podOpen = (p) => new Date(p.expires_at).getTime() > Date.now();
+  const reunionDue = (p) => p.reunion_at && Date.now() >= new Date(p.reunion_at).getTime() && Date.now() < new Date(p.reunion_at).getTime() + 7 * 24 * HOUR;
+  const canPost = (p) => podOpen(p) || reunionDue(p);
+  const myStatus = (p) => p.members.find((m) => m.user_id === comm.api?.me)?.status;
+  const POD_KIND = { pod: _('pop-up pod'), session: _('back-channel'), line: _('line buddies'), agent: _('agent pod') };
+  const podChips = (p) => `<span class="chip kind-${p.kind}">${t(POD_KIND[p.kind] || 'pod')}</span>${podOpen(p) ? `<span class="chip">${t('closes in {t}', { t: untilText(new Date(p.expires_at) - Date.now()) })}</span>` : reunionDue(p) ? `<span class="chip warn">${t('reunion open')}</span>` : `<span class="chip">${t('closed · read only')}</span>`}${p.reunion_at && !reunionDue(p) && new Date(p.reunion_at) > Date.now() ? `<span class="chip">${t('reunion in {t}', { t: untilText(new Date(p.reunion_at) - Date.now()) })}</span>` : ''}`;
+  const joinedCount = (p) => p.members.filter((m) => m.status === 'joined').length;
+  const podRow = (p) => `<button class="card tight pod-row" data-action="pod-open" data-id="${p.id}"><div class="row between"><b>${esc(p.title)}</b><span class="chip">${joinedCount(p)} 👥</span></div>
+    <div class="row wrap" style="gap:4px;margin-top:6px">${podChips(p)}${myStatus(p) === 'invited' ? `<span class="chip warn">${t('invited')}</span>` : ''}</div></button>`;
+  const miniAvatar = (name) => `<span class="avatar">${esc(initials(name || '?'))}</span>`;
+  const membersHtml = (p) => `<div class="row wrap" style="gap:6px">${p.members.map((m) => `<span class="member ${m.status}">${miniAvatar(m.profile?.name)}<span><b>${esc(m.user_id === comm.api?.me ? t('you') : m.profile?.name || '?')}</b><small>${esc(m.status === 'invited' ? t('invited') : [m.profile?.role, m.profile?.company].filter(Boolean).join(' · '))}</small></span></span>`).join('')}</div>`;
+  function msgsHtml(p) {
+    const all = comm.msgs[p.id] || [];
+    const view = ui.podView || (p.kind === 'session' ? 'question' : 'msg');
+    const list = all.filter((m) => (view === 'msg' ? m.kind === 'msg' || m.kind === 'intro' : m.kind === view));
+    if (view === 'question') list.sort((a, b) => b.votes - a.votes || a.created_at.localeCompare(b.created_at));
+    const mine = (m) => m.user_id === comm.api?.me;
+    return list.map((m) => `<div class="msg ${mine(m) ? 'mine' : ''} k-${m.kind}"><div class="msg-meta">${esc(mine(m) ? t('you') : m.author || '?')} · ${new Date(m.created_at).toLocaleTimeString(LANGS[lang()].locale, { hour: 'numeric', minute: '2-digit' })}${m.kind === 'intro' ? ` · ${t('warm intro')}` : ''}</div>
+      <div class="msg-body">${esc(m.body)}</div>${m.kind === 'question' ? `<button class="vote ${m.mine ? 'on' : ''}" data-action="pod-vote" data-id="${m.id}" ${canPost(p) ? '' : 'disabled'}>▲ ${m.votes}</button>` : ''}</div>`).join('')
+      || `<p class="small muted">${view === 'question' ? t('no questions yet. ask the first one.') : view === 'takeaway' ? t('no takeaways yet.') : t('no messages yet. say hi.')}</p>`;
+  }
+  function podSheet(id) {
+    const p = comm.pods.find((x) => x.id === id); if (!p) return;
+    comm.openPod = id; ui.podView = ui.podView && ui.podViewFor === id ? ui.podView : (p.kind === 'session' ? 'question' : 'msg'); ui.podViewFor = id;
+    const invited = myStatus(p) === 'invited';
+    const views = [['msg', _('chat')], ['question', _('questions')], ['takeaway', _('takeaways')]];
+    openSheet(p.title, `<div id="pod-sheet">
+      <div class="row wrap" style="gap:6px;margin-bottom:10px">${podChips(p)}${p.topic ? `<span class="chip good">${esc(p.topic)}</span>` : ''}</div>
+      ${invited ? `<div class="card" style="background:var(--blue-soft)"><p class="small">${t('you were invited. joining shows the members your name, role, company and topics.')}</p><div class="row" style="gap:8px;margin-top:8px"><button class="btn sm" data-action="pod-accept" data-id="${p.id}">${t('join')}</button><button class="btn secondary sm" data-action="pod-leave" data-id="${p.id}">${t('no thanks')}</button></div></div>` : ''}
+      ${(p.kind === 'pod' || p.kind === 'agent') && podOpen(p) && !invited ? `<details class="card tight"><summary><b>${t('invite people')}</b> · ${t('code')} <span class="code">${esc(p.code)}</span></summary><div class="qr" style="max-width:220px;margin:10px auto">${qrSvg(podLink(p))}</div>
+        <div class="row wrap" style="gap:8px;justify-content:center"><button class="btn sm" data-action="copy-text" data-text="${esc(podLink(p))}">${t('copy link')}</button><button class="btn secondary sm" data-action="pod-share" data-id="${p.id}">${t('share')}</button></div></details>` : ''}
+      <h3 style="margin:12px 0 8px">${t('members')}</h3><div id="pod-members">${membersHtml(p)}</div>
+      <div class="seg" style="margin:14px 0 10px">${views.map(([k, l]) => `<button class="${ui.podView === k ? 'on' : ''}" data-action="pod-view" data-k="${k}">${t(l)}</button>`).join('')}</div>
+      <div id="pod-msgs" class="msgs">${msgsHtml(p)}</div>
+      ${canPost(p) && !invited ? `<form data-form="pod-post" data-id="${p.id}" class="row" style="margin-top:10px"><input class="search" style="margin:0" name="body" maxlength="1000" required autocomplete="off" placeholder="${ui.podView === 'question' ? t('ask a question') : ui.podView === 'takeaway' ? t('share a takeaway') : t('message the pod')}" /><button class="btn sm">${t('send')}</button></form>`
+        : !invited ? `<p class="small muted" style="margin-top:10px">${t('this room is closed. you can still read and export it.')}</p>` : ''}
+      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn secondary sm" data-action="pod-export" data-id="${p.id}">${t('export notes')}</button>
+        ${p.sessionId ? '' : ''}<button class="btn secondary sm" data-action="pod-keep" data-id="${p.id}">${t('save takeaways to my notes')}</button>
+        <button class="btn secondary sm" data-action="pod-people" data-id="${p.id}">${t('add members to my people')}</button>
+        ${p.reunion_at ? `<button class="btn secondary sm" data-action="pod-reunion-ics" data-id="${p.id}">${t('reunion to my calendar')}</button>` : ''}
+        ${!invited ? `<button class="btn danger sm" data-action="pod-leave" data-id="${p.id}">${t('leave')}</button>` : ''}</div>
+      <p class="small muted" style="margin-top:12px">${t('members see your name, role, company and topics. your people log and private notes never leave this device.')}</p></div>`);
+    comm.api.messages(id).then((m) => { comm.msgs[id] = m; refreshCommUi(); }).catch(commErr);
+  }
+  function joinConsent(code) {
+    openSheet(t('join pod {code}?', { code }), `<p>${t('joining shows the members your name, role, company and topics. you can leave any time, and the pod deletes itself when it expires.')}</p>
+      <div class="row" style="gap:8px;margin-top:12px"><button class="btn block" data-action="pod-join" data-code="${esc(code)}">${t('join')}</button><button class="btn secondary block" data-action="close-sheet">${t('cancel')}</button></div>`);
+  }
+  const sessionRoomKey = (s) => `session:${state.me.eventName}:${isoOf(dayDate(s.day))}:${s.start}:${s.title}`.toLowerCase();
+  async function openSessionRoom(s, kind = 'session') {
+    if (!comm.api) return toast(t('community is still starting. try again in a second.'));
+    const line = kind === 'line';
+    const key = line ? `line:${state.me.eventName}:${isoOf(dayDate(s.day))}:${s.title}`.toLowerCase() : sessionRoomKey(s);
+    const closeAt = atMs(s.day, s.end) + (line ? 3 : 1) * HOUR;
+    const existing = comm.pods.find((p) => p.room_key === key);
+    if (existing) { closeSheet(); return podSheet(existing.id); }
+    if (closeAt < Date.now()) return toast(t('this room has closed'));
+    try {
+      const p = await comm.api.openRoom({ key, kind, title: line ? t('line buddies: {name}', { name: hlName(s) }) : s.title, expiresAt: closeAt, topic: s.topic || '' });
+      p.sessionId = s.id; await commLoad(); closeSheet(); podSheet(p.id);
+    } catch (e) { commErr(e); }
+  }
+
+  // ---- roulette ----
+  function nextFree10() {
+    const d = currentDay(); const day = dayItems(d).filter((x) => x.status === 'going');
+    const now = new Date(); let m = isEventDay() ? Math.ceil((now.getHours() * 60 + now.getMinutes() + 5) / 5) * 5 : toMin(state.me.dayStart);
+    for (; m + 10 <= toMin(state.me.dayEnd); m += 5) if (!day.some((x) => toMin(x.start) < m + 10 && toMin(x.end) > m)) return m;
+    return null;
+  }
+  const minToHHMM = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+  const reasonFor = (o) => { const sh = (o.topics || []).filter((x) => state.me.interests.includes(x)); return sh.length ? t('you both care about {topics}.', { topics: sh.join(', ') }) : t('something new: they work on {topics}.', { topics: (o.topics || []).slice(0, 2).join(', ') || t('different things') }); };
+  function rouletteHtml() {
+    const r = comm.roulette; const free = nextFree10();
+    if (r?.partner) {
+      const o = r.partnerProfile || {}; const at = free ?? toMin(state.me.dayStart);
+      return `<div class="card roulette match"><span class="chip good">☕ ${t('your coffee match')}</span><div class="row" style="margin:10px 0">${miniAvatar(o.name)}<div class="grow"><b>${esc(o.name || '?')}</b><div class="small muted">${esc([o.role, o.company].filter(Boolean).join(' · '))}</div></div></div>
+        <p class="small">${esc(reasonFor(o))}</p><dl class="kv" style="margin-top:8px"><dt>${t('when')}</dt><dd>${fmtTime(minToHHMM(at))} · ${t('10 minutes')}</dd><dt>${t('where')}</dt><dd>${esc(t(r.spot || 'coffee bar by the main hall'))}</dd></dl>
+        <div class="row" style="gap:8px;margin-top:12px"><button class="btn block" data-action="roulette-accept" data-at="${at}">${t('accept & add to agenda')}</button><button class="btn secondary block" data-action="roulette-leave">${t('skip')}</button></div></div>`;
+    }
+    if (r) return `<div class="card roulette waiting"><b>☕ ${t('finding you someone…')}</b><p class="small muted">${t('you are in the queue for the {time} slot. stays open for 2 hours.', { time: free != null ? fmtTime(minToHHMM(free)) : '—' })}</p><button class="btn secondary sm" data-action="roulette-leave">${t('leave the queue')}</button></div>`;
+    return `<div class="card roulette"><h3>☕ ${t('serendipity roulette')}</h3><p class="small muted">${t('opt in and get paired with another attendee for a 10-minute coffee in your next free window. you see why you matched and where to meet.')}</p>
+      <p class="small" style="margin:8px 0">${free != null ? t('your next free 10 minutes: {time}', { time: fmtTime(minToHHMM(free)) }) : t('no free 10 minutes left today.')}</p>
+      <button class="btn block" data-action="roulette-join" ${free == null ? 'disabled' : ''}>${t('spin me a coffee')}</button><p class="small muted" style="margin-top:8px">${t('only your name, role, company and topics are shared with your match. leaving deletes your spot.')}</p></div>`;
+  }
+
+  // ---- give / ask board ----
+  const words = (s) => new Set(String(s).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 4));
+  const offerMatch = (a, b) => a.kind !== b.kind && a.user_id !== b.user_id && ((a.topics || []).some((x) => (b.topics || []).includes(x)) || [...words(a.body)].some((w) => words(b.body).has(w)));
+  function boardMatches() {
+    const me = comm.api?.me; const mine = comm.offers.filter((o) => o.user_id === me);
+    const out = []; const seen = new Set();
+    mine.forEach((a) => comm.offers.forEach((b) => { if (offerMatch(a, b) && !seen.has(b.id)) { seen.add(b.id); out.push({ a, b }); } }));
+    if (!mine.length) comm.offers.filter((b) => b.user_id !== me && (b.topics || []).some((x) => state.me.interests.includes(x)) && b.kind === 'ask').slice(0, 3).forEach((b) => out.push({ a: null, b }));
+    return out;
+  }
+  const offerCard = (o, extra = '') => `<div class="card tight offer ${o.kind}"><div class="row between"><span class="chip ${o.kind === 'give' ? 'good' : 'warn'}">${o.kind === 'give' ? t('can help with') : t('needs')}</span><span class="small muted">${esc(o.user_id === comm.api?.me ? t('you') : o.author || '?')}</span></div>
+    <p style="margin:6px 0">${esc(o.body)}</p><div class="row between"><div class="row wrap" style="gap:4px">${(o.topics || []).map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>
+    ${o.user_id === comm.api?.me ? `<button class="btn ghost sm" data-action="offer-del" data-id="${o.id}">${t('remove')}</button>` : extra}</div></div>`;
+  function boardHtml() {
+    const seg = ui.boardSeg; const ms = boardMatches();
+    const list = seg === 'match' ? [] : comm.offers.filter((o) => seg === 'all' || o.kind === seg);
+    return `<form class="card" data-form="offer"><div class="seg" style="margin-bottom:10px">${[['give', _('i can help with…')], ['ask', _('i need…')]].map(([k, l]) => `<button type="button" class="${ui.offerKind === k ? 'on' : ''}" data-action="offer-kind" data-k="${k}">${t(l)}</button>`).join('')}</div>
+      <div class="field"><input name="body" maxlength="280" required placeholder="${ui.offerKind === 'give' ? t('e.g. a rag starter kit for regulated data') : t('e.g. an intro to a retail cio')}" /></div>
+      <div class="field"><input name="topics" value="${esc(state.me.interests.slice(0, 2).join(', '))}" placeholder="${t('topics, comma separated')}" /></div>
+      <button class="btn sm">${t('post to the board')}</button><span class="small muted" style="margin-left:8px">${t('expires in 3 days')}</span></form>
+      <div class="seg" style="margin:12px 0">${[['all', _('all')], ['give', _('gives')], ['ask', _('asks')], ['match', _('matches for me')]].map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="board-seg" data-k="${k}">${t(l)}${k === 'match' && ms.length ? ` · ${ms.length}` : ''}</button>`).join('')}</div>
+      ${seg === 'match' ? (ms.length ? `<p class="small muted" style="margin-bottom:8px">★ ${t('your connector agent paired these with what you posted.')}</p>${ms.map(({ a, b }) => `${a ? `<p class="small" style="margin:10px 2px 4px">${t('for your “{body}”:', { body: esc(a.body) })}</p>` : ''}${offerCard(b, `<button class="btn sm" data-action="offer-pod" data-id="${b.id}">${t('start a pod')}</button>`)}`).join('')}` : `<div class="card empty small">${t('post a give or an ask to see matches.')}</div>`)
+        : list.map((o) => offerCard(o, `<button class="btn secondary sm" data-action="offer-pod" data-id="${o.id}">${t('connect')}</button>`)).join('') || `<div class="card empty small">${t('the board is empty. post the first one.')}</div>`}`;
+  }
+
+  // ---- agent-run pods ----
+  const kw = (p) => new Set([...(p.topics || []), ...words(`${p.looking_for || ''} ${p.can_offer || ''}`)]);
+  async function buildAgentPod() {
+    if (!comm.api) return;
+    try { comm.directory = await comm.api.directory(); } catch (e) { return commErr(e); }
+    const mineKw = new Set([...state.me.interests, ...words(`${state.me.lookingFor || ''} ${state.me.canOffer || ''}`)]);
+    const myOffers = comm.offers.filter((o) => o.user_id === comm.api.me);
+    const scored = comm.directory.filter((p) => p.name).map((p) => {
+      const shared = [...kw(p)].filter((x) => mineKw.has(x));
+      const offerHit = comm.offers.some((o) => o.user_id === p.id && myOffers.some((m) => offerMatch(m, o)));
+      return { p, shared, offerHit, s: shared.length + (offerHit ? 2 : 0) + Math.random() * 0.5 };
+    }).sort((a, b) => b.s - a.s);
+    const picks = []; const companies = new Set([myCompany()]);
+    for (const x of scored) { if (picks.length >= 3) break; if (companies.has(x.p.company) && scored.length > 6) continue; companies.add(x.p.company); picks.push(x); }
+    if (!picks.length) { toast(t('no one else is in the directory yet')); return; }
+    const topic = Object.entries(picks.flatMap((x) => x.shared).reduce((m, k) => ({ ...m, [k]: (m[k] || 0) + 1 }), {})).sort((a, b) => b[1] - a[1])[0]?.[0] || state.me.interests[0] || '';
+    const intro = [t('hi all, my chief of staff agent put this pod together for {event}.', { event: state.me.eventName }),
+      ...picks.map((x) => `· ${titleCase(x.p.name)} (${[x.p.role, x.p.company].filter(Boolean).join(', ')}): ${x.offerHit ? t('a match for something on my give/ask list') : x.shared.length ? t('works on {topics}', { topics: x.shared.slice(0, 2).join(', ') }) : t('a fresh perspective')}`),
+      t('{me}: {role}. topic for us: {topic}. coffee at the next break?', { me: titleCase(state.me.name), role: state.me.role || myCompany(), topic })].join('\n');
+    comm.agentPod = { picks, topic, intro };
+    render();
+  }
+  function agentPodHtml() {
+    const ap = comm.agentPod;
+    return `<h2 class="section">${t('agent-run pods')}</h2><div class="card"><p class="small muted">${t('your connector agent (simulated) picks 3 well-matched attendees from the live directory and drafts a warm intro. nothing is sent until you approve.')}</p>
+      ${ap ? `${ap.picks.map((x) => `<div class="row" style="padding:6px 0">${miniAvatar(x.p.name)}<div class="grow"><b>${esc(x.p.name)}</b><div class="small muted">${esc([x.p.role, x.p.company].filter(Boolean).join(' · '))}</div></div>${x.shared.length ? `<span class="chip good">${esc(x.shared[0])}</span>` : ''}</div>`).join('')}
+        <form data-form="agent-pod"><div class="field" style="margin-top:8px"><label>${t('warm intro (edit before sending)')}</label><textarea name="intro" rows="7">${esc(ap.intro)}</textarea></div>
+        <div class="row wrap" style="gap:8px"><button class="btn sm">${t('approve & send invites')}</button><button type="button" class="btn secondary sm" data-action="agent-pod-build">${t('shuffle')}</button><button type="button" class="btn ghost sm" data-action="agent-pod-cancel">${t('cancel')}</button></div></form>`
+        : `<button class="btn block" data-action="agent-pod-build">${t('build me a pod of 4')}</button>`}</div>`;
+  }
+
+  // ---- reunion clock + today card ----
+  function meetTodayCard() {
+    const due = comm.pods.filter(reunionDue);
+    const reunions = due.map((p) => `<div class="card reunion"><span class="chip warn">${t('reunion clock')}</span><h3 style="margin-top:8px">${t('your pod “{title}” from {event}: catch up?', { title: esc(p.title), event: esc(state.me.eventName) })}</h3>
+      <p class="small muted">${t('{n} members. the pod archives itself in {t}.', { n: joinedCount(p), t: untilText(new Date(p.reunion_at).getTime() + 7 * 24 * HOUR - Date.now()) })}</p>
+      <div class="row wrap" style="gap:8px;margin-top:8px"><button class="btn sm" data-action="pod-open" data-id="${p.id}">${t('say hi to the pod')}</button><button class="btn secondary sm" data-action="pod-reunion-ics" data-id="${p.id}">${t('suggest a 30-min call')}</button></div></div>`).join('');
+    const open = comm.pods.filter((p) => podOpen(p) && myStatus(p) === 'joined').length;
+    const invites = comm.pods.filter((p) => myStatus(p) === 'invited').length;
+    const { n } = passportScore();
+    return `${reunions}<button class="card agent-today" data-action="go" data-tab="meet"><span class="agent-ico">◎</span><div class="grow"><b>${t('meet & micro-communities')}</b>
+      <div class="small muted">${invites ? t('{n} pod invites waiting', { n: invites }) : comm.roulette?.partner ? t('coffee roulette: you have a match!') : t('{pods} pods open · passport {n}/9', { pods: open, n })}</div></div><span class="chip ${invites || comm.roulette?.partner ? 'warn' : ''}">${invites || '→'}</span></button>`;
+  }
+  function reunionIcs(p) {
+    const d = new Date(Math.max(new Date(p.reunion_at).getTime(), Date.now() + 24 * HOUR)); d.setHours(12, 0, 0, 0);
+    const f = (x) => `${x.getUTCFullYear()}${pad(x.getUTCMonth() + 1)}${pad(x.getUTCDate())}T${pad(x.getUTCHours())}${pad(x.getUTCMinutes())}00Z`;
+    const e = new Date(d.getTime() + 30 * 60000);
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//r4 networking//EN', 'BEGIN:VEVENT', `UID:${p.id}-reunion@r4`, `DTSTAMP:${f(new Date())}`, `DTSTART:${f(d)}`, `DTEND:${f(e)}`,
+      `SUMMARY:${icsEsc(t('{event} pod reunion: {title}', { event: state.me.eventName, title: p.title }))}`, `DESCRIPTION:${icsEsc(`${p.members.filter((m) => m.status === 'joined').map((m) => m.profile?.name).join(', ')}\n${podLink(p)}`)}`,
+      'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:reunion', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  }
+
+  // ---- my card sheet + meet view ----
+  function cardSheet() {
+    const m = state.me;
+    openSheet(t('my card'), `<form data-form="my-card">
+      <div class="field-row"><div class="field"><label>${t('my name')}</label><input name="name" value="${esc(m.name)}" required /></div><div class="field"><label>${t('role / title')}</label><input name="role" value="${esc(m.role)}" /></div></div>
+      <div class="field-row"><div class="field"><label>${t('company')}</label><input name="company" value="${esc(m.company || m.team)}" /></div><div class="field"><label>${t('linkedin url or handle')}</label><input name="linkedin" value="${esc(m.linkedin)}" placeholder="linkedin.com/in/…" /></div></div>
+      <div class="field-row"><div class="field"><label>${t('email (optional)')}</label><input type="email" name="email" value="${esc(m.email)}" /></div><div class="field"><label>${t('phone (optional)')}</label><input type="tel" name="phone" value="${esc(m.phone)}" /></div></div>
+      <div class="field"><label>${t('ask me about (first 3 go on your badge)')}</label><input name="interests" value="${esc(m.interests.join(', '))}" /></div>
+      <div class="field"><label>${t('looking for')}</label><input name="lookingFor" value="${esc(m.lookingFor)}" placeholder="${t('e.g. partners for an ai pilot')}" /></div>
+      <div class="field"><label>${t('you can offer')}</label><input name="canOffer" value="${esc(m.canOffer)}" /></div>
+      <label class="check"><input type="checkbox" name="discoverable" ${m.discoverable !== false ? 'checked' : ''}/> ${t('list me in the attendee directory (for pods and agent matching)')}</label>
+      <button class="btn block" style="margin-top:12px">${t('save my card')}</button></form>`);
+  }
+  function viewMeet() {
+    const seg = ui.meetSeg; const tg = qrTargets(); const target = tg[ui.cardQr];
+    const segs = [['card', _('my card')], ['pods', _('pods')], ['coffee', _('roulette')], ['board', _('give / ask')], ['passport', _('passport')]];
+    const banner = comm.mode === 'live' ? `<span class="chip good">● ${t('live')}</span>` : `<span class="chip warn" title="${esc(comm.error)}">${t('demo mode')}</span>`;
+    let body = '';
+    if (seg === 'card') {
+      body = `<div class="card mycard"><div class="row">${avatar({ name: state.me.name, persona: 'peer' }, true)}<div class="grow"><b>${esc(titleCase(state.me.name))}</b><div class="small muted">${esc([state.me.role, myCompany()].filter(Boolean).join(' · ') || t('add your role and company'))}</div></div><button class="btn ghost sm" data-action="card-edit">${t('edit')}</button></div>
+        <div class="seg" style="margin:12px 0 8px">${QR_KINDS.map(([k, l]) => `<button class="${ui.cardQr === k ? 'on' : ''}" data-action="card-qr" data-k="${k}">${t(l)}</button>`).join('')}</div>
+        ${target ? `<button class="qr qr-btn" data-action="card-full" aria-label="${t('show full screen')}">${qrSvg(target)}</button><p class="small muted" style="text-align:center">${t(QR_HINT[ui.cardQr])} ${t('tap the code to show it full screen.')}</p>`
+          : `<div class="card empty small">${t('add your linkedin url to get a linkedin qr code.')}<br><button class="btn sm" style="margin-top:8px" data-action="card-edit">${t('add linkedin')}</button></div>`}
+        <div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn sm" data-action="card-share">${t('share my card')}</button><button class="btn secondary sm" data-action="card-vcf">${t('save contact (.vcf)')}</button>
+          <button class="btn secondary sm" data-action="card-wall">${t('lock-screen wallpaper')}</button><button class="btn secondary sm" data-action="card-badge">${t('printable badge')}</button></div></div>
+        <h2 class="section">${t('connect with someone')}</h2>
+        <div class="row" style="gap:8px"><button class="btn block" data-action="scan">${t('scan a card')}</button><button class="btn secondary block" data-action="nfc-help">${t('tap to connect')}</button></div>
+        <p class="small muted" style="margin-top:8px">${t('scanning adds them to your people log with where and when you met.')}</p>`;
+    } else if (seg === 'pods') {
+      const mine = comm.pods;
+      body = `<form class="card" data-form="pod-create"><h3>${t('start a pop-up pod')}</h3><p class="small muted" style="margin-bottom:8px">${t('a temporary group for a table, a hallway chat or a session crowd. people join by qr code.')}</p>
+        <div class="field"><input name="title" required maxlength="120" placeholder="${t('e.g. table 12: ai in healthcare')}" /></div>
+        <div class="field-row"><div class="field"><label>${t('open for')}</label><select name="hours"><option value="4">${t('4 hours')}</option><option value="${Math.max(1, Math.round((atMs(currentDay(), state.me.dayEnd) - Date.now()) / HOUR) + 2)}">${t('rest of today')}</option><option value="24" selected>${t('24 hours')}</option><option value="${Math.max(24, Math.min(96, Math.round((atMs(state.me.days - 1, state.me.dayEnd) - Date.now()) / HOUR)))}">${t('until the event ends')}</option></select></div>
+        <div class="field"><label>${t('reunion clock')}</label><select name="reunion"><option value="0">${t('no reunion')}</option><option value="7">${t('1 week later')}</option><option value="14" selected>${t('2 weeks later')}</option><option value="30">${t('1 month later')}</option></select></div></div>
+        <div class="field"><input name="topic" placeholder="${t('topic (optional)')}" /></div><button class="btn sm">${t('create pod')}</button></form>
+        <form class="row" data-form="pod-code" style="gap:8px;margin-bottom:12px"><input class="search" style="margin:0" name="code" maxlength="6" placeholder="${t('have a code? e.g. K7Q2XM')}" required /><button class="btn secondary sm">${t('join')}</button><button type="button" class="btn secondary sm" data-action="scan">${t('scan')}</button></form>
+        <h2 class="section">${t('my pods & rooms')} <small>${mine.length}</small></h2>${mine.map(podRow).join('') || `<div class="card empty small">${t('no pods yet. start one, or open a session back-channel from the agenda.')}</div>`}
+        <p class="small muted" style="margin-top:8px">${t('every session has a back-channel (open it from the session). oprah line buddies live on the headliner card.')}</p>`;
+    } else if (seg === 'coffee') body = rouletteHtml();
+    else if (seg === 'board') body = boardHtml();
+    else body = passportHtml();
+    return `<h1 class="page-title">${t('meet')} ${banner}</h1><p class="page-sub">${t('share your card, then find your people in small groups that expire on their own.')}</p>
+      <div class="seg scroll" style="margin-bottom:14px">${segs.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="meet-seg" data-k="${k}">${t(l)}</button>`).join('')}</div>${body}`;
+  }
+  function backendCard() {
+    const c = window.R4Backend ? R4Backend.config() : {};
+    return `<div class="card" style="margin-top:14px"><h3>${t('community backend')}</h3>
+      <p class="small muted" style="margin-bottom:8px">${comm.mode === 'live' ? t('live: pods, back-channels, roulette and the board are shared with other attendees through supabase.') : t('demo mode: pods and rooms use simulated attendees on this device. add your supabase project to go live.')}${comm.error ? ` <b>${esc(comm.error)}</b>` : ''}</p>
+      <form data-form="backend"><div class="field"><label>${t('supabase project url')}</label><input name="url" value="${esc(c.url || '')}" placeholder="https://xxxx.supabase.co" /></div>
+      <div class="field"><label>${t('anon / publishable key')}</label><input name="key" value="${esc(c.key || '')}" autocomplete="off" /></div>
+      <div class="row wrap" style="gap:8px"><button class="btn sm">${t('connect')}</button><button type="button" class="btn secondary sm" data-action="backend-demo">${t('use demo mode')}</button>${comm.mode === 'demo' ? `<button type="button" class="btn secondary sm" data-action="community-reset">${t('reset demo community')}</button>` : ''}</div></form></div>`;
+  }
+
+  Object.assign(A, {
+    'meet-seg': (el) => { ui.meetSeg = el.dataset.k; render(); },
+    'card-qr': (el) => { ui.cardQr = el.dataset.k; render(); },
+    'card-edit': () => cardSheet(),
+    'card-full': () => {
+      const target = qrTargets()[ui.cardQr]; if (!target) return;
+      $('#alert-root').innerHTML = `<div class="qr-full" data-action="qr-full-close"><div class="qr-full-in">${qrSvg(target)}<b>${esc(titleCase(state.me.name))}</b><span>${esc([state.me.role, myCompany()].filter(Boolean).join(' · '))}</span><small>${t('tap anywhere to close')}</small></div></div>`;
+      navigator.wakeLock?.request('screen').then((l) => { ui.wake = l; }).catch(() => {});
+    },
+    'qr-full-close': () => { $('#alert-root').innerHTML = ''; ui.wake?.release?.(); ui.wake = null; },
+    'card-vcf': () => download(`${state.me.name.replace(/\s+/g, '-').toLowerCase() || 'me'}.vcf`, vcard(), 'text/vcard'),
+    'card-share': async () => {
+      const url = ui.cardQr === 'linkedin' && state.me.linkedin ? normLinkedIn(state.me.linkedin) : myCardLink();
+      const data = { title: titleCase(state.me.name), text: t('great to meet you at {event}! here is my card.', { event: state.me.eventName }), url };
+      if (navigator.share) { try { await navigator.share(data); } catch { /* cancelled */ } } else copy(url, t('link copied. paste it anywhere.'));
+    },
+    'card-wall': () => saveCanvas(badgeCanvas('wall'), `${state.me.eventName}-lock-screen.png`),
+    'card-badge': () => saveCanvas(badgeCanvas('badge'), `${state.me.eventName}-badge.png`),
+    scan: () => { stopScan(); scanSheet(); },
+    'scan-confirm': () => {
+      const o = ui.pendingScan; if (!o) return; ui.pendingScan = null;
+      const { p, isNew } = addScannedPerson(o); closeSheet(); toast(isNew ? t('{name} added to your people', { name: first(p.name) }) : t('{name} updated', { name: first(p.name) })); render(); personDetail(p.id);
+    },
+    'copy-text': (el) => copy(el.dataset.text),
+    'nfc-help': () => nfcHelp(),
+    'nfc-write': () => nfcWrite(),
+    'nfc-read': () => nfcRead(),
+    stamp: (el) => {
+      const k = el.dataset.k; const def = PASSPORT.find((x) => x[0] === k);
+      if (def && def[2]() && !state.passport.stamps[k]) { toast(t('already stamped by the app')); return; }
+      state.passport.stamps[k] = !state.passport.stamps[k]; save(); render();
+      if (passportScore().bingo && state.passport.stamps[k]) toast(t('bingo!'));
+    },
+    'pod-open': (el) => podSheet(el.dataset.id),
+    'pod-view': (el) => { ui.podView = el.dataset.k; podSheet(comm.openPod); },
+    'pod-join': async (el) => {
+      try { const p = await comm.api.joinPod(el.dataset.code); await commLoad(); closeSheet(); ui.tab = 'meet'; ui.meetSeg = 'pods'; render(); podSheet(p.id); } catch (e) { commErr(e); }
+    },
+    'pod-accept': async (el) => { try { await comm.api.acceptInvite(el.dataset.id); await commLoad(); podSheet(el.dataset.id); } catch (e) { commErr(e); } },
+    'pod-leave': async (el) => { try { await comm.api.leavePod(el.dataset.id); closeSheet(); comm.openPod = null; await commLoad(); toast(t('you left the pod')); } catch (e) { commErr(e); } },
+    'pod-vote': async (el) => { try { await comm.api.vote(el.dataset.id); await commLoad(); } catch (e) { commErr(e); } },
+    'pod-share': async (el) => {
+      const p = comm.pods.find((x) => x.id === el.dataset.id); if (!p) return;
+      const data = { title: p.title, text: t('join my pod at {event}: code {code}', { event: state.me.eventName, code: p.code }), url: podLink(p) };
+      if (navigator.share) { try { await navigator.share(data); } catch { /* cancelled */ } } else copy(podLink(p));
+    },
+    'pod-export': (el) => {
+      const p = comm.pods.find((x) => x.id === el.dataset.id); if (!p) return; const ms = comm.msgs[p.id] || [];
+      const sec = (k, h) => { const xs = ms.filter((m) => m.kind === k || (k === 'msg' && m.kind === 'intro')); return xs.length ? [`## ${h}`, ...xs.map((m) => `- ${m.author || '?'}: ${m.body}${k === 'question' ? ` (▲${m.votes})` : ''}`), ''] : []; };
+      download(`${p.title.replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase()}.md`, [`# ${p.title}`, '', `${t('members')}: ${p.members.filter((m) => m.status === 'joined').map((m) => m.profile?.name).join(', ')}`, '', ...sec('question', t('questions')), ...sec('takeaway', t('takeaways')), ...sec('msg', t('chat'))].join('\n'), 'text/markdown');
+    },
+    'pod-keep': (el) => {
+      const p = comm.pods.find((x) => x.id === el.dataset.id); if (!p) return;
+      const tk = (comm.msgs[p.id] || []).filter((m) => m.kind === 'takeaway').map((m) => `${m.body} (${m.author || '?'})`);
+      if (!tk.length) { toast(t('no takeaways yet.')); return; }
+      const s = state.sessions.find((x) => (p.kind === 'session' && sessionRoomKey(x) === p.room_key) || (p.kind === 'line' && x.featured));
+      if (s) s.takeaways = [s.takeaways, ...tk.filter((x) => !String(s.takeaways).includes(x))].filter(Boolean).join('\n');
+      else state.sessions.push({ id: uid(), type: 'social', title: p.title, day: currentDay(), start: hhmmNow(), end: hhmmNow(), location: '', notes: '', takeaways: tk.join('\n'), topic: p.topic || '', attendees: [], status: 'going' });
+      save(); toast(t('takeaways saved to your notes (they show in your report)'));
+    },
+    'pod-people': (el) => {
+      const p = comm.pods.find((x) => x.id === el.dataset.id); if (!p) return; let n = 0;
+      p.members.filter((m) => m.user_id !== comm.api.me && m.status === 'joined' && m.profile?.name).forEach((m) => {
+        if (state.people.some((x) => x.name.toLowerCase() === m.profile.name.toLowerCase())) return;
+        state.people.unshift({ id: uid(), name: m.profile.name, role: m.profile.role || '', company: m.profile.company || '', persona: /chief of staff/i.test(m.profile.role || '') ? 'cos' : 'peer', topics: m.profile.topics || [], status: 'met', priority: 'warm', lookingFor: '', canOffer: '', notes: t('from the pod “{title}”', { title: p.title }), metAt: p.title, day: currentDay(), followUp: { action: '', due: currentDay() + 1, done: false }, createdAt: Date.now(), linkedin: m.profile.linkedin || '', imported: true });
+        n++;
+      });
+      save(); toast(t('{n} added to your people', { n }));
+    },
+    'pod-reunion-ics': (el) => { const p = comm.pods.find((x) => x.id === el.dataset.id); if (p) download('reunion.ics', reunionIcs(p), 'text/calendar'); },
+    'room-open': (el) => { const s = sessionById(el.dataset.id); if (s) openSessionRoom(s, el.dataset.kind || 'session'); },
+    'roulette-join': async () => {
+      const free = nextFree10(); if (free == null) return;
+      try { await comm.api.rouletteJoin(`${state.me.eventName}:${isoOf(new Date())}:${minToHHMM(Math.floor(free / 30) * 30)}`.toLowerCase(), state.me.interests); await commLoad(); } catch (e) { commErr(e); }
+    },
+    'roulette-leave': async () => { try { await comm.api.rouletteLeave(); await commLoad(); } catch (e) { commErr(e); } },
+    'roulette-accept': async (el) => {
+      const r = comm.roulette; const o = r?.partnerProfile; if (!o) return;
+      const at = Number(el.dataset.at);
+      let p = state.people.find((x) => x.name.toLowerCase() === String(o.name).toLowerCase());
+      if (!p) { p = { id: uid(), name: o.name, role: o.role || '', company: o.company || '', persona: /chief of staff/i.test(o.role || '') ? 'cos' : 'peer', topics: o.topics || [], status: 'want', priority: 'warm', lookingFor: o.looking_for || '', canOffer: o.can_offer || '', notes: t('coffee roulette match'), metAt: t('coffee roulette'), day: currentDay(), followUp: { action: '', due: currentDay() + 1, done: false }, createdAt: Date.now(), linkedin: o.linkedin || '', imported: true }; state.people.unshift(p); }
+      state.sessions.push({ id: uid(), type: 'meeting', title: t('coffee with {name}', { name: first(o.name) }), day: currentDay(), start: minToHHMM(at), end: minToHHMM(at + 10), location: t(r.spot || ''), notes: reasonFor(o), takeaways: '', topic: '', attendees: [p.id], status: 'going' });
+      state.passport.coffee = true; save();
+      try { await comm.api.rouletteLeave(); } catch { /* fine */ }
+      await commLoad(); toast(t('coffee added to your agenda'));
+    },
+    'board-seg': (el) => { ui.boardSeg = el.dataset.k; render(); },
+    'offer-kind': (el) => { ui.offerKind = el.dataset.k; render(); },
+    'offer-del': async (el) => { try { await comm.api.removeOffer(el.dataset.id); await commLoad(); } catch (e) { commErr(e); } },
+    'offer-pod': async (el) => {
+      const o = comm.offers.find((x) => x.id === el.dataset.id); if (!o) return;
+      try {
+        const p = await comm.api.createPod({ title: `${first(state.me.name)} + ${first(o.author || '?')}: ${o.body}`.slice(0, 120), topic: (o.topics || [])[0] || '', hours: 24, reunionDays: 14, kind: 'agent' });
+        await comm.api.invite(p.id, [o.user_id]);
+        await comm.api.post(p.id, t('hi {name}, i saw your post “{body}” on the board. want to talk?', { name: first(o.author || ''), body: o.body }), 'intro', state.me.name);
+        await commLoad(); podSheet(p.id);
+      } catch (e) { commErr(e); }
+    },
+    'agent-pod-build': () => buildAgentPod(),
+    'agent-pod-cancel': () => { comm.agentPod = null; render(); },
+    'backend-demo': () => { R4Backend.setConfig({ ...R4Backend.config(), demo: true }); location.reload(); },
+    'community-reset': () => { comm.api?.reset(); comm.agentPod = null; toast(t('demo community reset')); commLoad(); },
+  });
+  Object.assign(F, {
+    'my-card': (fd) => {
+      Object.assign(state.me, { name: fd.get('name').trim() || state.me.name, role: fd.get('role').trim(), company: fd.get('company').trim(), linkedin: normLinkedIn(fd.get('linkedin')), email: fd.get('email').trim(), phone: fd.get('phone').trim(), interests: parseTopics(fd.get('interests')), lookingFor: fd.get('lookingFor').trim(), canOffer: fd.get('canOffer').trim(), discoverable: !!fd.get('discoverable') });
+      save(); syncProfile(); closeSheet(); render(); toast(t('card saved'));
+    },
+    'scan-paste': (fd) => handleScanned(fd.get('text')),
+    'pod-create': async (fd, form) => {
+      try {
+        const p = await comm.api.createPod({ title: fd.get('title').trim(), topic: fd.get('topic').trim().toLowerCase(), hours: Number(fd.get('hours')) || 24, reunionDays: Number(fd.get('reunion')) || 0 });
+        form.reset(); await commLoad(); podSheet(p.id);
+      } catch (e) { commErr(e); }
+    },
+    'pod-code': (fd) => joinConsent(String(fd.get('code')).trim().toUpperCase()),
+    'pod-post': async (fd, form) => {
+      const body = String(fd.get('body')).trim(); if (!body) return;
+      const p = comm.pods.find((x) => x.id === form.dataset.id); if (!p) return;
+      try {
+        await comm.api.post(p.id, body, ui.podView || 'msg', state.me.name); form.reset();
+        comm.msgs[p.id] = await comm.api.messages(p.id); refreshCommUi(); $('#pod-sheet input[name=body]')?.focus();
+      } catch (e) { commErr(e); }
+    },
+    offer: async (fd, form) => {
+      try { await comm.api.addOffer({ kind: ui.offerKind, body: fd.get('body').trim(), topics: parseTopics(fd.get('topics')), author: state.me.name }); form.reset(); await commLoad(); toast(t('posted. it expires in 3 days.')); } catch (e) { commErr(e); }
+    },
+    'agent-pod': async (fd) => {
+      const ap = comm.agentPod; if (!ap) return;
+      try {
+        const p = await comm.api.createPod({ title: t('{topic} pod', { topic: ap.topic || state.me.eventName }), topic: ap.topic, hours: 48, reunionDays: 14, kind: 'agent' });
+        await comm.api.invite(p.id, ap.picks.map((x) => x.p.id));
+        await comm.api.post(p.id, String(fd.get('intro')).trim(), 'intro', state.me.name);
+        comm.agentPod = null; await commLoad(); toast(t('invites sent')); podSheet(p.id);
+      } catch (e) { commErr(e); }
+    },
+    backend: (fd) => {
+      const url = String(fd.get('url')).trim().replace(/\/+$/, ''); const key = String(fd.get('key')).trim();
+      if (url && !/^https:\/\/[\w.-]+$/.test(url)) { toast(t('that url does not look like a supabase project url')); return; }
+      R4Backend.setConfig({ url, key, demo: !url || !key }); location.reload();
+    },
+  });
+  function handleMeetHash() {
+    const h = location.hash;
+    if (!/^#(card|pod)=/.test(h)) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    ui.tab = 'meet'; render(); handleScanned(h);
+  }
+  document.addEventListener('change', (e) => { if (e.target.id === 'scan-file' && e.target.files[0]) scanFile(e.target.files[0]); });
+  document.addEventListener('click', (e) => { if (scanStream && e.target.closest('[data-action="close-sheet"],[data-action="close-sheet-bg"]')) stopScan(); }, true);
+  window.addEventListener('hashchange', handleMeetHash);
+
   // ---------- events ----------
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]'); if (!el) return;
@@ -1518,6 +2137,8 @@
   window.addEventListener('hashchange', handleAgentHash);
   render();
   handleAgentHash();
+  handleMeetHash();
+  commStart().catch((e) => console.warn('community', e));
   setInterval(() => { updateCountdowns(); checkAlerts(); }, 1000);
   setTimeout(checkAlerts, 1500);
 })();
