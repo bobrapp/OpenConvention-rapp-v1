@@ -1,0 +1,415 @@
+{
+ "settings": {
+  "v": 1,
+  "event": "r4",
+  "days": 2,
+  "topics": [
+   "ai governance",
+   "agentic ai",
+   "data platforms",
+   "change management"
+  ],
+  "links": {},
+  "example": true
+ },
+ "people": [
+  {
+   "company": "Alder Health",
+   "day": 0,
+   "example": true,
+   "fu": {
+    "done": false,
+    "due": "week",
+    "text": "send the one-page ai governance view"
+   },
+   "id": "ex-maya",
+   "name": "Maya Okafor",
+   "note": "Wants a board-ready view of AI risk before budget season",
+   "persona": "exec",
+   "role": "VP operations",
+   "star": true,
+   "status": "met",
+   "topics": [
+    "ai governance",
+    "change management"
+   ],
+   "agent": {
+    "name": "Atlas",
+    "handles": "chief of staff",
+    "contact": "atlas@alderhealth.example",
+    "ok": true
+   }
+  },
+  {
+   "company": "Cascade Freight",
+   "day": 0,
+   "example": true,
+   "fu": {
+    "done": false,
+    "due": "after",
+    "text": "introduce a platform architect"
+   },
+   "id": "ex-daniel",
+   "name": "Daniel Reyes",
+   "note": "Moving to a lakehouse and worried about what agents can read",
+   "persona": "tech",
+   "role": "head of data platforms",
+   "star": false,
+   "status": "met",
+   "topics": [
+    "data platforms",
+    "agentic ai"
+   ]
+  },
+  {
+   "company": "Tidewater Energy",
+   "day": 0,
+   "example": true,
+   "fu": null,
+   "id": "ex-hana",
+   "name": "Hana Sato",
+   "note": "Built her own evaluation harness",
+   "persona": "builder",
+   "role": "staff ML engineer",
+   "star": false,
+   "status": "met",
+   "topics": [
+    "agentic ai",
+    "evaluation"
+   ]
+  },
+  {
+   "company": "Harbor Mutual",
+   "day": 0,
+   "example": true,
+   "fu": null,
+   "id": "ex-luis",
+   "name": "Luis Ortega",
+   "note": "",
+   "persona": "product",
+   "role": "director of product",
+   "star": true,
+   "status": "target",
+   "topics": [
+    "customer experience",
+    "agentic ai"
+   ]
+  },
+  {
+   "company": "Harbor Mutual",
+   "day": 0,
+   "example": true,
+   "fu": null,
+   "id": "ex-grace",
+   "name": "Grace Lindqvist",
+   "note": "",
+   "persona": "risk",
+   "role": "chief risk officer",
+   "star": true,
+   "status": "target",
+   "topics": [
+    "ai governance",
+    "regulation"
+   ]
+  },
+  {
+   "company": "Stratus Cloud",
+   "day": 0,
+   "example": true,
+   "fu": {
+    "done": false,
+    "due": "tonight",
+    "text": "ask for the reference architecture"
+   },
+   "id": "ex-omar",
+   "name": "Omar Haddad",
+   "note": "Offered their reference architecture",
+   "persona": "partner",
+   "role": "alliance manager",
+   "star": false,
+   "status": "met",
+   "topics": [
+    "data platforms",
+    "cloud cost"
+   ]
+  },
+  {
+   "company": "Slalom",
+   "day": 0,
+   "example": true,
+   "fu": null,
+   "id": "ex-tessa",
+   "name": "Tessa Nguyen",
+   "note": "Running an AI rollout for a retail client",
+   "persona": "consultant",
+   "role": "consultant",
+   "star": false,
+   "status": "met",
+   "topics": [
+    "change management",
+    "ai governance"
+   ],
+   "agent": {
+    "name": "Juno",
+    "handles": "scheduling",
+    "contact": "",
+    "ok": false
+   }
+  },
+  {
+   "company": "Open Ledger Guild",
+   "day": 0,
+   "example": true,
+   "fu": null,
+   "id": "ex-ben",
+   "name": "Ben Achterberg",
+   "note": "",
+   "persona": "peer",
+   "role": "community lead",
+   "star": false,
+   "status": "target",
+   "topics": [
+    "ai governance",
+    "open source"
+   ]
+  }
+ ],
+ "sessions": [
+  {
+   "id": "ex-s1",
+   "title": "opening keynote",
+   "type": "keynote",
+   "day": 0,
+   "start": "09:00",
+   "end": "10:00",
+   "room": "main stage",
+   "going": true,
+   "attendees": [],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  },
+  {
+   "id": "ex-s2",
+   "title": "birds of a feather: ai governance in practice",
+   "type": "bof",
+   "day": 0,
+   "start": "10:30",
+   "end": "11:15",
+   "room": "room b",
+   "going": true,
+   "attendees": [
+    "ex-maya",
+    "ex-tessa"
+   ],
+   "notes": "Lively. Nobody had a clean answer on who owns agent permissions.",
+   "takeaways": [
+    "Most teams have a policy but no way to check it is followed",
+    "Start with an inventory of where models are already in use"
+   ],
+   "proposals": [
+    "who owns agent permissions?",
+    "evidence auditors will accept"
+   ],
+   "example": true
+  },
+  {
+   "id": "ex-s3",
+   "title": "lunch",
+   "type": "break",
+   "day": 0,
+   "start": "12:00",
+   "end": "13:00",
+   "room": "",
+   "going": true,
+   "attendees": [],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  },
+  {
+   "id": "ex-s4",
+   "title": "breakout: agents in the data platform",
+   "type": "session",
+   "day": 0,
+   "start": "13:30",
+   "end": "14:15",
+   "room": "room d",
+   "going": true,
+   "attendees": [
+    "ex-daniel"
+   ],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  },
+  {
+   "id": "ex-s5",
+   "title": "pitch fest: two-minute pitches",
+   "type": "pitch",
+   "day": 0,
+   "start": "15:00",
+   "end": "15:45",
+   "room": "atrium",
+   "going": true,
+   "attendees": [],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  },
+  {
+   "id": "ex-s6",
+   "title": "evening reception",
+   "type": "social",
+   "day": 0,
+   "start": "17:30",
+   "end": "19:00",
+   "room": "terrace",
+   "going": true,
+   "attendees": [],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  },
+  {
+   "id": "ex-s7",
+   "title": "day two keynote",
+   "type": "keynote",
+   "day": 1,
+   "start": "09:00",
+   "end": "09:45",
+   "room": "main stage",
+   "going": true,
+   "attendees": [],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  },
+  {
+   "id": "ex-s8",
+   "title": "birds of a feather: change that sticks",
+   "type": "bof",
+   "day": 1,
+   "start": "10:00",
+   "end": "11:00",
+   "room": "room b",
+   "going": true,
+   "attendees": [],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  },
+  {
+   "id": "ex-s9",
+   "title": "closing session",
+   "type": "session",
+   "day": 1,
+   "start": "11:30",
+   "end": "12:00",
+   "room": "main stage",
+   "going": true,
+   "attendees": [],
+   "notes": "",
+   "takeaways": [],
+   "proposals": [],
+   "example": true
+  }
+ ],
+ "blocks": [
+  {
+   "id": "ex-b1",
+   "title": "client status call",
+   "day": 0,
+   "start": "14:00",
+   "end": "14:30",
+   "example": true
+  },
+  {
+   "id": "ex-b2",
+   "title": "inbox and approvals",
+   "day": 0,
+   "start": "16:00",
+   "end": "16:30",
+   "example": true
+  },
+  {
+   "id": "ex-b3",
+   "title": "weekly team sync",
+   "day": 1,
+   "start": "08:00",
+   "end": "08:45",
+   "example": true
+  }
+ ],
+ "goals": [
+  {
+   "id": "ex-g1",
+   "text": "meet 12 people worth following up with",
+   "kind": "meet",
+   "persona": "exec",
+   "target": 12,
+   "count": 0,
+   "example": true
+  },
+  {
+   "id": "ex-g2",
+   "text": "meet 3 executive sponsors",
+   "kind": "persona",
+   "persona": "exec",
+   "target": 3,
+   "count": 0,
+   "example": true
+  },
+  {
+   "id": "ex-g3",
+   "text": "finish 5 follow-ups before flying home",
+   "kind": "followups",
+   "persona": "exec",
+   "target": 5,
+   "count": 0,
+   "example": true
+  },
+  {
+   "id": "ex-g4",
+   "text": "propose one birds of a feather topic",
+   "kind": "custom",
+   "persona": "exec",
+   "target": 1,
+   "count": 0,
+   "example": true
+  }
+ ],
+ "pitches": [
+  {
+   "id": "ex-p1",
+   "name": "Hana Sato",
+   "topic": "evaluating agents before they touch production",
+   "status": "queued",
+   "sparked": false,
+   "example": true
+  },
+  {
+   "id": "ex-p2",
+   "name": "Omar Haddad",
+   "topic": "what cloud cost data tells you about ai adoption",
+   "status": "queued",
+   "sparked": false,
+   "example": true
+  },
+  {
+   "id": "ex-p3",
+   "name": "Tessa Nguyen",
+   "topic": "a two-week change plan for ai rollouts",
+   "status": "queued",
+   "sparked": false,
+   "example": true
+  }
+ ]
+}
