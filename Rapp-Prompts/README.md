@@ -29,3 +29,4 @@ Step-by-step prompts for Devin, one per request from the r4 networking app build
 | 11 | [GitHub repo + branch](11-github-repo-and-branch.md) | "create a public repo ... OpenConvention-rapp-v1 ... Devin-v1" |
 | 12 | [GitHub Pages version picker](12-github-pages-version-picker.md) | "host the app - all three - via github live pages" |
 | 13 | [Make Rapp-Prompts](13-make-rapp-prompts.md) | "a step-by-step version of each prompt in the checklist manifesto style" |
+| 14 | [Agent backstage](14-agent-backstage.md) | "make agent-to-agent behavior behind the scenes the story" |
