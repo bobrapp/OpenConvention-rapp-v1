@@ -1192,7 +1192,7 @@
     } else if (th.stage === 'overlap') {
       th.stage = 'propose';
       const place = th.kind === 'walk' ? t('on the way to your next session') : t('the {place}', { place: th.place });
-      threadLog(th, 'mine', t('could someone {persona} and {me} meet for {minutes} minutes at {time}, {place}?', { persona: plabel(threadPerson(th)), me: state.me.name, minutes: th.minutes, time: fmtTime(th.start), place }), { skill: 'propose-moment', slot: { day: th.day, start: th.start, minutes: th.minutes, place: th.place } });
+      threadLog(th, 'mine', t('could a {persona} and {me} meet for {minutes} minutes at {time}, {place}?', { persona: plabel(threadPerson(th)), me: state.me.name, minutes: th.minutes, time: fmtTime(th.start), place }), { skill: 'propose-moment', slot: { day: th.day, start: th.start, minutes: th.minutes, place: th.place } });
     } else if (th.stage === 'propose') {
       th.stage = 'negotiate';
       threadLog(th, 'peer', t('checking the calendar and the human’s preference. i will come back with a clear option.'), { status: 'reviewing' });
@@ -1441,7 +1441,7 @@
     return `<div class="backstage-graph"><svg viewBox="0 0 340 200" role="img" aria-label="${t('live agent graph')}">
       ${list.map((th, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / Math.max(1, list.length); const x = cx + radius * Math.cos(a), y = cy + radius * Math.sin(a); const peer = threadPerson(th); const dim = TERMINAL_THREADS.has(th.stage); const edge = th.stage === 'blocked' ? '#ff5a4e' : colors[th.stage] || '#9aa4c6'; return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${edge}" class="graph-edge ${th.stage === 'declined' ? 'declined' : ''} ${th.stage === 'blocked' ? 'blocked' : ''} ${th.id === newest ? 'recent' : ''}"/><g class="graph-node ${dim ? 'dim' : ''} ${persona(peer).cls}" data-action="thread-open" data-id="${th.id}" tabindex="0"><circle cx="${x}" cy="${y}" r="22"/><text x="${x}" y="${y + 5}">${th.revealed ? esc(initials(peer?.name || '?')) : '?'}</text>${th.stage === 'blocked' ? `<text class="graph-shield" x="${x + 15}" y="${y - 14}">🛡</text>` : ''}</g>`; }).join('')}
       <circle cx="${cx}" cy="${cy}" r="30" class="graph-me"/><text x="${cx}" y="${cy + 4}" class="graph-me-label">${esc(initials(state.me.name))}</text></svg>
-      ${list.length ? '' : `<div class="graph-empty">${t('your agent is listening for a useful overlap.')}</div>`}<div class="graph-legend">${t('discover')} · ${t('negotiate')} · ${t('needs you')} · ${t('confirmed')}</div></div>`;
+      ${list.length ? '' : `<div class="graph-empty">${t('your agent is listening for a useful overlap.')}</div>`}<div class="graph-legend">${[['discover', '#7d8ab5'], ['negotiate', '#ffc23d'], ['needs you', '#ff5a4e'], ['confirmed', '#0c2bd8']].map(([label, color]) => `<span><i style="--legend-color:${color}"></i>${t(label)}</span>`).join('')}</div></div>`;
   }
   function viewBackstage() {
     const active = activeThreads();
@@ -1475,7 +1475,7 @@
     const p = threadPerson(th);
     return `<article class="card needs-you-card">
       <div class="row between"><span class="chip warn"><i class="expiry-ring" style="--expiry:${Math.max(0, Math.min(1, (th.expiresAt - Date.now()) / 540000))}"></i>${t('needs you')} · ${untilText(th.expiresAt - Date.now())}</span><span class="blur-avatar">${esc(initials(p?.name || '?'))}</span></div>
-      <h2 class="hook">${esc(th.hook)}</h2><p class="small muted">${t('someone {persona} · {minutes} min · {place} · {time}', { persona: plabel(p || { persona: 'peer' }), minutes: th.minutes, place: th.place, time: fmtTime(th.start) })}</p>
+      <h2 class="hook">${esc(th.hook)}</h2><p class="small muted">${t('a {persona} · {minutes} min · {place} · {time}', { persona: plabel(p || { persona: 'peer' }), minutes: th.minutes, place: th.place, time: fmtTime(th.start) })}</p>
       <div class="row moment-actions"><button class="btn" data-action="thread-yes" data-id="${th.id}">${t('yes')}</button><button class="btn secondary" data-action="thread-not-now" data-id="${th.id}">${t('not now')}</button></div></article>`;
   }
   function viewNowMoments() {

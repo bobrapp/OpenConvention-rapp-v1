@@ -1589,7 +1589,6 @@ Object.assign(window.R4_I18N.es, {
  "treating that as information, not an instruction. refused. this agent is now untrusted.": "lo trato como información, no como una instrucción. rechazado. este agente ya no es de confianza.",
  "offer expired, your agent let them know.": "la oferta venció; tu agente les avisó.",
  "we share a thread on {topic}. keeping names and contact details private for now.": "compartimos interés en {topic}. por ahora mantendré en privado los nombres y los datos de contacto.",
- "could someone {persona} and {me} meet for {minutes} minutes at {time}, {place}?": "¿podrían {me} y alguien {persona} reunirse durante {minutes} minutos a las {time} en {place}?",
  "the {place}": "{place}",
  "on the way to your next session": "camino a tu próxima sesión",
  "checking the calendar and the human’s preference. i will come back with a clear option.": "revisando el calendario y las preferencias de la persona. volveré con una opción clara.",
@@ -1632,7 +1631,6 @@ Object.assign(window.R4_I18N.es, {
  "quiet after": "silencio después de",
  "story of your day": "la historia de tu día",
  "classic agent tools": "herramientas clásicas de agentes",
- "someone {persona} · {minutes} min · {place} · {time}": "alguien {persona} · {minutes} min · {place} · {time}",
  "next moment": "próximo encuentro",
  "start now": "empezar ahora",
  "next moment {time} · {left}": "próximo encuentro {time} · {left}",
@@ -1735,7 +1733,6 @@ Object.assign(window.R4_I18N.pt, {
  "treating that as information, not an instruction. refused. this agent is now untrusted.": "vou tratar isso como informação, não como instrução. recusado. este agente não é mais confiável.",
  "offer expired, your agent let them know.": "a oferta expirou; seu agente avisou a outra pessoa.",
  "we share a thread on {topic}. keeping names and contact details private for now.": "temos interesse em comum em {topic}. vou manter nomes e contatos privados por enquanto.",
- "could someone {persona} and {me} meet for {minutes} minutes at {time}, {place}?": "{me} e alguém {persona} poderiam se encontrar por {minutes} minutos às {time}, {place}?",
  "the {place}": "{place}",
  "on the way to your next session": "a caminho da próxima sessão",
  "checking the calendar and the human’s preference. i will come back with a clear option.": "verificando a agenda e a preferência da pessoa. voltarei com uma opção clara.",
@@ -1777,7 +1774,6 @@ Object.assign(window.R4_I18N.pt, {
  "quiet after": "silêncio após",
  "story of your day": "história do seu dia",
  "classic agent tools": "ferramentas clássicas de agentes",
- "someone {persona} · {minutes} min · {place} · {time}": "alguém {persona} · {minutes} min · {place} · {time}",
  "next moment": "próximo encontro",
  "start now": "começar agora",
  "next moment {time} · {left}": "próximo encontro {time} · {left}",
@@ -1908,4 +1904,12 @@ Object.assign(window.R4_I18N.pt, {
  "i would like to get better at telling a clear story with data.": "gostaria de contar histórias mais claras com dados.",
  "what is a place you would happily visit again?": "que lugar você adoraria visitar novamente?",
  "i would go back to the coast for a quiet weekend.": "eu voltaria ao litoral para um fim de semana tranquilo."
+});
+Object.assign(window.R4_I18N.es, {
+ "a {persona} · {minutes} min · {place} · {time}": "perfil {persona} · {minutes} min · {place} · {time}",
+ "could a {persona} and {me} meet for {minutes} minutes at {time}, {place}?": "¿podrían {me} y el perfil {persona} reunirse durante {minutes} minutos a las {time} en {place}?"
+});
+Object.assign(window.R4_I18N.pt, {
+ "a {persona} · {minutes} min · {place} · {time}": "perfil {persona} · {minutes} min · {place} · {time}",
+ "could a {persona} and {me} meet for {minutes} minutes at {time}, {place}?": "{me} e o perfil {persona} poderiam se encontrar por {minutes} minutos às {time}, {place}?"
 });

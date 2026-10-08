@@ -491,7 +491,9 @@ button.chip { cursor: pointer; }
 .graph-node .graph-shield { fill: #ff5a4e; font-size: 12px; }
 .graph-me { fill: var(--blue); stroke: white; stroke-width: 2; }
 .graph-empty { color: #fff; text-align: center; padding: 0 12px 14px; font-size: 12px; opacity: .85; }
-.graph-legend { padding: 0 8px 12px; color: #fff; text-align: center; font-size: 10px; letter-spacing: .01em; opacity: .85; }
+.graph-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 9px; padding: 0 8px 12px; color: #fff; font-size: 10px; letter-spacing: .01em; opacity: .9; }
+.graph-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.graph-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--legend-color); }
 .backstage-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 12px 0 18px; }
 .backstage-stats > div { display: flex; min-height: 62px; flex-direction: column; justify-content: center; text-align: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 4px; }
 .backstage-stats b { font-size: 21px; color: var(--blue); line-height: 1.1; }
@@ -549,14 +551,17 @@ button.chip { cursor: pointer; }
 .reveal-card:last-child { transform: rotate(5deg); animation-name: reveal-right; animation-delay: .12s; }
 .reveal-card small { font-size: 12px; font-weight: 500; margin-top: 8px; }
 .reveal-spark { font-size: 23px; }
-@keyframes reveal-left { from { opacity: 0; filter: blur(12px); transform: translateX(-28px) translateY(15px) rotate(-5deg); } to { opacity: 1; filter: blur(0); transform: rotate(-5deg); } }
-@keyframes reveal-right { from { opacity: 0; filter: blur(12px); transform: translateX(28px) translateY(15px) rotate(5deg); } to { opacity: 1; filter: blur(0); transform: rotate(5deg); } }
+@keyframes reveal-left { from { opacity: 0; filter: blur(12px); transform: translateX(-28px) translateY(15px) rotate(-5deg); } to { opacity: 1; filter: none; transform: rotate(-5deg); } }
+@keyframes reveal-right { from { opacity: 0; filter: blur(12px); transform: translateX(28px) translateY(15px) rotate(5deg); } to { opacity: 1; filter: none; transform: rotate(5deg); } }
 .reveal-content .hook { font-size: 21px; }
 .reveal-place { margin: 9px 0 18px; opacity: .85; }
 .icebreaker { text-align: left; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.13); margin: 18px 0; }
 .icebreaker p { font-size: 16px; font-weight: 600; }
 .ice-answer { background: rgba(255,255,255,.12); border-radius: 11px; padding: 9px; margin: 7px 0; }
 .ice-answer span { display: block; opacity: .72; font-size: 11px; margin-bottom: 3px; }
+.reveal-sheet .icebreaker input { flex: 1; min-width: 0; border: 1px solid rgba(255,255,255,.65); border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,.9); color: #11182f; }
+.reveal-sheet .icebreaker input::placeholder { color: #555f78; }
+.reveal-content .btn.ghost { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
 .reveal-content .btn.secondary { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.4); color: white; }
 .moment-live { text-align: center; }
 .moment-clock { font-size: 56px; letter-spacing: -.04em; line-height: 1; color: var(--blue); font-variant-numeric: tabular-nums; margin: 8px 0; }

@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import path from 'node:path';
-
-const require = createRequire(process.env.UX_PACKAGE || '/Users/devin/ux/package.json');
-const { chromium } = require('playwright-core');
+import { chromium } from 'playwright-core';
 const browser = await chromium.launch({
   headless: true,
-  executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   args: ['--no-sandbox'],
 });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
@@ -22,7 +19,11 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8080/';
 const shots = process.env.SHOT_DIR || '/Users/devin/shots/v2';
 const shot = async (name, selector = 'body') => {
   const target = page.locator(selector).first();
-  if (await target.count()) await target.scrollIntoViewIfNeeded();
+  if (await target.count()) {
+    await target.scrollIntoViewIfNeeded();
+    const inSheet = await target.evaluate((el) => Boolean(el.closest('.sheet-backdrop')));
+    if (inSheet) await page.waitForTimeout(selector.includes('reveal-sheet') ? 900 : 500);
+  }
   await page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: false });
 };
 const widthCheck = async () => {
