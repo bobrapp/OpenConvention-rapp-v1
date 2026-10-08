@@ -284,6 +284,7 @@
   const sessionById = (id) => state.sessions.find((s) => s.id === id);
   const persona = (p) => PERSONAS[p.persona] || PERSONAS.peer;
   const plabel = (p) => t(persona(p).label);
+  const aPersona = (label) => `${/^[aeiou]/i.test(String(label)) ? 'an' : 'a'} ${label}`;
   const met = () => state.people.filter((p) => p.status === 'met');
   const goalText = (g) => t(g.text);
 
@@ -999,6 +1000,16 @@
   const BK = () => state.backstage;
   const TERMINAL_THREADS = new Set(['done', 'declined', 'blocked']);
   const THREAD_STAGES = ['discover', 'overlap', 'propose', 'negotiate', 'needs-you', 'confirmed', 'live', 'done'];
+  const ISLAND_STAGE_LABELS = {
+    discover: 'discover',
+    overlap: 'overlap',
+    propose: 'propose',
+    negotiate: 'negotiating',
+    'needs-you': 'needs you',
+    confirmed: 'confirmed',
+    live: 'live',
+    done: 'done',
+  };
   const ICEBREAKERS = [
     [_('what is one idea you changed your mind about recently?'), _('i changed my mind after hearing a different perspective.')],
     [_('what is a small thing that made your week better?'), _('a teammate shared a shortcut that saved me time.')],
@@ -1192,7 +1203,9 @@
     } else if (th.stage === 'overlap') {
       th.stage = 'propose';
       const place = th.kind === 'walk' ? t('on the way to your next session') : t('the {place}', { place: th.place });
-      threadLog(th, 'mine', t('could a {persona} and {me} meet for {minutes} minutes at {time}, {place}?', { persona: plabel(threadPerson(th)), me: state.me.name, minutes: th.minutes, time: fmtTime(th.start), place }), { skill: 'propose-moment', slot: { day: th.day, start: th.start, minutes: th.minutes, place: th.place } });
+      const label = plabel(threadPerson(th));
+      const who = lang() === 'en' ? aPersona(label) : t('perfil {persona}', { persona: label });
+      threadLog(th, 'mine', t('could {who} and {me} meet for {minutes} minutes at {time}, {place}?', { who, me: state.me.name, minutes: th.minutes, time: fmtTime(th.start), place }), { skill: 'propose-moment', slot: { day: th.day, start: th.start, minutes: th.minutes, place: th.place } });
     } else if (th.stage === 'propose') {
       th.stage = 'negotiate';
       threadLog(th, 'peer', t('checking the calendar and the human’s preference. i will come back with a clear option.'), { status: 'reviewing' });
@@ -1473,9 +1486,11 @@
   }
   function momentNeedsYou(th) {
     const p = threadPerson(th);
+    const label = plabel(p || { persona: 'peer' });
+    const who = lang() === 'en' ? aPersona(label) : t('perfil {persona}', { persona: label });
     return `<article class="card needs-you-card">
       <div class="row between"><span class="chip warn"><i class="expiry-ring" style="--expiry:${Math.max(0, Math.min(1, (th.expiresAt - Date.now()) / 540000))}"></i>${t('needs you')} · ${untilText(th.expiresAt - Date.now())}</span><span class="blur-avatar">${esc(initials(p?.name || '?'))}</span></div>
-      <h2 class="hook">${esc(th.hook)}</h2><p class="small muted">${t('a {persona} · {minutes} min · {place} · {time}', { persona: plabel(p || { persona: 'peer' }), minutes: th.minutes, place: th.place, time: fmtTime(th.start) })}</p>
+      <h2 class="hook">${esc(th.hook)}</h2><p class="small muted">${t('{who} · {minutes} min · {place} · {time}', { who, minutes: th.minutes, place: th.place, time: fmtTime(th.start) })}</p>
       <div class="row moment-actions"><button class="btn" data-action="thread-yes" data-id="${th.id}">${t('yes')}</button><button class="btn secondary" data-action="thread-not-now" data-id="${th.id}">${t('not now')}</button></div></article>`;
   }
   function viewNowMoments() {
@@ -1490,7 +1505,7 @@
     const next = activeThreads().filter((x) => x.stage === 'confirmed').sort((a, b) => threadStartMs(a) - threadStartMs(b))[0];
     const negotiating = activeThreads().filter((x) => ['discover', 'overlap', 'propose', 'negotiate'].includes(x.stage)).length;
     const status = !BK().live ? t('paused') : BK().beacon.mode === 'heads-down' ? t('heads-down') : needs ? t(needs === 1 ? '1 moment needs you' : '{n} moments need you', { n: needs }) : next ? t('next moment {time} · {left}', { time: fmtTime(next.start), left: cdShort({ day: next.day, start: next.start }) }) : t('negotiating with {n}', { n: negotiating });
-    const ledger = BK().threads.slice(-3).reverse().map((th) => `<div class="island-ledger">${esc(th.stage === 'declined' ? t('declined politely for you') : th.stage === 'blocked' ? t('agent blocked') : `${t(th.stage)} · ${th.hook}`)}</div>`).join('');
+    const ledger = BK().threads.slice(-3).reverse().map((th) => `<div class="island-ledger">${esc(th.stage === 'declined' ? t('declined politely for you') : th.stage === 'blocked' ? t('agent blocked') : `${t(ISLAND_STAGE_LABELS[th.stage] || th.stage)} · ${th.hook}`)}</div>`).join('');
     return `<div class="agent-island-wrap"><button class="agent-island" data-action="island-toggle"><span class="island-dot ${BK().live ? 'pulse' : ''}"></span><b>${esc(status)}</b><span>${activeThreads().length}</span></button>
       ${ui.islandOpen ? `<div class="island-expanded">${ledger || `<div class="island-ledger">${t('your agent is ready.')}</div>`}<button class="btn ghost sm" data-action="go" data-tab="backstage">${t('open backstage')}</button></div>` : ''}</div>`;
   }

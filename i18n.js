@@ -1906,10 +1906,12 @@ Object.assign(window.R4_I18N.pt, {
  "i would go back to the coast for a quiet weekend.": "eu voltaria ao litoral para um fim de semana tranquilo."
 });
 Object.assign(window.R4_I18N.es, {
- "a {persona} · {minutes} min · {place} · {time}": "perfil {persona} · {minutes} min · {place} · {time}",
- "could a {persona} and {me} meet for {minutes} minutes at {time}, {place}?": "¿podrían {me} y el perfil {persona} reunirse durante {minutes} minutos a las {time} en {place}?"
+ "perfil {persona}": "perfil {persona}",
+ "{who} · {minutes} min · {place} · {time}": "{who} · {minutes} min · {place} · {time}",
+ "could {who} and {me} meet for {minutes} minutes at {time}, {place}?": "¿podrían {me} y {who} reunirse durante {minutes} minutos a las {time} en {place}?"
 });
 Object.assign(window.R4_I18N.pt, {
- "a {persona} · {minutes} min · {place} · {time}": "perfil {persona} · {minutes} min · {place} · {time}",
- "could a {persona} and {me} meet for {minutes} minutes at {time}, {place}?": "{me} e o perfil {persona} poderiam se encontrar por {minutes} minutos às {time}, {place}?"
+ "perfil {persona}": "perfil {persona}",
+ "{who} · {minutes} min · {place} · {time}": "{who} · {minutes} min · {place} · {time}",
+ "could {who} and {me} meet for {minutes} minutes at {time}, {place}?": "{me} e {who} poderiam se encontrar por {minutes} minutos às {time}, {place}?"
 });
