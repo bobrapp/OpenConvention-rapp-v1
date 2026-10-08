@@ -476,12 +476,22 @@ button.chip { cursor: pointer; }
 .backstage-graph svg { width: 100%; display: block; }
 .graph-edge { stroke-width: 2.5; opacity: .85; }
 .graph-edge.recent { stroke-width: 4; stroke-dasharray: 7 5; animation: edge-flow 1.4s linear infinite; }
+.graph-edge.declined { stroke-dasharray: 4 5; opacity: .6; }
+.graph-edge.blocked { stroke: #ff5a4e; }
 @keyframes edge-flow { to { stroke-dashoffset: -24; } }
 .graph-node { cursor: pointer; }
 .graph-node circle { fill: #25315e; stroke: rgba(255,255,255,.55); stroke-width: 1.5; }
+.graph-node.p-exec circle { fill: #0c2bd8; }
+.graph-node.p-tech circle { fill: #8b5cf6; }
+.graph-node.p-peer circle { fill: #18c39a; }
+.graph-node.p-client circle { fill: #ff5a4e; }
+.graph-node.p-partner circle { fill: #1689c7; }
+.graph-node.dim { opacity: .4; }
 .graph-node text, .graph-me-label { fill: white; text-anchor: middle; font: 600 12px Outfit, sans-serif; pointer-events: none; }
+.graph-node .graph-shield { fill: #ff5a4e; font-size: 12px; }
 .graph-me { fill: var(--blue); stroke: white; stroke-width: 2; }
 .graph-empty { color: #fff; text-align: center; padding: 0 12px 14px; font-size: 12px; opacity: .85; }
+.graph-legend { padding: 0 8px 12px; color: #fff; text-align: center; font-size: 10px; letter-spacing: .01em; opacity: .85; }
 .backstage-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 12px 0 18px; }
 .backstage-stats > div { display: flex; min-height: 62px; flex-direction: column; justify-content: center; text-align: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 4px; }
 .backstage-stats b { font-size: 21px; color: var(--blue); line-height: 1.1; }
@@ -513,6 +523,9 @@ button.chip { cursor: pointer; }
 .story-card { background: linear-gradient(135deg, var(--blue), #4e63e8); color: #fff; }
 .story-card h3 { margin: 0 0 7px; }
 .story-card p { margin: 0; line-height: 1.5; }
+.decline-summary { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0 0 8px; text-align: left; cursor: pointer; }
+.decline-summary span { font-size: 20px; color: var(--muted); }
+.decline-list { padding-left: 10px; }
 .classic-tools { padding: 13px; }
 .classic-tools summary { cursor: pointer; }
 .classic-tools > :not(summary) { margin-top: 12px; }
@@ -525,18 +538,19 @@ button.chip { cursor: pointer; }
 .dark-cta { background: var(--navy); color: #fff; margin-top: 9px; }
 .seg button.on { color: #fff; background: var(--blue); }
 .seg button { text-transform: none; }
-.reveal-backdrop { background: var(--blue) !important; }
-.reveal-sheet { background: linear-gradient(145deg, #0c2bd8, #2149e8) !important; color: #fff; border-radius: 0 !important; min-height: 100%; max-height: 100% !important; padding: 18px 20px calc(28px + env(safe-area-inset-bottom)) !important; }
+.reveal-backdrop { position: fixed; inset: 0; z-index: 100; align-items: stretch; justify-content: stretch; overflow-y: auto; background: #0c2bd8 !important; }
+.reveal-sheet { position: relative; flex: 1 0 100%; width: 100%; max-width: none; height: 100%; min-height: 100vh; min-height: 100dvh; max-height: none !important; overflow-y: auto; background-color: #0c2bd8 !important; background-image: linear-gradient(145deg, #0c2bd8, #2149e8) !important; color: #fff !important; border-radius: 0 !important; padding: 18px 20px calc(28px + env(safe-area-inset-bottom)) !important; }
 .reveal-sheet .sheet-head { display: none; }
 .reveal-content { text-align: center; padding-top: 20px; }
 .reveal-kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .15em; opacity: .8; }
 .reveal-content h1 { font-size: 34px; line-height: 1.05; margin: 10px 0 22px; }
 .reveal-cards { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 20px 0; }
-.reveal-card { width: 106px; height: 126px; display: flex; flex-direction: column; justify-content: center; border: 1px solid rgba(255,255,255,.55); border-radius: 20px; background: rgba(255,255,255,.16); font-size: 34px; font-weight: 800; transform: rotate(-5deg); animation: reveal-in .55s ease-out both; }
-.reveal-card:last-child { transform: rotate(5deg); animation-delay: .12s; }
+.reveal-card { width: 106px; height: 126px; display: flex; flex-direction: column; justify-content: center; border: 1px solid rgba(255,255,255,.55); border-radius: 20px; background: rgba(255,255,255,.16); font-size: 34px; font-weight: 800; transform: rotate(-5deg); animation: reveal-left .55s ease-out both; }
+.reveal-card:last-child { transform: rotate(5deg); animation-name: reveal-right; animation-delay: .12s; }
 .reveal-card small { font-size: 12px; font-weight: 500; margin-top: 8px; }
 .reveal-spark { font-size: 23px; }
-@keyframes reveal-in { from { opacity: 0; filter: blur(12px); translate: 0 15px; } to { opacity: 1; filter: blur(0); translate: 0 0; } }
+@keyframes reveal-left { from { opacity: 0; filter: blur(12px); transform: translateX(-28px) translateY(15px) rotate(-5deg); } to { opacity: 1; filter: blur(0); transform: rotate(-5deg); } }
+@keyframes reveal-right { from { opacity: 0; filter: blur(12px); transform: translateX(28px) translateY(15px) rotate(5deg); } to { opacity: 1; filter: blur(0); transform: rotate(5deg); } }
 .reveal-content .hook { font-size: 21px; }
 .reveal-place { margin: 9px 0 18px; opacity: .85; }
 .icebreaker { text-align: left; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.13); margin: 18px 0; }
@@ -558,9 +572,10 @@ button.chip { cursor: pointer; }
 .chip.warn { background: #fff4d6; color: #805700; }
 .chip.bad { background: #ffe8e6; color: #9e2822; }
 .chip.good { background: #e1fbf3; color: #057455; }
-.thread-card .chip { text-transform: capitalize; }
+.thread-card .chip { text-transform: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  .graph-edge.recent { animation: none !important; }
 }
 @media (prefers-color-scheme: dark) {
   :root { --ink: #eef1ff; --muted: #aab3d4; --line: #313b63; --bg: #10162d; --card: #1a2240; --blue-soft: #26345f; --navy: #070b1c; }

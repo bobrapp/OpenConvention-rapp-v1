@@ -560,12 +560,8 @@
       L.push(`## ${t('open follow-ups')}`);
       open.forEach((p) => L.push(`- ${p.name}: ${p.followUp.action} (${t('due {d}', { d: dayLabel(p.followUp.due) })})`));
     }
-    const back = BK().stats;
     L.push(`## ${t('backstage')}`);
-    L.push(t('{moments} moments, {sparks} sparks. {story}', {
-      moments: back.moments, sparks: back.sparks,
-      story: t('your agent talked to {agents} agents, absorbed {nos} no’s, and blocked {blocked} agent that tried to break your rules.', { agents: back.agents, nos: back.nosAbsorbed, blocked: back.blocked }),
-    }));
+    L.push(backstageStory());
     return L.join('\n');
   }
   function recap(day) {
@@ -1003,6 +999,22 @@
   const BK = () => state.backstage;
   const TERMINAL_THREADS = new Set(['done', 'declined', 'blocked']);
   const THREAD_STAGES = ['discover', 'overlap', 'propose', 'negotiate', 'needs-you', 'confirmed', 'live', 'done'];
+  const ICEBREAKERS = [
+    [_('what is one idea you changed your mind about recently?'), _('i changed my mind after hearing a different perspective.')],
+    [_('what is a small thing that made your week better?'), _('a teammate shared a shortcut that saved me time.')],
+    [_('what are you curious about outside of work?'), _('i have been learning to make better coffee at home.')],
+    [_('what is a skill you would like to learn next?'), _('i would like to get better at telling a clear story with data.')],
+    [_('what is a place you would happily visit again?'), _('i would go back to the coast for a quiet weekend.')],
+  ];
+  function backstageStory(s = BK().stats) {
+    const clauses = [];
+    if (s.agents) clauses.push(t(s.agents === 1 ? 'your agent talked to 1 agent' : 'your agent talked to {n} agents', { n: s.agents }));
+    if (s.nosAbsorbed) clauses.push(t(s.nosAbsorbed === 1 ? 'absorbed 1 polite no for you' : 'absorbed {n} polite no’s for you', { n: s.nosAbsorbed }));
+    if (s.moments) clauses.push(t(s.moments === 1 ? 'lined up 1 moment' : 'lined up {n} moments', { n: s.moments }));
+    if (s.sparks) clauses.push(t(s.sparks === 1 ? 'found 1 spark' : 'found {n} sparks', { n: s.sparks }));
+    if (s.blocked) clauses.push(t(s.blocked === 1 ? 'blocked 1 agent that tried to break your rules' : 'blocked {n} agents that tried to break your rules', { n: s.blocked }));
+    return clauses.length ? `${t('while you were in sessions')}, ${clauses.join(', ')}.` : t('your agent is just getting started.');
+  }
   const activeThreads = () => BK().threads.filter((x) => !TERMINAL_THREADS.has(x.stage));
   const threadById = (id) => BK().threads.find((x) => x.id === id);
   const threadPerson = (th) => personById(th?.personIds?.[0]);
@@ -1039,31 +1051,53 @@
     return null;
   }
   function nextThreadPerson() {
-    const activeIds = new Set(activeThreads().flatMap((x) => x.personIds));
+    const usedIds = new Set(BK().threads.flatMap((x) => x.personIds));
     const signals = parseTopics([BK().beacon.give, BK().beacon.ask, ...state.me.interests].filter(Boolean).join(', '));
-    const pool = state.people.filter((p) => !activeIds.has(p.id) && p.status !== 'blocked'
+    const pool = state.people.filter((p) => !usedIds.has(p.id) && p.status !== 'blocked'
       && (BK().beacon.mode !== 'selective' || p.topics.some((topic) => signals.includes(topic))));
     return pool.map((p) => ({ p, ...scorePerson(p) }))
       .sort((a, b) => b.score - a.score || hash(`${a.p.id}${BK().seed}`) - hash(`${b.p.id}${BK().seed}`))[0]?.p;
+  }
+  function threadHook(p, seed) {
+    const signals = new Set(parseTopics([...state.me.interests, BK().beacon.give, BK().beacon.ask].filter(Boolean).join(', ')));
+    const shared = p.topics.filter((topic) => signals.has(topic.toLowerCase()));
+    const topic = shared[Math.floor(hash(`${p.id}${seed}topic`) * shared.length)]
+      || p.topics[Math.floor(hash(`${p.id}${seed}fallback`) * p.topics.length)]
+      || t('shared curiosity');
+    const matches = (theirText, myText) => {
+      const theirs = parseTopics(theirText), mine = parseTopics(myText);
+      return theirs.some((a) => mine.some((b) => a === b || a.includes(b) || b.includes(a)));
+    };
+    const give = BK().beacon.give || state.me.canOffer;
+    const ask = BK().beacon.ask || state.me.lookingFor;
+    let complement = '';
+    if (p.lookingFor && give && matches(p.lookingFor, give)) complement = t('they want {ask}; you offer {give}', { ask: p.lookingFor, give });
+    else if (p.canOffer && ask && matches(p.canOffer, ask)) complement = t('you want {ask}; they offer {give}', { ask, give: p.canOffer });
+    const sharedLine = t('you both care about {topic}', { topic });
+    return { topic, hook: complement ? `${sharedLine}. ${complement}` : sharedLine };
   }
   function openThread() {
     const p = nextThreadPerson();
     if (!p || activeThreads().length >= 4 || BK().beacon.mode === 'heads-down') return null;
     const serial = BK().stats.agents + 1;
     const inbound = hash(`${p.id}${BK().seed}`) < 0.25;
-    const other = serial % 5 === 0 ? state.people.find((x) => x.id !== p.id && x.status !== 'blocked' && x.topics.some((tp) => p.topics.includes(tp))) : null;
+    const usedIds = new Set(BK().threads.flatMap((x) => x.personIds));
+    const other = serial % 5 === 0 ? state.people.find((x) => x.id !== p.id && !usedIds.has(x.id) && x.status !== 'blocked' && x.topics.some((tp) => p.topics.includes(tp))) : null;
     const kind = other ? (serial % 2 ? 'trio' : 'walk') : '1:1';
     const minutes = serial % 2 ? 7 : 15;
     const th = {
       id: uid(), kind, personIds: [p.id, ...(other ? [other.id] : [])], inbound,
       stage: 'discover', minutes, day: currentDay(), start: '', place: SPOTS[Math.floor(hash(`${p.id}${BK().seed}place`) * SPOTS.length)],
       hook: '', opener: '', exitLine: t('i have to get to my next session, but glad we met.'), expiresAt: 0,
-      youSaid: null, theySaid: null, revealed: false, icebreaker: { q: '', mine: '', theirs: '' },
+      youSaid: null, theySaid: null, revealed: false, icebreaker: { index: 0, q: '', mine: '', theirs: '' },
       outcome: null, msgs: [], createdAt: Date.now(), seed: BK().seed,
     };
+    th.icebreaker.index = Math.floor(hash(th.id) * ICEBREAKERS.length);
+    th.icebreaker.q = t(ICEBREAKERS[th.icebreaker.index][0]);
     BK().seed += 1; BK().stats.agents += 1; BK().threads.push(th);
-    th.hook = (p.topics.find((x) => state.me.interests.includes(x)) || p.topics.find((x) => x === BK().beacon.ask) || p.topics[0] || BK().beacon.ask || t('shared curiosity'));
-    th.opener = t('what is one thing you are learning about {topic} right now?', { topic: th.hook });
+    const hook = threadHook(p, th.seed);
+    th.hook = hook.hook;
+    th.opener = t('what is one thing you are learning about {topic} right now?', { topic: hook.topic });
     if (th.kind === 'walk') th.minutes = 7;
     if (th.kind !== 'walk') {
       const slot = threadSlot(th.minutes, th);
@@ -1104,7 +1138,8 @@
       save(); render(); return;
     }
     th.revealed = true; th.stage = 'confirmed'; th.expiresAt = 0;
-    th.icebreaker.q = t('what is one thing you would change about {topic} if you started today?', { topic: th.hook });
+    th.icebreaker.index ??= Math.floor(hash(th.id) * ICEBREAKERS.length);
+    th.icebreaker.q ||= t(ICEBREAKERS[th.icebreaker.index][0]);
     addSessionForThread(th); BK().stats.convos += 1;
     threadLog(th, 'mine', t('you both said yes. meeting is on the calendar for {time} at the {place}.', { time: fmtTime(th.start), place: th.place }), { status: 'confirmed', momentId: th.id });
     save(); openRevealSheet(th); render();
@@ -1162,25 +1197,20 @@
       th.stage = 'negotiate';
       threadLog(th, 'peer', t('checking the calendar and the human’s preference. i will come back with a clear option.'), { status: 'reviewing' });
     } else if (th.stage === 'negotiate') {
-      const outcome = hash(`${threadPerson(th).id}${th.seed}`);
-      if (outcome < 0.2 && !th.countered) {
+      const outcome = hash(`${threadPerson(th).id}${th.seed}outcome`);
+      if (outcome < 0.2) {
+        th.stage = 'declined'; th.outcome = 'nofit'; BK().stats.nosAbsorbed += 1;
+        threadLog(th, 'mine', t('declined politely for you. no rejection was sent to your screen.'), { status: 'declined-privately' });
+      } else if (outcome < 0.4 && !th.countered) {
         th.countered = true; th.minutes = th.minutes === 7 ? 15 : 7;
         const slot = threadSlot(th.minutes, th);
         if (slot) { th.day = slot.day; th.start = slot.start; }
         threadLog(th, 'peer', t('could we make it {minutes} minutes at {time} instead?', { minutes: th.minutes, time: fmtTime(th.start) }), { status: 'counter', minutes: th.minutes, start: th.start });
-      } else if (outcome >= 0.2 && outcome < 0.4) {
-        th.stage = 'declined'; th.outcome = 'nofit'; BK().stats.nosAbsorbed += 1;
-        threadLog(th, 'mine', t('declined politely for you. no rejection was sent to your screen.'), { status: 'declined-privately' });
       } else {
         th.stage = 'needs-you'; th.expiresAt = Date.now() + 9 * 60 * 1000;
-        th.theySaid = hash(`${threadPerson(th).id}${th.seed}yes`) > 0.18 ? 'yes' : 'no';
-        if (th.theySaid === 'no') {
-          th.stage = 'declined'; th.outcome = 'nofit'; BK().stats.nosAbsorbed += 1;
-          threadLog(th, 'mine', t('declined politely for you. no rejection was sent to your screen.'), { status: 'declined-privately' });
-        } else {
-          threadLog(th, 'peer', t('the other person is open to meeting. this choice is yours.'), { status: 'needs-you', humanDecision: th.theySaid });
-          if (BK().autonomy === 'act') { th.youSaid = 'yes'; revealMoment(th); }
-        }
+        th.theySaid = 'yes';
+        threadLog(th, 'peer', t('the other person is open to meeting. this choice is yours.'), { status: 'needs-you', humanDecision: th.theySaid });
+        if (BK().autonomy === 'act') { th.youSaid = 'yes'; revealMoment(th); }
       }
     } else if (th.stage === 'needs-you' && th.theySaid === 'no') {
       th.stage = 'declined'; th.outcome = 'nofit'; BK().stats.nosAbsorbed += 1;
@@ -1402,21 +1432,26 @@
     <p class="hook">${esc(th.hook || t('finding a shared thread'))}</p>
     <div class="small muted">${esc(th.kind === 'walk' ? t('walk to your next session') : `${th.minutes} min · ${th.place} · ${fmtTime(th.start)}`)}</div>${threadProgress(th)}</button>`;
   function backstageGraph() {
-    const list = activeThreads().slice(0, 5); const cx = 170, cy = 92, radius = 66;
+    const active = activeThreads().slice(0, 8);
+    const terminal = BK().threads.filter((x) => TERMINAL_THREADS.has(x.stage)).sort((a, b) => b.createdAt - a.createdAt || (b.seed || 0) - (a.seed || 0)).slice(0, Math.max(0, 8 - active.length));
+    const list = [...active, ...terminal];
+    const newest = list.slice().sort((a, b) => b.createdAt - a.createdAt || (b.seed || 0) - (a.seed || 0))[0]?.id;
+    const cx = 170, cy = 100, radius = 70;
     const colors = { discover: '#7d8ab5', overlap: '#18c39a', propose: '#3fb6ff', negotiate: '#ffc23d', 'needs-you': '#ff5a4e', confirmed: '#0c2bd8', live: '#8b5cf6' };
-    return `<div class="backstage-graph"><svg viewBox="0 0 340 184" role="img" aria-label="${t('live agent graph')}">
-      ${list.map((th, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / Math.max(1, list.length); const x = cx + radius * Math.cos(a), y = cy + radius * Math.sin(a); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${colors[th.stage] || '#9aa4c6'}" class="graph-edge ${i === 0 ? 'recent' : ''}"/><g class="graph-node" data-action="thread-open" data-id="${th.id}" tabindex="0"><circle cx="${x}" cy="${y}" r="24"/><text x="${x}" y="${y + 4}">${esc(initials(threadName(th)))}</text></g>`; }).join('')}
+    return `<div class="backstage-graph"><svg viewBox="0 0 340 200" role="img" aria-label="${t('live agent graph')}">
+      ${list.map((th, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / Math.max(1, list.length); const x = cx + radius * Math.cos(a), y = cy + radius * Math.sin(a); const peer = threadPerson(th); const dim = TERMINAL_THREADS.has(th.stage); const edge = th.stage === 'blocked' ? '#ff5a4e' : colors[th.stage] || '#9aa4c6'; return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${edge}" class="graph-edge ${th.stage === 'declined' ? 'declined' : ''} ${th.stage === 'blocked' ? 'blocked' : ''} ${th.id === newest ? 'recent' : ''}"/><g class="graph-node ${dim ? 'dim' : ''} ${persona(peer).cls}" data-action="thread-open" data-id="${th.id}" tabindex="0"><circle cx="${x}" cy="${y}" r="22"/><text x="${x}" y="${y + 5}">${th.revealed ? esc(initials(peer?.name || '?')) : '?'}</text>${th.stage === 'blocked' ? `<text class="graph-shield" x="${x + 15}" y="${y - 14}">🛡</text>` : ''}</g>`; }).join('')}
       <circle cx="${cx}" cy="${cy}" r="30" class="graph-me"/><text x="${cx}" y="${cy + 4}" class="graph-me-label">${esc(initials(state.me.name))}</text></svg>
-      ${list.length ? '' : `<div class="graph-empty">${t('your agent is listening for a useful overlap.')}</div>`}</div>`;
+      ${list.length ? '' : `<div class="graph-empty">${t('your agent is listening for a useful overlap.')}</div>`}<div class="graph-legend">${t('discover')} · ${t('negotiate')} · ${t('needs you')} · ${t('confirmed')}</div></div>`;
   }
   function viewBackstage() {
     const active = activeThreads();
     const needs = active.filter((x) => x.stage === 'needs-you');
     const negotiating = active.filter((x) => ['discover', 'overlap', 'propose', 'negotiate'].includes(x.stage));
     const confirmed = active.filter((x) => ['confirmed', 'live'].includes(x.stage));
-    const closed = BK().threads.filter((x) => TERMINAL_THREADS.has(x.stage)).slice(-5).reverse();
+    const declined = BK().threads.filter((x) => x.stage === 'declined').reverse();
+    const closed = BK().threads.filter((x) => x.stage === 'blocked' || x.stage === 'done').slice(-5).reverse();
     const s = BK().stats;
-    const story = t('while you were in sessions, your agent talked to {agents} agents, absorbed {nos} no’s, lined up {moments} moments, found {sparks} sparks, and blocked {blocked} agent that tried to break your rules.', { agents: s.agents, nos: s.nosAbsorbed, moments: s.moments, sparks: s.sparks, blocked: s.blocked });
+    const story = backstageStory(s);
     const charter = BK().charter;
     return `<h1 class="page-title">${t('backstage')}</h1><p class="page-sub">${t('what your agent is doing for you right now. every other agent here is simulated.')}</p>
       <div class="card backstage-controls"><div class="row between"><label class="check"><input type="checkbox" data-action="backstage-live" ${BK().live ? 'checked' : ''}/> ${t('agent live')}</label>
@@ -1427,7 +1462,9 @@
       <h2 class="section">${t('needs you')} <small>${needs.length}</small></h2>${needs.map(threadCard).join('') || `<div class="card empty small">${t('nothing needs your decision right now.')}</div>`}
       <h2 class="section">${t('negotiating')} <small>${negotiating.length}</small></h2>${negotiating.map(threadCard).join('') || `<div class="card empty small">${t('your agent is waiting for a good opening.')}</div>`}
       <h2 class="section">${t('confirmed moments')} <small>${confirmed.length}</small></h2>${confirmed.map(threadCard).join('') || `<div class="card empty small">${t('no moments on the calendar yet.')}</div>`}
-      <h2 class="section">${t('closed threads')} <small>${closed.length}</small></h2>${closed.map(threadCard).join('') || `<div class="card empty small">${t('no closed threads yet.')}</div>`}
+      <h2 class="section">${t('closed threads')} <small>${declined.length + closed.length}</small></h2>
+      ${declined.length ? `<button class="card decline-summary" data-action="toggle-declines">${t(declined.length === 1 ? '1 polite no absorbed for you' : '{n} polite no’s absorbed for you', { n: declined.length })}<span>${ui.declinesExpanded ? '−' : '+'}</span></button>${ui.declinesExpanded ? `<div class="decline-list">${declined.map(threadCard).join('')}</div>` : ''}` : ''}
+      ${closed.map(threadCard).join('') || (!declined.length ? `<div class="card empty small">${t('no closed threads yet.')}</div>` : '')}
       <div class="card charter-card"><div class="row between"><h3>${t('your charter')}</h3><button class="btn ghost sm" data-action="open-charter">${t('edit')}</button></div>
         <div class="chips"><span class="chip good">✓ ${t('hide my name until yes')}</span><span class="chip good">✓ ${t('share topics only')}</span><span class="chip good">✓ ${t('max {n} moments an hour', { n: charter.maxPerHour })}</span><span class="chip ${charter.protectHeadliner ? 'good' : 'bad'}">${charter.protectHeadliner ? '✓' : '⊘'} ${t('protect the headliner')}</span></div>
         <div class="small muted" style="margin-top:8px">${t('autonomy')}: ${t(BK().autonomy)} · ${t('quiet after')} ${charter.quietAfter}</div></div>
@@ -1452,7 +1489,7 @@
     const needs = activeThreads().filter((x) => x.stage === 'needs-you').length;
     const next = activeThreads().filter((x) => x.stage === 'confirmed').sort((a, b) => threadStartMs(a) - threadStartMs(b))[0];
     const negotiating = activeThreads().filter((x) => ['discover', 'overlap', 'propose', 'negotiate'].includes(x.stage)).length;
-    const status = !BK().live ? t('paused') : BK().beacon.mode === 'heads-down' ? t('heads-down') : needs ? t('{n} moment needs you', { n: needs }) : next ? t('next moment {time} · {left}', { time: fmtTime(next.start), left: cdShort({ day: next.day, start: next.start }) }) : t('negotiating with {n}', { n: negotiating });
+    const status = !BK().live ? t('paused') : BK().beacon.mode === 'heads-down' ? t('heads-down') : needs ? t(needs === 1 ? '1 moment needs you' : '{n} moments need you', { n: needs }) : next ? t('next moment {time} · {left}', { time: fmtTime(next.start), left: cdShort({ day: next.day, start: next.start }) }) : t('negotiating with {n}', { n: negotiating });
     const ledger = BK().threads.slice(-3).reverse().map((th) => `<div class="island-ledger">${esc(th.stage === 'declined' ? t('declined politely for you') : th.stage === 'blocked' ? t('agent blocked') : `${t(th.stage)} · ${th.hook}`)}</div>`).join('');
     return `<div class="agent-island-wrap"><button class="agent-island" data-action="island-toggle"><span class="island-dot ${BK().live ? 'pulse' : ''}"></span><b>${esc(status)}</b><span>${activeThreads().length}</span></button>
       ${ui.islandOpen ? `<div class="island-expanded">${ledger || `<div class="island-ledger">${t('your agent is ready.')}</div>`}<button class="btn ghost sm" data-action="go" data-tab="backstage">${t('open backstage')}</button></div>` : ''}</div>`;
@@ -1484,7 +1521,7 @@
   }
   function openThreadSheet(th) {
     if (!th) return;
-    const jsonMessages = th.msgs.map((m) => `<div class="thread-msg ${m.flag === 'injection' ? 'flagged' : ''}"><div class="small muted">${esc(m.from)} → ${esc(m.to)}${m.flag === 'injection' ? ` <span class="shield-chip">◆ ${t('untrusted instruction blocked')}</span>` : ''}</div><p>${esc(m.text)}</p><details><summary>${t('a2a json')}</summary><pre>${esc(JSON.stringify(m.json, null, 2))}</pre></details></div>`).join('');
+    const jsonMessages = th.msgs.map((m) => `<div class="thread-msg ${m.flag === 'injection' ? 'flagged' : ''}"><div class="small muted">${esc(m.from)} → ${esc(m.to)}${m.flag === 'injection' ? ` <span class="shield-chip">🛡 ${t('untrusted instruction blocked')}</span>` : ''}</div><p>${esc(m.text)}</p><details><summary>${t('a2a json')}</summary><pre>${esc(JSON.stringify(m.json, null, 2))}</pre></details></div>`).join('');
     const actions = th.stage === 'needs-you' ? `<div class="moment-pillbar"><button class="btn" data-action="thread-yes" data-id="${th.id}">${t('yes')}</button><button class="btn secondary" data-action="thread-not-now" data-id="${th.id}">${t('not now')}</button><button class="btn ghost" data-action="thread-ask" data-id="${th.id}">${t('ask my agent')}</button></div>` : '';
     openSheet(t('agent thread'), `<div class="thread-sheet">
       <div class="row wrap"><span class="chip">${t(th.kind)}</span><span class="chip">${t(th.stage)}</span>${th.inbound ? `<span class="chip good">${t('inbound')}</span>` : ''}</div>
@@ -1698,7 +1735,8 @@
       }
       save(); closeSheet(); render(); toast(outcome === 'spark' ? t('spark saved. follow-up added.') : t('thanks. your agent learned from that.'));
     },
-    'icebreaker-new': (el) => { const th = threadById(el.dataset.id); th.icebreaker.q = t('what is one idea you changed your mind about recently?'); th.icebreaker.mine = ''; th.icebreaker.theirs = ''; save(); openRevealSheet(th); },
+    'icebreaker-new': (el) => { const th = threadById(el.dataset.id); if (!th) return; const index = th.icebreaker.index ?? Math.floor(hash(th.id) * ICEBREAKERS.length); th.icebreaker.index = (index + 1) % ICEBREAKERS.length; th.icebreaker.q = t(ICEBREAKERS[th.icebreaker.index][0]); th.icebreaker.mine = ''; th.icebreaker.theirs = ''; save(); openRevealSheet(th); },
+    'toggle-declines': () => { ui.declinesExpanded = !ui.declinesExpanded; render(); },
     'close-sheet': closeSheet,
     seg: (el) => { ui[el.dataset.key] = el.dataset.val; render(); },
     'pick-day': (el) => { ui[el.dataset.key] = Number(el.dataset.day); render(); },
@@ -1822,9 +1860,8 @@
     icebreaker: (fd, form) => {
       const th = threadById(form.dataset.id); if (!th) return;
       th.icebreaker.mine = fd.get('answer').trim();
-      const p = threadPerson(th);
-      th.icebreaker.theirs = t('i would start by asking someone who has already tried it.');
-      if (p) th.icebreaker.theirs = t('i would test one small change and compare notes.');
+      th.icebreaker.index ??= Math.floor(hash(th.id) * ICEBREAKERS.length);
+      th.icebreaker.theirs = t(ICEBREAKERS[th.icebreaker.index][1]);
       save(); openRevealSheet(th);
     },
     person: (fd, form) => {

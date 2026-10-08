@@ -20,7 +20,11 @@ const alertCleaner = setInterval(() => {
 alertCleaner.unref?.();
 const base = process.env.BASE_URL || 'http://127.0.0.1:8080/';
 const shots = process.env.SHOT_DIR || '/Users/devin/shots/v2';
-const shot = async (name) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true });
+const shot = async (name, selector = 'body') => {
+  const target = page.locator(selector).first();
+  if (await target.count()) await target.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: false });
+};
 const widthCheck = async () => {
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   assert.ok(width <= 390, `horizontal overflow: scrollWidth=${width}`);
@@ -29,7 +33,7 @@ await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); }
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#sheet-root .sheet');
 assert.match(await page.locator('#sheet-root').innerText(), /meet your agent/i);
-await shot('charter-sheet');
+await shot('charter-sheet', '#sheet-root .sheet');
 await page.locator('input[name="give"]').fill('facilitation');
 await page.locator('input[name="ask"]').fill('AI adoption');
 await page.locator('[data-form="charter"] button[type="submit"], [data-form="charter"] button').click();
@@ -46,10 +50,11 @@ if (!needsYouCount) {
   throw new Error(`fast-forward should surface a needs-you card: ${JSON.stringify({ stats: debug.stats, threads: debug.threads.map((t) => ({ stage: t.stage, kind: t.kind, day: t.day, start: t.start, expiresAt: t.expiresAt })), mode: debug.beacon.mode })}`);
 }
 await widthCheck();
-await shot('now-light');
+await shot('now-light', '.needs-you-card');
+await shot('now-needs-you', '.needs-you-card');
 await page.emulateMedia({ colorScheme: 'dark' });
 await widthCheck();
-await shot('now-dark');
+await shot('now-dark', '.needs-you-card');
 await page.emulateMedia({ colorScheme: 'light' });
 
 let reveal = false;
@@ -70,7 +75,10 @@ for (let i = 0; i < 8 && !reveal; i++) {
   }
 }
 assert.ok(reveal, 'a mutual yes should open the reveal sheet');
-await shot('reveal-sheet');
+const revealColor = await page.locator('#sheet-root .reveal-sheet').evaluate((el) => getComputedStyle(el).backgroundColor);
+const revealAlpha = revealColor.startsWith('rgba(') ? Number(revealColor.match(/,\s*([\d.]+)\)$/)?.[1]) : 1;
+assert.equal(revealAlpha, 1, `reveal sheet background must be opaque; got ${revealColor}`);
+await shot('reveal-sheet', '#sheet-root .reveal-sheet');
 await page.locator('[data-form="icebreaker"] input[name="answer"]').fill('Try a tiny experiment with the team.');
 await page.locator('[data-form="icebreaker"] button').click();
 await page.waitForSelector('.ice-answer');
@@ -82,17 +90,38 @@ await widthCheck();
 await page.locator('[data-tab="backstage"]').click();
 await page.waitForSelector('.backstage-graph');
 assert.ok(await page.locator('.backstage-stats').count(), 'backstage stats should render');
-await shot('backstage-top');
-await page.locator('[data-action="fast-forward"]').click();
+assert.doesNotMatch(await page.locator('.story-card').innerText(), /\s0\s/, 'story must omit zero-count clauses');
+await shot('backstage-top', '.page-title');
+for (let i = 0; i < 3; i++) await page.locator('[data-action="fast-forward"]').click();
+const uniqueAfterThree = await page.evaluate(() => {
+  const threads = JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.filter((thread) => thread.stage !== 'declined');
+  const firstIds = threads.map((thread) => thread.personIds[0]);
+  return new Set(firstIds).size === firstIds.length;
+});
+assert.ok(uniqueAfterThree, 'three fast-forwards must not reuse a non-declined primary peer');
+const needsYouId = await page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.stage === 'needs-you')?.id);
+if (needsYouId) {
+  await page.locator(`[data-action="thread-open"][data-id="${needsYouId}"]`).first().click();
+  await page.locator(`[data-action="thread-not-now"][data-id="${needsYouId}"]`).click();
+  await page.locator(`[data-action="thread-reason"][data-id="${needsYouId}"]`).first().click();
+}
+for (let i = 0; i < 12 && await page.locator('.backstage-graph .graph-node').count() < 5; i++) {
+  await page.locator('[data-action="fast-forward"]').click();
+}
+const graphNodeCount = await page.locator('.backstage-graph .graph-node').count();
+const graphThreads = await page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.map((thread) => thread.stage));
+assert.ok(graphNodeCount >= 5, `graph screenshot needs at least five nodes; got ${graphNodeCount} (${graphThreads.join(', ')})`);
+await shot('backstage-graph', '.backstage-graph');
 await page.waitForFunction(() => {
   const state = JSON.parse(localStorage.getItem('r4-networking-v2') || '{}');
   return state.backstage?.threads?.some((t) => t.msgs?.length);
 });
-await shot('backstage-threads');
+await shot('backstage-threads', '.backstage-stats');
 await page.locator('[data-action="thread-open"]').first().click();
+assert.ok(await page.locator('.thread-transcript details').evaluateAll((details) => details.every((item) => !item.open)), 'A2A details must be collapsed by default');
+await shot('thread-sheet', '.thread-sheet');
 await page.locator('.thread-transcript details summary').first().click();
 assert.match(await page.locator('#sheet-root').innerText(), /a2a json/i);
-await shot('thread-sheet');
 await page.locator('[data-action="close-sheet"]').first().click();
 for (let i = 0; i < 8; i++) {
   await page.locator('[data-action="fast-forward"]').click();
@@ -103,10 +132,10 @@ const blocked = await page.evaluate(() => JSON.parse(localStorage.getItem('r4-ne
 assert.equal(blocked, 1, 'exactly one injection should be blocked');
 
 await page.locator('[data-action="open-charter"]').click();
-await shot('charter-sheet');
+await shot('charter-sheet', '#sheet-root .sheet');
 await page.locator('[data-action="close-sheet"]').first().click();
 await page.locator('[data-action="island-toggle"]').click();
-await shot('island-expanded');
+await shot('island-expanded', '.agent-island');
 
 const liveId = await page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((t) => t.stage === 'confirmed')?.id);
 if (liveId) {
@@ -119,7 +148,7 @@ if (liveId) {
 } else {
   throw new Error('expected a confirmed moment to start');
 }
-await shot('moment-live-sheet');
+await shot('moment-live-sheet', '.moment-live');
 await page.locator('[data-action="moment-here"]').click();
 await page.waitForTimeout(1700);
 await page.locator('[data-action="moment-end"]').click();
@@ -136,7 +165,7 @@ for (const language of ['es', 'pt']) {
   }
   if (language === 'es') {
     await page.locator('.tab[data-tab="backstage"]').click();
-    await shot('es-backstage');
+    await shot('es-backstage', '.backstage-graph');
   }
 }
 const oldVersion = await page.evaluate(() => {
