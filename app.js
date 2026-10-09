@@ -1069,6 +1069,7 @@
     const { topic, complement } = th.hookData;
     return `${t('you both care about {topic}', { topic })}${complement ? `. ${t(complement.key, complement)}` : ''}`;
   }
+  const placeText = (th) => th.placeOverride || t(th.place);
   const openerText = (th) => th?.hookData?.topic
     ? t('what is one thing you are learning about {topic} right now?', { topic: th.hookData.topic })
     : th?.opener || '';
@@ -1585,7 +1586,7 @@
   const threadCard = (th) => `<button class="card thread-card" data-action="thread-open" data-id="${th.id}">
     <div class="row between"><b>${esc(th.stage === 'needs-you' ? t('a moment needs you') : th.stage === 'blocked' ? t('agent blocked') : threadName(th))}</b><span class="row">${th.stage === 'done' && th.outcome ? `<span class="chip ${['missed', 'unrated'].includes(th.outcome) ? 'warn' : 'good'}">${t(th.outcome === 'nofit' ? 'no fit' : th.outcome)}</span>` : ''}<span class="chip ${th.stage === 'needs-you' ? 'warn' : th.stage === 'blocked' ? 'bad' : 'good'}">${t(th.stage)}</span></span></div>
     <p class="hook">${esc(hookText(th))}</p>
-    <div class="small muted">${esc(th.kind === 'walk' ? t('walk to your next session') : `${th.minutes} min · ${t(th.place)} · ${fmtTime(th.start)}`)}</div>${threadProgress(th)}</button>`;
+    <div class="small muted">${esc(th.kind === 'walk' ? t('walk to your next session') : `${th.minutes} min · ${placeText(th)} · ${fmtTime(th.start)}`)}</div>${threadProgress(th)}</button>`;
   function backstageGraph() {
     const active = activeThreads().slice(0, 8);
     const terminal = BK().threads.filter((x) => TERMINAL_THREADS.has(x.stage)).sort((a, b) => b.createdAt - a.createdAt || (b.seed || 0) - (a.seed || 0)).slice(0, Math.max(0, 8 - active.length));
@@ -1634,7 +1635,7 @@
     const p = threadPerson(th);
     const label = plabel(p || { persona: 'peer' });
     const who = lang() === 'en' ? aPersona(label) : t('perfil {persona}', { persona: label });
-    const place = th.kind === 'walk' ? t('on the way to your next session') : t('the {place}', { place: t(th.place) });
+    const place = th.kind === 'walk' ? t('on the way to your next session') : t('the {place}', { place: placeText(th) });
     return t('could {who} and {me} meet for {minutes} minutes at {time}, {place}?', {
       who, me: state.me.name, minutes: th.minutes, time: fmtTime(th.start), place,
     });
@@ -1648,7 +1649,7 @@
     const who = lang() === 'en' ? aPersona(label) : t('perfil {persona}', { persona: label });
     return `<article class="card needs-you-card">
       <div class="row between"><span class="chip warn"><i class="expiry-ring" style="--expiry:${Math.max(0, Math.min(1, (th.expiresAt - Date.now()) / 540000))}"></i>${t('needs you')} · ${untilText(th.expiresAt - Date.now())}</span><span class="blur-avatar">${nameVisible(th) ? esc(initials(p?.name || '?')) : '?'}</span></div>
-      <h2 class="hook">${esc(hookText(th))}</h2><p class="small muted">${t('{who} · {minutes} min · {place} · {time}', { who, minutes: th.minutes, place: t(th.place), time: fmtTime(th.start) })}</p>
+      <h2 class="hook">${esc(hookText(th))}</h2><p class="small muted">${esc(t('{who} · {minutes} min · {place} · {time}', { who, minutes: th.minutes, place: placeText(th), time: fmtTime(th.start) }))}</p>
       <div class="row moment-actions"><button class="btn" data-action="thread-yes" data-id="${th.id}">${t('yes')}</button><button class="btn secondary" data-action="thread-not-now" data-id="${th.id}">${t('not now')}</button></div></article>`;
   }
   function viewNowMoments() {
@@ -1656,7 +1657,7 @@
     const needs = activeThreads().filter((x) => x.stage === 'needs-you');
     const next = activeThreads().filter((x) => x.stage === 'confirmed').sort((a, b) => threadStartMs(a) - threadStartMs(b))[0];
     return `${needs.length || drafts.length ? `<h2 class="section">${t('needs you')} <small>${needs.length + drafts.length}</small></h2>${drafts.map(draftCard).join('')}${needs.map(momentNeedsYou).join('')}` : ''}
-      ${next ? `<button class="card next-moment" data-action="thread-open" data-id="${next.id}"><div class="row between"><b>${t('next moment')}</b><span class="chip good">${cdShort({ day: next.day, start: next.start })}</span></div><p class="hook">${esc(hookText(next))}</p><div class="small muted">${fmtTime(next.start)} · ${esc(t(next.place))}</div><span class="btn sm" data-action="moment-start" data-id="${next.id}">${t('start now')}</span></button>` : ''}`;
+      ${next ? `<button class="card next-moment" data-action="thread-open" data-id="${next.id}"><div class="row between"><b>${t('next moment')}</b><span class="chip good">${cdShort({ day: next.day, start: next.start })}</span></div><p class="hook">${esc(hookText(next))}</p><div class="small muted">${fmtTime(next.start)} · ${esc(placeText(next))}</div><span class="btn sm" data-action="moment-start" data-id="${next.id}">${t('start now')}</span></button>` : ''}`;
   }
   function islandHtml() {
     if (!BK().onboarded) return `<button class="agent-island setup-island" data-action="open-charter"><span class="island-dot"></span><b>${t('set up your agent')}</b><span>→</span></button>`;
@@ -1699,7 +1700,7 @@
     const actions = th.stage === 'needs-you' ? `<div class="moment-pillbar"><button class="btn" data-action="thread-yes" data-id="${th.id}">${t('yes')}</button><button class="btn secondary" data-action="thread-not-now" data-id="${th.id}">${t('not now')}</button><button class="btn ghost" data-action="thread-ask" data-id="${th.id}">${t('ask my agent')}</button></div>` : '';
     openSheet(t('agent thread'), `<div class="thread-sheet">
       <div class="row wrap"><span class="chip">${t(th.kind)}</span><span class="chip">${t(th.stage)}</span>${th.inbound ? `<span class="chip good">${t('inbound')}</span>` : ''}</div>
-      <h2 class="hook">${esc(hookText(th))}</h2><p class="small muted">${esc(th.kind === 'walk' ? t('walk to your next session') : `${fmtTime(th.start)} · ${th.minutes} min · ${t(th.place)}`)}</p>
+      <h2 class="hook">${esc(hookText(th))}</h2><p class="small muted">${esc(th.kind === 'walk' ? t('walk to your next session') : `${fmtTime(th.start)} · ${th.minutes} min · ${placeText(th)}`)}</p>
       ${threadProgress(th)}<div class="thread-transcript">${jsonMessages || `<p class="small muted">${t('messages will appear here.')}</p>`}</div>
       ${th.stage === 'confirmed' ? `<button class="btn block" data-action="moment-start" data-id="${th.id}">${t('start now')}</button>` : ''}
       ${actions}</div>`);
@@ -1708,7 +1709,7 @@
     const p = threadPerson(th);
     openSheet('', `<div class="reveal-content"><div class="reveal-kicker">${t('a moment, made together')}</div><h1>${t('you both said yes')}</h1>
       <div class="reveal-cards"><div class="reveal-card">${esc(initials(state.me.name))}<small>${t('you')}</small></div><div class="reveal-spark">✦</div><div class="reveal-card">${esc(initials(p?.name || '?'))}<small>${esc(first(p?.name || t('someone')))}</small></div></div>
-      <p class="hook">${esc(hookText(th))}</p><div class="reveal-place">${fmtTime(th.start)} · ${esc(t(th.place))}</div>
+      <p class="hook">${esc(hookText(th))}</p><div class="reveal-place">${fmtTime(th.start)} · ${esc(placeText(th))}</div>
       <div class="icebreaker"><b>${t('answer this, see theirs once you both have')}</b><p>${esc(icebreakerQuestion(th))}</p>
         ${th.icebreaker.mine ? `<div class="ice-answer"><span>${t('your answer')}</span>${esc(th.icebreaker.mine)}</div><div class="ice-answer"><span>${t('their answer')}</span>${esc(icebreakerAnswer(th))}</div>` :
           `<form data-form="icebreaker" data-id="${th.id}" class="row"><input name="answer" required maxlength="120" placeholder="${t('write your answer')}" /><button class="btn sm">${t('send')}</button></form>`}
@@ -1725,7 +1726,7 @@
     const people = th.personIds.map(personById).filter(Boolean);
     const promiseLine = promiseText(th) ? `<div class="card tight"><b>${t('what you each promised')}</b><p>${esc(promiseText(th))}</p></div>` : '';
     openSheet(t('your moment'), `<div class="moment-live">
-      <div class="moment-clock">${pad(mins)}:${pad(secs)}</div><div class="small muted">${t('{name} · {place}', { name: people.map((x) => x.name).join(' + '), place: t(th.place) })}</div>
+      <div class="moment-clock">${pad(mins)}:${pad(secs)}</div><div class="small muted">${esc(t('{name} · {place}', { name: people.map((x) => x.name).join(' + '), place: placeText(th) }))}</div>
       <div class="card"><span class="chip good">${t('the hook')}</span><h2 class="hook">${esc(hookText(th))}</h2><p>${esc(openerText(th))}</p></div>
       <div class="exit-nudge" ${th.exitNudged ? '' : 'hidden'}>${esc(exitLineText(th))}</div>
       <button class="btn block handshake ${th.here ? 'good' : ''}" data-action="moment-here" data-id="${th.id}">${th.peerHere ? `✓ ${t('you are both here')}` : t('we’re here')}</button>
@@ -1835,7 +1836,7 @@
         <button class="btn danger sm" data-action="delete-session" data-id="${s.id}">${t('delete')}</button></div>`);
     updateCountdowns();
   }
-  const foundationText = () => `© 2026 AiGovOps Foundation · ${t('open source (Apache-2.0)')} · <a href="https://www.aigovops-foundation.com" target="_blank" rel="noopener">www.aigovops-foundation.com</a>`;
+  const foundationText = () => `© 2026 AiGovOps Foundation · ${t('open source (MIT)')} · <a href="https://www.aigovops-foundation.com" target="_blank" rel="noopener">www.aigovops-foundation.com</a>`;
   const foundationFooter = () => `<footer class="foundation-footer">${foundationText()}</footer>`;
   function settingsSheet() {
     const m = state.me;
@@ -2100,6 +2101,7 @@
         if (th) {
           th.day = s.day; th.start = s.start;
           th.minutes = toMin(s.end) - toMin(s.start);
+          th.placeOverride = s.location !== s.autoLocation ? s.location : '';
         }
       }
       save(); ui.day = s.day; render(); sessionDetail(s.id);
