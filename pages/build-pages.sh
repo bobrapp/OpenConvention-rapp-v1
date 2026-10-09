@@ -4,7 +4,7 @@
 # VERSIONS entries: branch:folder:maker[:app subfolder inside the branch]
 set -euo pipefail
 OUT=${1:-_site}
-VERSIONS=("Devin-v1:devin:Devin" "Claude-v1:claude:Claude:claude-v1" "Muse-v1:muse:Muse")
+VERSIONS=("Devin-v1:devin:Devin" "Devin-v2:devin-v2:Devin v2" "Claude-v1:claude:Claude:claude-v1" "Muse-v1:muse:Muse")
 
 git fetch --quiet origin
 rm -rf "$OUT"; mkdir -p "$OUT"
