@@ -6,6 +6,16 @@ const i18n = fs.readFileSync(new URL('../i18n.js', import.meta.url), 'utf8');
 const calls = /\b(?:t|_)\s*\(\s*('(?:\\.|[^'\\])*')/g;
 const keys = new Set();
 for (const match of source.matchAll(calls)) keys.add(vm.runInNewContext(match[1]));
+const DYNAMIC_KEYS = [
+  'discover', 'overlap', 'propose', 'negotiate', 'needs-you', 'confirmed', 'live', 'done', 'declined', 'blocked',
+  '1:1', 'walk', 'trio',
+  'discover', 'overlap', 'propose', 'agree', 'you', 'meet',
+  'discover', 'overlap', 'propose', 'negotiating', 'needs you', 'confirmed', 'live', 'done',
+  'coffee bar', 'lounge', 'atrium', 'garden room',
+  'ask me', 'suggest', 'act',
+  'they want {ask}; you offer {give}', 'you want {ask}; they offer {give}',
+];
+for (const key of DYNAMIC_KEYS) keys.add(key);
 
 const window = {};
 vm.runInNewContext(i18n, { window });

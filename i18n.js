@@ -1908,10 +1908,32 @@ Object.assign(window.R4_I18N.pt, {
 Object.assign(window.R4_I18N.es, {
  "perfil {persona}": "perfil {persona}",
  "{who} · {minutes} min · {place} · {time}": "{who} · {minutes} min · {place} · {time}",
- "could {who} and {me} meet for {minutes} minutes at {time}, {place}?": "¿podrían {me} y {who} reunirse durante {minutes} minutos a las {time} en {place}?"
+ "could {who} and {me} meet for {minutes} minutes at {time}, {place}?": "¿podrían {me} y {who} reunirse durante {minutes} minutos a las {time} en {place}?",
+ "agree": "de acuerdo",
+ "coffee bar": "barra de café",
+ "lounge": "salón",
+ "atrium": "atrio",
+ "garden room": "sala del jardín",
+ "sharing roles and topics. contact details stay private.": "compartimos roles y temas. los datos de contacto siguen siendo privados.",
+ "your event dates are over. change them in settings to see new moments.": "las fechas de tu evento terminaron. cámbialas en ajustes para ver nuevos encuentros.",
+ "no hourly limit": "sin límite por hora",
+ "your agent drafted a first message": "tu agente redactó un primer mensaje",
+ "send it": "enviar",
+ "skip": "saltar"
 });
 Object.assign(window.R4_I18N.pt, {
  "perfil {persona}": "perfil {persona}",
  "{who} · {minutes} min · {place} · {time}": "{who} · {minutes} min · {place} · {time}",
- "could {who} and {me} meet for {minutes} minutes at {time}, {place}?": "{me} e {who} poderiam se encontrar por {minutes} minutos às {time}, {place}?"
+ "could {who} and {me} meet for {minutes} minutes at {time}, {place}?": "{me} e {who} poderiam se encontrar por {minutes} minutos às {time}, {place}?",
+ "agree": "concordar",
+ "coffee bar": "bar de café",
+ "lounge": "sala de estar",
+ "atrium": "átrio",
+ "garden room": "sala do jardim",
+ "sharing roles and topics. contact details stay private.": "compartilhamos funções e temas. os dados de contato continuam privados.",
+ "your event dates are over. change them in settings to see new moments.": "as datas do seu evento terminaram. altere-as nas configurações para ver novos encontros.",
+ "no hourly limit": "sem limite por hora",
+ "your agent drafted a first message": "seu agente redigiu uma primeira mensagem",
+ "send it": "enviar",
+ "skip": "pular"
 });
