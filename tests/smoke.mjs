@@ -39,6 +39,9 @@ const shotOn = async (targetPage, name, selector = 'body') => {
 const makeScenario = async () => {
   const scenarioContext = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const scenarioPage = await scenarioContext.newPage();
+  await scenarioPage.addInitScript(() => {
+    setInterval(() => document.querySelector('#alert-root .alert-pop')?.remove(), 250);
+  });
   scenarioPage.on('console', (msg) => { if (msg.type() === 'error') errors.push(`scenario console: ${msg.text()}`); });
   scenarioPage.on('pageerror', (error) => errors.push(`scenario pageerror: ${error.message}`));
   await scenarioPage.goto(base, { waitUntil: 'domcontentloaded' });
