@@ -28,4 +28,4 @@ Devin v2 makes short-term convention connections the visible outcome and simulat
 
 ## License
 
-Copyright 2026 AiGovOps Foundation. This project is shared under the Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Copyright 2026 AiGovOps Foundation. This project is shared under the MIT License; see [LICENSE](LICENSE).

@@ -1924,7 +1924,7 @@ Object.assign(window.R4_I18N.es, {
  "this offer expired. your agent will keep looking.": "esta oferta venció. tu agente seguirá buscando.",
  "missed": "no se realizó",
  "unrated": "sin calificar",
- "open source (Apache-2.0)": "código abierto (Apache-2.0)",
+ "open source (MIT)": "código abierto (MIT)",
  "about": "acerca de",
  "source repository": "repositorio de código"
 });
@@ -1947,7 +1947,7 @@ Object.assign(window.R4_I18N.pt, {
  "this offer expired. your agent will keep looking.": "esta oferta expirou. seu agente continuará procurando.",
  "missed": "não aconteceu",
  "unrated": "sem avaliação",
- "open source (Apache-2.0)": "código aberto (Apache-2.0)",
+ "open source (MIT)": "código aberto (MIT)",
  "about": "sobre",
  "source repository": "repositório do código"
 });

@@ -596,7 +596,14 @@ button.chip { cursor: pointer; }
   .app, .tabbar { background: var(--bg); }
   .foundation-footer a, .foundation-line a, .foundation-about > a { color: #b7c7ff; }
   .card, .agent-island, .island-expanded, .backstage-stats > div { color: var(--ink); }
+  .seg { background: var(--card); }
+  .stat, .list-item, .search, .field input, .field select, .field textarea, .t-card, .web-wrap, .report {
+    background: var(--card); color: var(--ink);
+  }
+  .msg, .msg.peer, .msg.dir { background: var(--card); color: var(--ink); }
+  .t-work { background: repeating-linear-gradient(-45deg, var(--card), var(--card) 8px, var(--bg) 8px, var(--bg) 16px); color: var(--ink); }
   .btn.secondary, .vote { background: #222d50; color: var(--ink); border-color: var(--line); }
+  .btn.secondary:hover { background: #303c66; color: var(--ink); }
   .hl-strip { background: #1a2240; color: var(--ink); }
   .thread-msg, .permission-row { color: var(--ink); }
   .story-card { color: #fff; }
