@@ -557,13 +557,37 @@ assert.equal(localizedSession.notes, 'my private notes', 'sync must preserve man
 assert.equal(localizedSession.location, localizedSession.autoLocation, 'restoring the auto location should restore the translated location');
 assert.doesNotMatch(localizedSession.topic, /you both care about/i, 'automatic moment topic should follow the selected language');
 const restoredThread = await syncScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id), syncIds.threadId);
-assert.equal(restoredThread.placeOverride, '', 'restoring the auto location should clear the thread override');
+assert.equal(restoredThread.placeOverride, null, 'restoring the auto location should clear the thread override');
 assert.doesNotMatch(localizedSession.location, /coffee bar|lounge|atrium|garden room/i, 'automatic location should follow the selected language');
 await syncScenario.scenarioPage.locator('.tab[data-tab="backstage"]').click();
 await syncScenario.scenarioPage.locator(`.thread-card[data-id="${syncIds.threadId}"]`).click();
 const restoredDetail = await syncScenario.scenarioPage.locator('#sheet-root').innerText();
 assert.ok(restoredDetail.includes(localizedSession.location), 'thread detail should render the translated automatic location again');
 assert.doesNotMatch(restoredDetail, /QA terrace/, 'restoring the automatic location should remove the custom location from thread detail');
+await syncScenario.scenarioPage.locator('[data-action="close-sheet"]').first().click();
+await syncScenario.scenarioPage.locator('.tab[data-tab="agenda"]').click();
+await syncScenario.scenarioPage.locator(`[data-action="pick-day"][data-key="day"][data-day="${syncIds.day}"]`).click();
+await syncScenario.scenarioPage.locator(`[data-action="session"][data-id="${syncIds.sessionId}"]`).evaluate((el) => el.click());
+await syncScenario.scenarioPage.locator('[data-action="edit-session"]').click();
+const emptyLocationForm = syncScenario.scenarioPage.locator('[data-form="session"]');
+await emptyLocationForm.locator('input[name="location"]').fill('');
+await emptyLocationForm.locator('button').last().click();
+await syncScenario.scenarioPage.locator('[data-action="close-sheet"]').first().click();
+const emptyLocationResult = await syncScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  return {
+    thread: state.backstage.threads.find((thread) => thread.id === id),
+    session: state.sessions.find((session) => session.momentId === id),
+  };
+}, syncIds.threadId);
+assert.equal(emptyLocationResult.thread.placeOverride, '', 'an explicitly empty agenda location should remain an empty override');
+assert.equal(emptyLocationResult.session.location, '', 'an explicitly empty agenda location should be saved as empty');
+await syncScenario.scenarioPage.locator('.tab[data-tab="backstage"]').click();
+const emptyLocationCard = syncScenario.scenarioPage.locator(`.thread-card[data-id="${syncIds.threadId}"]`);
+assert.ok(!(await emptyLocationCard.innerText()).includes(localizedSession.location), 'Backstage card should not show the old venue after clearing the location');
+await emptyLocationCard.click();
+const emptyLocationDetail = await syncScenario.scenarioPage.locator('#sheet-root').innerText();
+assert.ok(!emptyLocationDetail.includes(localizedSession.location), 'thread detail should not show the old venue after clearing the location');
 await syncScenario.scenarioContext.close();
 
 const earlyStartScenario = await makeScenario();
@@ -595,36 +619,120 @@ const earlyResult = await earlyStartScenario.scenarioPage.evaluate((id) => {
 assert.ok(Math.abs((Number(earlyResult.thread.start.slice(0, 2)) * 60 + Number(earlyResult.thread.start.slice(3))) - (Number(earlyResult.now.slice(0, 2)) * 60 + Number(earlyResult.now.slice(3)))) <= 1, 'early start should rebook the thread to now');
 const earlyEndMinutes = (Number(earlyResult.thread.start.slice(0, 2)) * 60 + Number(earlyResult.thread.start.slice(3)) + earlyResult.thread.minutes) % 1440;
 assert.deepEqual(earlyResult.session, { day: earlyResult.thread.day, start: earlyResult.thread.start, end: `${String(Math.floor(earlyEndMinutes / 60)).padStart(2, '0')}:${String(earlyEndMinutes % 60).padStart(2, '0')}` }, 'early start must update the linked session time');
+await earlyStartScenario.scenarioPage.locator('[data-action="close-sheet"]').first().click();
+await earlyStartScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  state.me.eventStart = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  state.me.days = 1;
+  const thread = state.backstage.threads.find((item) => item.id === id);
+  thread.stage = 'confirmed'; thread.day = 0; thread.start = '09:00';
+  delete thread.liveStartedAt; thread.liveSheetShown = false;
+  const session = state.sessions.find((item) => item.momentId === id);
+  session.day = 0; session.start = '09:00';
+  const end = 540 + thread.minutes;
+  session.end = `${String(Math.floor(end / 60) % 24).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+}, earlyId);
+await earlyStartScenario.scenarioPage.reload();
+await earlyStartScenario.scenarioPage.locator('.tab[data-tab="backstage"]').click();
+await earlyStartScenario.scenarioPage.locator(`[data-action="thread-open"][data-id="${earlyId}"]`).first().click();
+await earlyStartScenario.scenarioPage.locator(`[data-action="moment-start"][data-id="${earlyId}"]`).click();
+const outsideWindowResult = await earlyStartScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.id === id);
+  const session = state.sessions.find((item) => item.momentId === id);
+  return { thread: { stage: thread.stage, day: thread.day, start: thread.start }, session: { day: session.day, start: session.start, end: session.end } };
+}, earlyId);
+const futureEnd = (540 + earlyResult.thread.minutes) % 1440;
+assert.deepEqual(outsideWindowResult, {
+  thread: { stage: 'live', day: 0, start: '09:00' },
+  session: { day: 0, start: '09:00', end: `${String(Math.floor(futureEnd / 60)).padStart(2, '0')}:${String(futureEnd % 60).padStart(2, '0')}` },
+}, 'an early start outside the event window must go live without rescheduling the thread or session');
 await earlyStartScenario.scenarioContext.close();
 
 const unratedScenario = await makeScenario();
 await fastForwardScenario(unratedScenario.scenarioPage);
-const unratedId = await unratedScenario.scenarioPage.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
-  const thread = state.backstage.threads.find((item) => item.stage === 'needs-you');
-  if (!thread) return null;
-  thread.stage = 'live'; thread.expiresAt = 0;
-  thread.liveStartedAt = Date.now() - (thread.minutes + 16) * 60000;
-  thread.liveSheetShown = false;
-  state.backstage.live = false;
-  const stats = { ...state.backstage.stats };
-  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
-  return { id: thread.id, stats };
+await unratedScenario.scenarioPage.locator('.tab[data-tab="today"]').click();
+await unratedScenario.scenarioPage.locator('.needs-you-card [data-action="thread-yes"]').first().click();
+await unratedScenario.scenarioPage.waitForSelector('#sheet-root .reveal-sheet');
+await unratedScenario.scenarioPage.locator('[data-action="close-sheet"]').last().click();
+const unratedId = await unratedScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.revealed)?.id);
+assert.ok(unratedId, 'timeout regression needs a revealed moment');
+await unratedScenario.scenarioPage.locator('.tab[data-tab="backstage"]').click();
+await unratedScenario.scenarioPage.locator(`[data-action="thread-open"][data-id="${unratedId}"]`).first().click();
+await unratedScenario.scenarioPage.locator(`[data-action="moment-start"][data-id="${unratedId}"]`).click();
+await unratedScenario.scenarioPage.waitForSelector('#sheet-root .moment-live');
+await unratedScenario.scenarioPage.locator('[data-action="moment-end"]').click();
+await unratedScenario.scenarioPage.waitForSelector('#sheet-root .rating-options');
+const unratedStats = await unratedScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.stats);
+const unratedMinutes = await unratedScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id).minutes, unratedId);
+await unratedScenario.scenarioPage.evaluate(() => {
+  window.__testNow = Date.now();
+  Date.now = () => window.__testNow;
 });
-assert.ok(unratedId, 'timeout regression needs a live thread');
-await unratedScenario.scenarioPage.reload();
+await unratedScenario.scenarioPage.evaluate((minutes) => { window.__testNow += (minutes + 16) * 60000; }, unratedMinutes);
+await unratedScenario.scenarioPage.locator('[data-action="fast-forward"]').evaluate((el) => el.click());
 await unratedScenario.scenarioPage.waitForFunction((id) => {
   const thread = JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((item) => item.id === id);
   return thread?.stage === 'done' && thread.outcome === 'unrated';
-}, unratedId.id);
+}, unratedId);
 const unratedResult = await unratedScenario.scenarioPage.evaluate((id) => {
   const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
   const thread = state.backstage.threads.find((item) => item.id === id);
   return { thread, stats: state.backstage.stats };
-}, unratedId.id);
-assert.deepEqual(unratedResult.stats, unratedId.stats, 'an abandoned live moment must not change stats');
+}, unratedId);
+assert.equal(await unratedScenario.scenarioPage.locator('#sheet-root .sheet').count(), 0, 'timeout should close the open rating sheet');
+assert.equal(unratedResult.stats.moments, unratedStats.moments, 'an abandoned live moment must not change the moments stat');
 assert.equal(unratedResult.thread.outcome, 'unrated');
 await unratedScenario.scenarioContext.close();
+
+const momentHereScenario = await makeScenario();
+await fastForwardScenario(momentHereScenario.scenarioPage);
+await momentHereScenario.scenarioPage.locator('.tab[data-tab="today"]').click();
+await momentHereScenario.scenarioPage.locator('.needs-you-card [data-action="thread-yes"]').first().click();
+await momentHereScenario.scenarioPage.waitForSelector('#sheet-root .reveal-sheet');
+await momentHereScenario.scenarioPage.locator('[data-action="close-sheet"]').last().click();
+const momentHereId = await momentHereScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.revealed)?.id);
+assert.ok(momentHereId, 'moment-here timeout regression needs a revealed moment');
+await momentHereScenario.scenarioPage.locator('.tab[data-tab="backstage"]').click();
+await momentHereScenario.scenarioPage.locator(`[data-action="thread-open"][data-id="${momentHereId}"]`).first().click();
+await momentHereScenario.scenarioPage.locator(`[data-action="moment-start"][data-id="${momentHereId}"]`).click();
+await momentHereScenario.scenarioPage.waitForSelector('#sheet-root .moment-live');
+await momentHereScenario.scenarioPage.evaluate(() => {
+  const realSetTimeout = window.setTimeout.bind(window);
+  window.__momentHereCallback = null;
+  window.setTimeout = (callback, delay, ...args) => {
+    if (delay === 1500) {
+      window.__momentHereCallback = () => callback(...args);
+      return 0;
+    }
+    return realSetTimeout(callback, delay, ...args);
+  };
+});
+await momentHereScenario.scenarioPage.locator(`[data-action="moment-here"][data-id="${momentHereId}"]`).click();
+const momentHereMinutes = await momentHereScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id).minutes, momentHereId);
+await momentHereScenario.scenarioPage.evaluate(() => {
+  window.__testNow = Date.now();
+  Date.now = () => window.__testNow;
+});
+await momentHereScenario.scenarioPage.evaluate((minutes) => { window.__testNow += (minutes + 16) * 60000; }, momentHereMinutes);
+await momentHereScenario.scenarioPage.locator('[data-action="fast-forward"]').evaluate((el) => el.click());
+await momentHereScenario.scenarioPage.waitForFunction((id) => {
+  const thread = JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((item) => item.id === id);
+  return thread?.stage === 'done' && thread.outcome === 'unrated';
+}, momentHereId);
+await momentHereScenario.scenarioPage.evaluate(() => {
+  if (!window.__momentHereCallback) throw new Error('moment-here did not schedule its delayed callback');
+  window.__momentHereCallback();
+});
+const momentHereResult = await momentHereScenario.scenarioPage.evaluate((id) => {
+  const thread = JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((item) => item.id === id);
+  return { peerHere: Boolean(thread.peerHere), promised: Boolean(thread.promised) };
+}, momentHereId);
+assert.equal(await momentHereScenario.scenarioPage.locator('#sheet-root .sheet').count(), 0, 'timed-out moment-here callback must not reopen the sheet');
+assert.deepEqual(momentHereResult, { peerHere: false, promised: false }, 'timed-out moment-here callback must not update the completed thread');
+await momentHereScenario.scenarioContext.close();
 
 const privacyScenario = await makeScenario();
 await privacyScenario.scenarioPage.evaluate(() => {
