@@ -39,7 +39,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px;
+  padding: calc(14px + env(safe-area-inset-top)) 18px 14px;
   background: var(--blue);
   color: #fff;
 }
@@ -55,6 +55,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 }
 .icon-btn:hover { background: rgba(255,255,255,.24); }
 .view { flex: 1; padding: 0 16px 110px; }
+.foundation-footer, .foundation-line { color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.foundation-footer { margin: 22px auto 0; max-width: 520px; padding: 10px 4px 0; text-align: center; }
+.foundation-footer a, .foundation-line a, .foundation-about > a { color: var(--blue); }
+.foundation-about { margin-top: 14px; }
+.foundation-about > a { display: inline-block; margin-top: 4px; font-size: 13px; }
 
 /* tabbar */
 .tabbar {
@@ -408,6 +413,9 @@ button.chip { cursor: pointer; }
 .tabbar { grid-template-columns: repeat(8, 1fr); }
 .tab { font-size: 10px; }
 .tab-ico { padding: 3px 7px; }
+@media (max-width: 420px) {
+  .tab { font-size: 9px; line-height: 1.1; white-space: normal; overflow-wrap: anywhere; }
+}
 .seg.scroll { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
 .seg.scroll::-webkit-scrollbar { display: none; }
 .seg.scroll button { flex: 0 0 auto; padding-left: 12px; padding-right: 12px; }
@@ -586,8 +594,16 @@ button.chip { cursor: pointer; }
   :root { --ink: #eef1ff; --muted: #aab3d4; --line: #313b63; --bg: #10162d; --card: #1a2240; --blue-soft: #26345f; --navy: #070b1c; }
   body { background: #080d1d; }
   .app, .tabbar { background: var(--bg); }
+  .foundation-footer a, .foundation-line a, .foundation-about > a { color: #b7c7ff; }
   .card, .agent-island, .island-expanded, .backstage-stats > div { color: var(--ink); }
+  .seg { background: var(--card); }
+  .stat, .list-item, .search, .field input, .field select, .field textarea, .t-card, .web-wrap, .report {
+    background: var(--card); color: var(--ink);
+  }
+  .msg, .msg.peer, .msg.dir { background: var(--card); color: var(--ink); }
+  .t-work { background: repeating-linear-gradient(-45deg, var(--card), var(--card) 8px, var(--bg) 8px, var(--bg) 16px); color: var(--ink); }
   .btn.secondary, .vote { background: #222d50; color: var(--ink); border-color: var(--line); }
+  .btn.secondary:hover { background: #303c66; color: var(--ink); }
   .hl-strip { background: #1a2240; color: var(--ink); }
   .thread-msg, .permission-row { color: var(--ink); }
   .story-card { color: #fff; }
