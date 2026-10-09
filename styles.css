@@ -39,7 +39,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px;
+  padding: calc(14px + env(safe-area-inset-top)) 18px 14px;
   background: var(--blue);
   color: #fff;
 }
@@ -55,6 +55,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 }
 .icon-btn:hover { background: rgba(255,255,255,.24); }
 .view { flex: 1; padding: 0 16px 110px; }
+.foundation-footer, .foundation-line { color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.foundation-footer { margin: 22px auto 0; max-width: 520px; padding: 10px 4px 0; text-align: center; }
+.foundation-footer a, .foundation-line a, .foundation-about > a { color: var(--blue); }
+.foundation-about { margin-top: 14px; }
+.foundation-about > a { display: inline-block; margin-top: 4px; font-size: 13px; }
 
 /* tabbar */
 .tabbar {
@@ -586,6 +591,7 @@ button.chip { cursor: pointer; }
   :root { --ink: #eef1ff; --muted: #aab3d4; --line: #313b63; --bg: #10162d; --card: #1a2240; --blue-soft: #26345f; --navy: #070b1c; }
   body { background: #080d1d; }
   .app, .tabbar { background: var(--bg); }
+  .foundation-footer a, .foundation-line a, .foundation-about > a { color: #b7c7ff; }
   .card, .agent-island, .island-expanded, .backstage-stats > div { color: var(--ink); }
   .btn.secondary, .vote { background: #222d50; color: var(--ink); border-color: var(--line); }
   .hl-strip { background: #1a2240; color: var(--ink); }

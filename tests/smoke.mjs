@@ -81,6 +81,30 @@ await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); }
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#sheet-root .sheet');
 assert.match(await page.locator('#sheet-root').innerText(), /meet your agent/i);
+const pwa = await page.evaluate(async () => {
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  const response = await fetch(manifestLink.href);
+  const manifest = await response.json();
+  const icons = await Promise.all([...manifest.icons.map(async (icon) => {
+    const image = new Image();
+    image.src = new URL(icon.src, manifestLink.href).href;
+    await image.decode();
+    return { size: `${image.naturalWidth}x${image.naturalHeight}`, purpose: icon.purpose };
+  }), (async () => {
+    const image = new Image();
+    image.src = document.querySelector('link[rel="apple-touch-icon"]').href;
+    await image.decode();
+    return { size: `${image.naturalWidth}x${image.naturalHeight}`, purpose: 'apple' };
+  })()]);
+  return { status: response.status, manifest, icons };
+});
+assert.equal(pwa.status, 200, 'PWA manifest should be fetchable');
+assert.equal(pwa.manifest.name, 'r4 networking');
+assert.deepEqual(pwa.icons.map((icon) => icon.size).sort(), ['180x180', '192x192', '512x512', '512x512']);
+assert.ok(pwa.icons.some((icon) => icon.purpose === 'maskable'), 'manifest should include a maskable icon');
+const foundationFooter = page.locator('#view .foundation-footer');
+assert.match(await foundationFooter.innerText(), /© 2026 AiGovOps Foundation/);
+assert.equal(await foundationFooter.locator('a').getAttribute('href'), 'https://www.aigovops-foundation.com');
 await shot('charter-sheet', '#sheet-root .sheet');
 await page.locator('input[name="give"]').fill('facilitation');
 await page.locator('input[name="ask"]').fill('AI adoption');
@@ -102,6 +126,8 @@ await shot('now-light', '.needs-you-card');
 await shot('now-needs-you', '.needs-you-card');
 for (const language of ['es', 'pt']) {
   await page.locator(`[data-action="set-lang"][data-lang="${language}"]`).first().click();
+  assert.match(await page.locator('#view .foundation-footer').innerText(), /© 2026 AiGovOps Foundation/);
+  assert.equal(await page.locator('#view .foundation-footer a').getAttribute('href'), 'https://www.aigovops-foundation.com');
   await page.locator('.tab[data-tab="today"]').click();
   assert.ok((await page.locator('.needs-you-card').first().innerText()).length, `${language} needs-you card should render`);
   assert.doesNotMatch((await page.locator('.needs-you-card').first().innerText()).toLowerCase(), new RegExp(englishLeaks.join('|')));
@@ -239,10 +265,15 @@ for (const language of ['es', 'pt']) {
     await shot('es-backstage', '.backstage-graph');
   }
   await page.locator('.tab[data-tab="agenda"]').click();
-  const agendaMomentId = await page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.revealed)?.momentId);
-  const agendaMoment = page.locator(`[data-action="session"][data-id="${agendaMomentId}"]`);
-  assert.ok(await agendaMoment.count(), `${language} agenda should show the mutual reveal session`);
-  assert.doesNotMatch((await agendaMoment.innerText()).toLowerCase(), new RegExp(englishLeaks.join('|')));
+  const agendaMoment = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+    const thread = state.backstage.threads.find((item) => item.revealed);
+    return { id: thread?.momentId, day: state.sessions.find((session) => session.id === thread?.momentId)?.day };
+  });
+  if (agendaMoment.day !== undefined) await page.locator(`[data-action="pick-day"][data-key="day"][data-day="${agendaMoment.day}"]`).click();
+  const agendaMomentCard = page.locator(`[data-action="session"][data-id="${agendaMoment.id}"]`);
+  assert.ok(await agendaMomentCard.count(), `${language} agenda should show the mutual reveal session`);
+  assert.doesNotMatch((await agendaMomentCard.innerText()).toLowerCase(), new RegExp(englishLeaks.join('|')));
 }
 const oldVersion = await page.evaluate(() => {
   const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
@@ -326,10 +357,19 @@ const askScenario = await makeScenario();
 await askScenario.scenarioPage.evaluate(() => {
   const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
   state.backstage.autonomy = 'ask';
+  const peer = state.people.find((person) => person.topics.length);
+  state.backstage.threads = [{
+    id: 'ask-draft-test', kind: '1:1', personIds: [peer.id], inbound: false, stage: 'overlap',
+    minutes: 7, day: 0, start: '16:00', place: 'coffee bar', hookData: { topic: peer.topics[0], complement: null },
+    hook: '', opener: '', exitLine: '', expiresAt: 0, youSaid: null, theySaid: null, revealed: false,
+    icebreaker: { index: 0, mine: '' }, outcome: null, msgs: [], createdAt: Date.now(), seed: 1,
+    draftPending: false, proposeApproved: false,
+  }];
+  state.backstage.stats.agents = 1;
   localStorage.setItem('r4-networking-v2', JSON.stringify(state));
-  location.reload();
 });
-await fastForwardScenario(askScenario.scenarioPage, 16);
+await askScenario.scenarioPage.reload();
+await fastForwardScenario(askScenario.scenarioPage, 1);
 assert.ok(await askScenario.scenarioPage.locator('.draft-card').count(), 'ask mode should surface an outbound draft');
 await shotOn(askScenario.scenarioPage, 'ask-mode-draft', '.draft-card');
 const draftId = await askScenario.scenarioPage.locator('.draft-card [data-action="thread-send-draft"]').first().getAttribute('data-id');
@@ -337,20 +377,29 @@ await askScenario.scenarioPage.locator('.draft-card [data-action="thread-send-dr
 await askScenario.scenarioPage.locator('[data-action="fast-forward"]').evaluate((el) => el.click());
 const sentDraft = await askScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id), draftId);
 assert.equal(sentDraft.draftPending, false, 'send it should clear draftPending');
-for (let i = 0; i < 16 && !(await askScenario.scenarioPage.locator('.draft-card').count()); i++) {
-  if (await askScenario.scenarioPage.locator('.alert-pop').count()) await askScenario.scenarioPage.locator('.alert-pop').evaluate((el) => el.click());
-  await askScenario.scenarioPage.locator('[data-action="fast-forward"]').evaluate((el) => el.click());
-}
+assert.ok(sentDraft.msgs.some((msg) => msg.text?.includes('could a')), 'send it should allow the proposal message to proceed');
+await askScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const sent = state.backstage.threads.find((thread) => thread.id === id);
+  const peer = state.people.find((person) => !sent.personIds.includes(person.id) && person.topics.length);
+  state.backstage.threads = [sent, {
+    ...sent, id: 'ask-skip-test', personIds: [peer.id], inbound: false, stage: 'overlap',
+    draftPending: false, proposeApproved: false, msgs: [], createdAt: Date.now() + 1,
+  }];
+  state.backstage.stats.agents = 2;
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+}, draftId);
+await askScenario.scenarioPage.reload();
+await fastForwardScenario(askScenario.scenarioPage, 1);
 const skipCard = askScenario.scenarioPage.locator('.draft-card').first();
-if (await skipCard.count()) {
-  const skipId = await skipCard.locator('[data-action="thread-skip-draft"]').getAttribute('data-id');
-  const beforeNos = await askScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.stats.nosAbsorbed);
-  await skipCard.locator('[data-action="thread-skip-draft"]').click();
-  const skipped = await askScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id), skipId);
-  const afterNos = await askScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.stats.nosAbsorbed);
-  assert.equal(skipped.stage, 'declined', 'skip should decline the draft');
-  assert.equal(afterNos, beforeNos, 'skipping a draft must not increment absorbed no stats');
-}
+assert.ok(await skipCard.count(), 'ask mode should produce another outbound draft to skip');
+const skipId = await skipCard.locator('[data-action="thread-skip-draft"]').getAttribute('data-id');
+const beforeNos = await askScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.stats.nosAbsorbed);
+await skipCard.locator('[data-action="thread-skip-draft"]').click();
+const skipped = await askScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id), skipId);
+const afterNos = await askScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.stats.nosAbsorbed);
+assert.equal(skipped.stage, 'declined', 'skip should decline the draft');
+assert.equal(afterNos, beforeNos, 'skipping a draft must not increment absorbed no stats');
 await askScenario.scenarioContext.close();
 
 const classicScenario = await makeScenario();
@@ -381,7 +430,201 @@ assert.equal(await pastScenario.scenarioPage.locator('.moment-live').count(), 0,
 assert.match(await pastScenario.scenarioPage.locator('#view').innerText(), /event dates are over/i);
 await pastScenario.scenarioContext.close();
 
+const counterScenario = await makeScenario();
+await fastForwardScenario(counterScenario.scenarioPage);
+const counterSetup = await counterScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.stage === 'needs-you');
+  if (!thread) return null;
+  const hash = (value) => {
+    let h = 2166136261;
+    for (const char of String(value)) { h ^= char.charCodeAt(0); h = Math.imul(h, 16777619); }
+    return (h >>> 0) / 4294967295;
+  };
+  const today = new Date();
+  state.me.eventStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  state.me.days = 1;
+  state.backstage.charter.quietAfter = '00:00';
+  state.backstage.threads = [thread];
+  state.backstage.stats.agents = 1;
+  state.backstage.injectionDone = true;
+  Object.assign(thread, { stage: 'negotiate', day: 0, start: '15:00', minutes: 7, countered: false, expiresAt: 0 });
+  thread.seed = Array.from({ length: 10000 }, (_x, seed) => seed + 1)
+    .find((seed) => hash(`${thread.personIds[0]}${seed}outcome`) >= 0.2 && hash(`${thread.personIds[0]}${seed}outcome`) < 0.4);
+  const before = { id: thread.id, day: thread.day, start: thread.start, minutes: thread.minutes };
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+  return before;
+});
+assert.ok(counterSetup, 'counteroffer regression needs a seeded thread');
+await counterScenario.scenarioPage.reload();
+await counterScenario.scenarioPage.locator('.tab[data-tab="backstage"]').click();
+await counterScenario.scenarioPage.locator('[data-action="fast-forward"]').click();
+const counterResult = await counterScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id), counterSetup.id);
+assert.equal(counterResult.countered, true, 'a counteroffer must be marked as attempted even without a slot');
+assert.equal(counterResult.stage, 'needs-you', 'a counteroffer without an available slot must ask the human');
+assert.deepEqual({ day: counterResult.day, start: counterResult.start, minutes: counterResult.minutes }, { day: counterSetup.day, start: counterSetup.start, minutes: counterSetup.minutes }, 'an unavailable counteroffer must preserve the booked slot');
+await counterScenario.scenarioContext.close();
+
+const expiryScenario = await makeScenario();
+await fastForwardScenario(expiryScenario.scenarioPage);
+const expiryId = await expiryScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.stage === 'needs-you');
+  if (!thread) return null;
+  thread.expiresAt = Date.now() + 200;
+  state.backstage.live = false;
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+  return thread.id;
+});
+assert.ok(expiryId, 'expiry regression needs a needs-you offer');
+await expiryScenario.scenarioPage.reload();
+await expiryScenario.scenarioPage.waitForTimeout(400);
+await expiryScenario.scenarioPage.locator(`.needs-you-card [data-action="thread-yes"][data-id="${expiryId}"]`).click();
+assert.match(await expiryScenario.scenarioPage.locator('#toast').innerText(), /this offer expired/i);
+let expiredState = await expiryScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id), expiryId);
+assert.equal(expiredState.stage, 'declined', 'tapping an expired offer while paused must not reveal it');
+await expiryScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.id === id);
+  thread.stage = 'needs-you'; thread.expiresAt = Date.now() - 1;
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+}, expiryId);
+await expiryScenario.scenarioPage.reload();
+await expiryScenario.scenarioPage.waitForFunction((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id)?.stage === 'declined', expiryId);
+expiredState = await expiryScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.id === id), expiryId);
+assert.ok(expiredState.msgs.some((msg) => msg.text?.includes('offer expired')), 'paused tick must record offer expiry');
+await expiryScenario.scenarioContext.close();
+
+const syncScenario = await makeScenario();
+await fastForwardScenario(syncScenario.scenarioPage);
+await syncScenario.scenarioPage.locator('.tab[data-tab="today"]').click();
+await syncScenario.scenarioPage.locator('.needs-you-card [data-action="thread-yes"]').first().click();
+await syncScenario.scenarioPage.waitForSelector('#sheet-root .reveal-sheet');
+await syncScenario.scenarioPage.locator('[data-action="close-sheet"]').last().click();
+const syncIds = await syncScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.revealed);
+  return { threadId: thread?.id, sessionId: thread?.momentId, day: thread?.day };
+});
+assert.ok(syncIds.sessionId, 'revealed moment should have an agenda session');
+await syncScenario.scenarioPage.locator('.tab[data-tab="agenda"]').click();
+await syncScenario.scenarioPage.locator(`[data-action="pick-day"][data-key="day"][data-day="${syncIds.day}"]`).click();
+await syncScenario.scenarioPage.locator(`[data-action="session"][data-id="${syncIds.sessionId}"]`).evaluate((el) => el.click());
+await syncScenario.scenarioPage.locator('[data-action="edit-session"]').click();
+const syncForm = syncScenario.scenarioPage.locator('[data-form="session"]');
+await syncForm.locator('input[name="title"]').fill('my private moment title');
+await syncForm.locator('input[name="start"]').fill('16:00');
+await syncForm.locator('input[name="end"]').fill('16:30');
+await syncForm.locator('textarea[name="notes"]').fill('my private notes');
+await syncForm.locator('button').last().click();
+await syncScenario.scenarioPage.locator('[data-action="close-sheet"]').first().click();
+const savedSchedule = await syncScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.id === id);
+  const session = state.sessions.find((item) => item.momentId === id);
+  return { thread: { day: thread.day, start: thread.start, minutes: thread.minutes }, session: { day: session.day, start: session.start, duration: Number(session.end.slice(0, 2)) * 60 + Number(session.end.slice(3)) - (Number(session.start.slice(0, 2)) * 60 + Number(session.start.slice(3))) } };
+}, syncIds.threadId);
+assert.deepEqual(savedSchedule.thread, { day: syncIds.day, start: '16:00', minutes: 30 }, 'editing a linked session must update the thread schedule');
+assert.equal(savedSchedule.session.duration, 30, 'linked agenda session should keep the edited duration');
+await syncScenario.scenarioPage.locator('[data-action="set-lang"][data-lang="es"]').first().click();
+const localizedSession = await syncScenario.scenarioPage.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).sessions.find((session) => session.momentId === id), syncIds.threadId);
+assert.equal(localizedSession.title, 'my private moment title', 'sync must preserve a manually edited title');
+assert.equal(localizedSession.notes, 'my private notes', 'sync must preserve manually edited notes');
+assert.doesNotMatch(localizedSession.location, /coffee bar|lounge|atrium|garden room/i, 'automatic location should follow the selected language');
+assert.doesNotMatch(localizedSession.topic, /you both care about/i, 'automatic moment topic should follow the selected language');
+await syncScenario.scenarioContext.close();
+
+const earlyStartScenario = await makeScenario();
+await earlyStartScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const today = new Date();
+  state.me.eventStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  state.me.days = 1; state.me.dayStart = '00:00'; state.me.dayEnd = '23:55';
+  state.backstage.charter.quietAfter = '23:55';
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+});
+await earlyStartScenario.scenarioPage.reload();
+await fastForwardScenario(earlyStartScenario.scenarioPage);
+await earlyStartScenario.scenarioPage.locator('.tab[data-tab="today"]').click();
+await earlyStartScenario.scenarioPage.locator('.needs-you-card [data-action="thread-yes"]').first().click();
+await earlyStartScenario.scenarioPage.waitForSelector('#sheet-root .reveal-sheet');
+await earlyStartScenario.scenarioPage.locator('[data-action="close-sheet"]').last().click();
+const earlyId = await earlyStartScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((thread) => thread.revealed)?.id);
+await earlyStartScenario.scenarioPage.locator('.tab[data-tab="backstage"]').click();
+await earlyStartScenario.scenarioPage.locator(`[data-action="thread-open"][data-id="${earlyId}"]`).first().click();
+await earlyStartScenario.scenarioPage.locator(`[data-action="moment-start"][data-id="${earlyId}"]`).click();
+const earlyResult = await earlyStartScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.id === id);
+  const session = state.sessions.find((item) => item.momentId === id);
+  const now = new Date();
+  return { thread: { day: thread.day, start: thread.start, minutes: thread.minutes }, session: { day: session.day, start: session.start, end: session.end }, now: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` };
+}, earlyId);
+assert.ok(Math.abs((Number(earlyResult.thread.start.slice(0, 2)) * 60 + Number(earlyResult.thread.start.slice(3))) - (Number(earlyResult.now.slice(0, 2)) * 60 + Number(earlyResult.now.slice(3)))) <= 1, 'early start should rebook the thread to now');
+const earlyEndMinutes = (Number(earlyResult.thread.start.slice(0, 2)) * 60 + Number(earlyResult.thread.start.slice(3)) + earlyResult.thread.minutes) % 1440;
+assert.deepEqual(earlyResult.session, { day: earlyResult.thread.day, start: earlyResult.thread.start, end: `${String(Math.floor(earlyEndMinutes / 60)).padStart(2, '0')}:${String(earlyEndMinutes % 60).padStart(2, '0')}` }, 'early start must update the linked session time');
+await earlyStartScenario.scenarioContext.close();
+
+const unratedScenario = await makeScenario();
+await fastForwardScenario(unratedScenario.scenarioPage);
+const unratedId = await unratedScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.stage === 'needs-you');
+  if (!thread) return null;
+  thread.stage = 'live'; thread.expiresAt = 0;
+  thread.liveStartedAt = Date.now() - (thread.minutes + 16) * 60000;
+  thread.liveSheetShown = false;
+  state.backstage.live = false;
+  const stats = { ...state.backstage.stats };
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+  return { id: thread.id, stats };
+});
+assert.ok(unratedId, 'timeout regression needs a live thread');
+await unratedScenario.scenarioPage.reload();
+await unratedScenario.scenarioPage.waitForFunction((id) => {
+  const thread = JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.threads.find((item) => item.id === id);
+  return thread?.stage === 'done' && thread.outcome === 'unrated';
+}, unratedId.id);
+const unratedResult = await unratedScenario.scenarioPage.evaluate((id) => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  const thread = state.backstage.threads.find((item) => item.id === id);
+  return { thread, stats: state.backstage.stats };
+}, unratedId.id);
+assert.deepEqual(unratedResult.stats, unratedId.stats, 'an abandoned live moment must not change stats');
+assert.equal(unratedResult.thread.outcome, 'unrated');
+await unratedScenario.scenarioContext.close();
+
+const privacyScenario = await makeScenario();
+await privacyScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  state.me.name = 'preconsent privacy owner';
+  state.me.email = 'private-owner@example.test';
+  state.me.phone = '+1-555-0100';
+  state.backstage.charter.hideNameUntilYes = true;
+  state.backstage.threads = [];
+  state.backstage.stats.agents = 0;
+  state.backstage.injectionDone = false;
+  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+});
+await privacyScenario.scenarioPage.reload();
+await fastForwardScenario(privacyScenario.scenarioPage);
+const privateThreadRecords = await privacyScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  return { identity: [state.me.name, state.me.email, state.me.phone], records: state.backstage.threads.flatMap((thread) => thread.msgs).map((msg) => JSON.stringify({ text: msg.text, params: msg.params, json: msg.json })) };
+});
+for (const secret of privateThreadRecords.identity.filter(Boolean)) {
+  assert.ok(privateThreadRecords.records.every((record) => !record.includes(secret)), `pre-consent thread transcript must not contain ${secret}`);
+}
+await privacyScenario.scenarioContext.close();
+
+await page.locator('[data-action="set-lang"][data-lang="en"]').first().click();
+await page.locator('[data-action="open-settings"]').click();
+await page.waitForSelector('.foundation-about');
+assert.equal(await page.locator('.foundation-about a[href="https://www.aigovops-foundation.com"]').count(), 1);
+assert.equal(await page.locator('.foundation-about a[href="https://github.com/bobrapp/OpenConvention-rapp-v1"]').count(), 1);
+await page.locator('[data-action="close-sheet"]').first().click();
+
 assert.deepEqual(errors, [], `browser errors:\n${errors.join('\n')}`);
-console.log('smoke ok: onboarding, needs-you, reveal, agenda, A2A ledger, injection block, live spark, v1 migration, es/pt tabs; no console/page errors or horizontal overflow.');
+console.log('smoke ok: onboarding, review fixes 1-6, reveal, agenda, A2A ledger, privacy, v1 migration and es/pt tabs; no console/page errors or horizontal overflow.');
 console.log(`screenshots: ${shots}`);
 await browser.close();

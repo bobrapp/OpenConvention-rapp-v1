@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Builds the GitHub Pages site: a version picker at / and one folder per app branch.
 # Usage (from the repo root): pages/build-pages.sh [out_dir]
-# VERSIONS entries: branch:folder:maker[:app subfolder inside the branch]
+# VERSIONS entries: branch:folder:maker[:app subfolder][:source ref]
 set -euo pipefail
 OUT=${1:-_site}
-VERSIONS=("Devin-v1:devin:Devin" "Devin-v2:devin-v2:Devin v2" "Claude-v1:claude:Claude:claude-v1" "Muse-v1:muse:Muse")
+VERSIONS=("Devin-v1:devin:Devin::8140411" "Devin-v2:devin-v2:Devin v2::${DEVIN_V2_REF:-origin/Devin-v1}" "Claude-v1:claude:Claude:claude-v1" "Muse-v1:muse:Muse")
 
 git fetch --quiet origin
 rm -rf "$OUT"; mkdir -p "$OUT"
@@ -13,18 +13,19 @@ touch "$OUT/.nojekyll"
 
 json="["
 for v in "${VERSIONS[@]}"; do
-  IFS=: read -r branch dir maker sub <<<"$v"
+  IFS=: read -r branch dir maker sub ref <<<"$v"
+  ref=${ref:-origin/$branch}
   mkdir -p "$OUT/$dir"
   live=false; sha=""; date=""
-  if git rev-parse --verify --quiet "origin/$branch" >/dev/null; then
-    if [ -n "${sub:-}" ] && git cat-file -e "origin/$branch:$sub" 2>/dev/null; then
-      git archive "origin/$branch:$sub" | tar -x -C "$OUT/$dir"
+  if git rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+    if [ -n "${sub:-}" ] && git cat-file -e "$ref:$sub" 2>/dev/null; then
+      git archive "$ref:$sub" | tar -x -C "$OUT/$dir"
     else
-      git archive "origin/$branch" | tar -x -C "$OUT/$dir"
+      git archive "$ref" | tar -x -C "$OUT/$dir"
     fi
     rm -rf "$OUT/$dir/pages" "$OUT/$dir/tests"
-    sha=$(git rev-parse --short "origin/$branch")
-    date=$(git log -1 --format=%cs "origin/$branch")
+    sha=$(git rev-parse --short "$ref")
+    date=$(git log -1 --format=%cs "$ref")
     if [ -f "$OUT/$dir/index.html" ]; then live=true; else echo "warn: $branch has no index.html at its root" >&2; fi
   fi
   if [ "$live" = false ]; then

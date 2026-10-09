@@ -1919,7 +1919,14 @@ Object.assign(window.R4_I18N.es, {
  "no hourly limit": "sin límite por hora",
  "your agent drafted a first message": "tu agente redactó un primer mensaje",
  "send it": "enviar",
- "skip": "saltar"
+ "skip": "saltar",
+ "my human": "mi humano",
+ "this offer expired. your agent will keep looking.": "esta oferta venció. tu agente seguirá buscando.",
+ "missed": "no se realizó",
+ "unrated": "sin calificar",
+ "open source (Apache-2.0)": "código abierto (Apache-2.0)",
+ "about": "acerca de",
+ "source repository": "repositorio de código"
 });
 Object.assign(window.R4_I18N.pt, {
  "perfil {persona}": "perfil {persona}",
@@ -1935,5 +1942,12 @@ Object.assign(window.R4_I18N.pt, {
  "no hourly limit": "sem limite por hora",
  "your agent drafted a first message": "seu agente redigiu uma primeira mensagem",
  "send it": "enviar",
- "skip": "pular"
+ "skip": "pular",
+ "my human": "meu humano",
+ "this offer expired. your agent will keep looking.": "esta oferta expirou. seu agente continuará procurando.",
+ "missed": "não aconteceu",
+ "unrated": "sem avaliação",
+ "open source (Apache-2.0)": "código aberto (Apache-2.0)",
+ "about": "sobre",
+ "source repository": "repositório do código"
 });

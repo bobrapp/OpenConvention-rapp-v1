@@ -25,3 +25,7 @@ Devin v2 makes short-term convention connections the visible outcome and simulat
 - Install dependencies: `cd tests && npm install`
 - Run syntax, localization and browser checks: `node --check app.js i18n.js && node tests/i18n-check.mjs && cd tests && node smoke.mjs`
 - Set `CHROME_PATH` to use a Chrome binary other than the default macOS path.
+
+## License
+
+Copyright 2026 AiGovOps Foundation. This project is shared under the Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).

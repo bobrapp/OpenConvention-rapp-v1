@@ -8,6 +8,7 @@ const keys = new Set();
 for (const match of source.matchAll(calls)) keys.add(vm.runInNewContext(match[1]));
 const DYNAMIC_KEYS = [
   'discover', 'overlap', 'propose', 'negotiate', 'needs-you', 'confirmed', 'live', 'done', 'declined', 'blocked',
+  'spark', 'fine', 'no fit', 'missed', 'unrated',
   '1:1', 'walk', 'trio',
   'discover', 'overlap', 'propose', 'agree', 'you', 'meet',
   'discover', 'overlap', 'propose', 'negotiating', 'needs you', 'confirmed', 'live', 'done',
