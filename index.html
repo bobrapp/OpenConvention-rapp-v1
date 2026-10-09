@@ -24,39 +24,135 @@
   .card h2 { margin:0; font-size:22px; }
   .card p { margin:0; color:var(--muted); line-height:1.5; font-size:15px; }
   .meta { font-size:13px; color:var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .btn { margin-top:auto; display:block; text-align:center; text-decoration:none; padding:14px; border-radius:14px; font-weight:700; background:var(--blue); color:#fff; }
+  .btn { margin-top:auto; display:block; text-align:center; text-decoration:none; padding:14px; border:0; border-radius:14px; font:inherit; font-weight:700; background:var(--blue); color:#fff; cursor:pointer; }
   .btn:hover { background:var(--blue-2); }
   .sub { text-align:center; color:var(--blue); font-weight:600; font-size:14px; text-decoration:none; }
   .btn.off { background:var(--line); color:var(--muted); pointer-events:none; }
-  footer { text-align:center; color:var(--muted); font-size:14px; padding:8px 16px 40px; line-height:1.8; }
+  .share { margin-bottom:16px; }
+  .share-layout { display:grid; grid-template-columns:minmax(0,1fr) 164px; gap:18px; align-items:center; }
+  .share-url, .card-url { min-width:0; overflow-wrap:anywhere; }
+  .share-url a, .card-url a { color:var(--blue); font:12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap:anywhere; }
+  .share-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .share-actions .btn { margin:0; min-width:112px; }
+  .btn.secondary { background:#e8eeff; color:var(--blue); }
+  .card-url { display:flex; align-items:center; gap:8px; font-size:12px; }
+  .card-url a { flex:1; }
+  .card-url button { border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--blue); padding:6px 8px; font:inherit; cursor:pointer; }
+  .copy-feedback { min-height:1.2em; color:var(--ok); font-size:12px; }
+  .share-qr { width:164px; height:164px; padding:8px; border-radius:12px; background:#fff; }
+  .share-qr svg { width:100%; height:100%; }
+  .share-qr[hidden], .copy-feedback[hidden] { display:none; }
+  footer { text-align:center; color:var(--muted); font-size:13px; padding:8px 16px 40px; line-height:1.8; overflow-wrap:anywhere; }
   footer a { color:var(--blue); font-weight:600; }
+  @media (max-width:520px) {
+    header { padding:38px 18px 62px; }
+    header h1 { font-size:30px; }
+    .share-layout { grid-template-columns:1fr; }
+    .share-qr { margin:auto; }
+    .card-url { align-items:flex-start; }
+  }
 </style>
 </head>
 <body>
 <header>
   <div class="brand">openconvention · r4 networking</div>
   <h1>pick a version</h1>
-  <p>the same r4 networking companion, built three ways. open one on your phone and make your conference time count.</p>
+  <p>the same r4 networking companion, built four ways. open one on your phone and make your conference time count.</p>
 </header>
-<main><div class="grid" id="grid"></div></main>
+<main>
+  <section class="card share" aria-labelledby="share-title">
+    <div class="share-layout">
+      <div>
+        <h2 id="share-title">share Devin v2</h2>
+        <p>open the live app or send its link to someone you want to connect with.</p>
+        <div class="share-url"><b>Devin v2 URL</b><br><a id="v2-url" href=""></a></div>
+        <div class="share-actions">
+          <a class="btn" id="v2-open" href="">open Devin v2</a>
+          <button class="btn secondary" id="v2-copy" data-copy-url="">copy link</button>
+          <button class="btn secondary" id="v2-share">share</button>
+        </div>
+        <div id="share-feedback" class="copy-feedback" role="status" aria-live="polite" hidden></div>
+      </div>
+      <div id="share-qr" class="share-qr" aria-label="QR code for Devin v2" hidden></div>
+    </div>
+  </section>
+  <div class="grid" id="grid"></div>
+</main>
 <footer>
   <a href="https://github.com/bobrapp/OpenConvention-rapp-v1">source on github</a> ·
   <a href="https://github.com/bobrapp/OpenConvention-rapp-v1/tree/Devin-v1/Rapp-Prompts">rapp-prompts</a><br>
-  each version keeps its own data in your browser.
+  each version keeps its own data in your browser.<br>
+  © 2026 AiGovOps Foundation · open source (Apache-2.0) ·
+  <a href="https://www.aigovops-foundation.com" target="_blank" rel="noopener">www.aigovops-foundation.com</a>
 </footer>
 <script>
   const BLURB = {
     Devin: 'people log, personas, follow-ups, agenda with work blocks, BoF, pitch fest, connection web, team report, oprah countdown, en/es/pt and simulated chief-of-staff agents.',
+    'Devin v2': 'agent backstage: mutual-reveal micro-moments negotiated by simulated agents, live A2A ledger, agent charter.',
     Claude: 'single-page companion: today, people with persona notes, agenda with work blocks, BoF, subject web, pitch timer, agent cards and a team report.',
     Muse: 'the r4 networking app as built by muse.'
   };
   const EXTRA = { Claude: { href: 'examples/load.html', label: 'open with example data' } };
-  const COLOR = { Devin: '#0c2fa8', Claude: '#c15f3c', Muse: '#7a3cc1' };
+  const COLOR = { Devin: '#0c2fa8', 'Devin v2': '#0c2bd8', Claude: '#c15f3c', Muse: '#7a3cc1' };
   const FALLBACK = [
     { branch: 'Devin-v1', maker: 'Devin', path: 'devin/', live: true },
+    { branch: 'Devin-v2', maker: 'Devin v2', path: 'devin-v2/', live: true },
     { branch: 'Claude-v1', maker: 'Claude', path: 'claude/', live: false },
     { branch: 'Muse-v1', maker: 'Muse', path: 'muse/', live: false }
   ];
+  const v2Url = new URL('devin-v2/', location.href).href;
+  document.getElementById('v2-url').href = v2Url;
+  document.getElementById('v2-url').textContent = v2Url;
+  document.getElementById('v2-open').href = v2Url;
+  document.getElementById('v2-copy').dataset.copyUrl = v2Url;
+  const feedback = (message) => {
+    const node = document.getElementById('share-feedback');
+    node.textContent = message;
+    node.hidden = false;
+  };
+  const copyText = async (text) => {
+    try {
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
+    } catch {}
+    const input = document.createElement('textarea');
+    input.value = text; input.setAttribute('readonly', ''); input.style.position = 'fixed'; input.style.opacity = '0';
+    document.body.append(input); input.select();
+    const copied = document.execCommand('copy');
+    input.remove();
+    return copied;
+  };
+  document.addEventListener('click', async (event) => {
+    const copyButton = event.target.closest('[data-copy-url]');
+    if (!copyButton) return;
+    const copied = await copyText(copyButton.dataset.copyUrl);
+    const cardFeedback = copyButton.closest('.card')?.querySelector('.copy-feedback');
+    if (cardFeedback) {
+      cardFeedback.textContent = copied ? 'copied' : 'could not copy';
+      cardFeedback.hidden = false;
+    } else {
+      feedback(copied ? 'copied' : 'could not copy');
+    }
+  });
+  document.getElementById('v2-share').addEventListener('click', async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: 'r4 networking · Devin v2', url: v2Url }); return; }
+      catch (error) { if (error.name === 'AbortError') return; }
+    }
+    feedback(await copyText(v2Url) ? 'copied' : 'could not copy');
+  });
+  const qrNode = document.getElementById('share-qr');
+  const qrScript = document.createElement('script');
+  qrScript.src = 'devin-v2/vendor/qrcode.js';
+  qrScript.onload = () => {
+    try {
+      const code = window.qrcode(0, 'L');
+      code.addData(v2Url); code.make();
+      qrNode.innerHTML = code.createSvgTag({ cellSize: 3, margin: 2, scalable: true });
+      qrNode.hidden = false;
+    } catch { qrNode.hidden = true; qrNode.replaceChildren(); }
+  };
+  qrScript.onerror = () => { qrNode.hidden = true; };
+  document.head.append(qrScript);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const draw = (vs) => {
     document.getElementById('grid').innerHTML = vs.map((v) => `
@@ -68,6 +164,7 @@
         <h2>${esc(v.branch)}</h2>
         <p>${esc(BLURB[v.maker] || '')}</p>
         <div class="meta">${v.live && v.sha ? `${esc(v.sha)} · ${esc(v.date)}` : `branch ${esc(v.branch)} not published yet`}</div>
+        ${v.live ? `<div class="card-url"><a href="${esc(new URL(v.path, location.href).href)}">${esc(new URL(v.path, location.href).href)}</a><button type="button" data-copy-url="${esc(new URL(v.path, location.href).href)}">copy</button></div><div class="copy-feedback" role="status" aria-live="polite" hidden></div>` : ''}
         <a class="btn ${v.live ? '' : 'off'}" href="${esc(v.path)}">${v.live ? 'open ' + esc(v.branch) : 'coming soon'}</a>
         ${v.live && EXTRA[v.maker] ? `<a class="sub" href="${esc(v.path + EXTRA[v.maker].href)}">${esc(EXTRA[v.maker].label)}</a>` : ''}
       </article>`).join('');
