@@ -1040,6 +1040,7 @@
       const label = plabel(p || { persona: 'peer' });
       return [key, lang() === 'en' ? aPersona(label) : t('perfil {persona}', { persona: label })];
     }
+    if (th && value.k === th.place) return [key, placeText(th)];
     return [key, t(value.k, resolveMessageParams(value.p || {}, th))];
   }));
   const messageText = (m, th) => m.key ? t(m.key, resolveMessageParams(m.params, th)) : m.text;
@@ -1069,7 +1070,7 @@
     const { topic, complement } = th.hookData;
     return `${t('you both care about {topic}', { topic })}${complement ? `. ${t(complement.key, complement)}` : ''}`;
   }
-  const placeText = (th) => th.placeOverride || t(th.place);
+  const placeText = (th) => th.placeOverride ?? t(th.place);
   const openerText = (th) => th?.hookData?.topic
     ? t('what is one thing you are learning about {topic} right now?', { topic: th.hookData.topic })
     : th?.opener || '';
@@ -1302,7 +1303,7 @@
       }
       if (now >= start + (live.minutes + 15) * 60000) {
         live.stage = 'done'; live.outcome = 'unrated';
-        if (document.querySelector(`#sheet-root [data-action="moment-end"][data-id="${live.id}"]`)) closeSheet();
+        if (document.querySelector(`#sheet-root [data-id="${live.id}"]`)) closeSheet();
         changed = true;
       } else if (visible && !live.liveSheetShown) {
         live.liveSheetShown = true;
@@ -1719,7 +1720,7 @@
     $('#sheet-root .sheet')?.classList.add('reveal-sheet');
   }
   function openMomentSheet(th) {
-    if (!th) return;
+    if (!th || th.stage !== 'live') return;
     const elapsed = Math.max(0, Date.now() - (th.liveStartedAt || threadStartMs(th)));
     const remaining = Math.max(0, th.minutes * 60000 - elapsed);
     const mins = Math.floor(remaining / 60000), secs = Math.floor((remaining % 60000) / 1000);
@@ -1913,11 +1914,11 @@
     'moment-start': (el) => {
       const th = threadById(el.dataset.id);
       if (!th) return;
-      if (Date.now() < threadStartMs(th)) {
+      const today = eventDayIndex();
+      if (Date.now() < threadStartMs(th) && today >= 0 && today < state.me.days) {
         const now = new Date();
         th.start = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        const today = eventDayIndex();
-        if (today >= 0 && today < state.me.days) th.day = today;
+        th.day = today;
         const session = sessionById(th.momentId);
         if (session) {
           session.day = th.day; session.start = th.start;
@@ -1927,10 +1928,22 @@
       th.stage = 'live'; th.liveStartedAt = Date.now(); th.liveSheetShown = true;
       save(); openMomentSheet(th);
     },
-    'moment-here': (el) => { const th = threadById(el.dataset.id); th.here = true; save(); setTimeout(() => { th.peerHere = true; th.promised = true; delete th.promises; save(); openMomentSheet(th); }, 1500); openMomentSheet(th); },
+    'moment-here': (el) => {
+      const th = threadById(el.dataset.id);
+      th.here = true; save();
+      setTimeout(() => {
+        const current = threadById(th.id);
+        if (!current || current.stage !== 'live') return;
+        current.peerHere = true; current.promised = true; delete current.promises;
+        save(); openMomentSheet(current);
+      }, 1500);
+      openMomentSheet(th);
+    },
     'moment-end': (el) => ratingSheet(threadById(el.dataset.id)),
     'moment-rate': (el) => {
-      const th = threadById(el.dataset.id); const outcome = el.dataset.outcome;
+      const th = threadById(el.dataset.id);
+      if (!th || th.stage !== 'live') { closeSheet(); render(); return; }
+      const outcome = el.dataset.outcome;
       th.stage = 'done'; th.outcome = outcome; BK().stats.moments += 1;
       if (outcome === 'spark') {
         BK().stats.sparks += 1;
@@ -2101,7 +2114,7 @@
         if (th) {
           th.day = s.day; th.start = s.start;
           th.minutes = toMin(s.end) - toMin(s.start);
-          th.placeOverride = s.location !== s.autoLocation ? s.location : '';
+          th.placeOverride = s.location !== s.autoLocation ? s.location : null;
         }
       }
       save(); ui.day = s.day; render(); sessionDetail(s.id);
