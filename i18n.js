@@ -1951,3 +1951,62 @@ Object.assign(window.R4_I18N.pt, {
  "about": "sobre",
  "source repository": "repositório do código"
 });
+
+Object.assign(window.R4_I18N.es, {
+ "design": "diseño",
+ "choose a visual identity": "elige una identidad visual"
+});
+Object.assign(window.R4_I18N.pt, {
+ "design": "design",
+ "choose a visual identity": "escolha uma identidade visual"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "dialog": "diálogo", "agent receipts": "recibos del agente", "view your signed activity chain": "ver tu registro firmado de actividad",
+ "{count} signed receipts · chain intact": "{count} recibos firmados · cadena intacta",
+ "{count} signed receipts · chain needs attention": "{count} recibos firmados · la cadena requiere atención",
+ "chain verified": "cadena verificada", "chain needs attention": "la cadena requiere atención",
+ "{count} receipts": "{count} recibos", "{count} signed receipts": "{count} recibos firmados", "signing key unavailable": "clave de firma no disponible",
+ "verify chain": "verificar cadena", "export NDJSON": "exportar NDJSON", "public key PEM": "clave pública PEM",
+ "export bundle": "exportar paquete", "This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger.": "Este registro permite detectar cambios o registros faltantes en este dispositivo. No es un registro inmutable en un servidor.",
+ "copy fingerprint": "copiar huella", "copy json": "copiar JSON",
+ "no receipts yet": "todavía no hay recibos", "receipt detail": "detalle del recibo", "parent receipt": "recibo anterior",
+ "view receipt": "ver recibo", "receipt export failed": "falló la exportación del recibo",
+ "a2a.message": "mensaje entre agentes", "charter.injection-blocked": "solicitud insegura bloqueada",
+ "charter.check": "revisión de la carta", "consent.mutual": "consentimiento mutuo",
+ "followup.drafted": "seguimiento redactado", "charter.updated": "carta actualizada",
+ "key.created": "clave de firma creada", "bundle.exported": "exportación firmada creada",
+ "language": "idioma", "primary navigation": "navegación principal"
+});
+Object.assign(window.R4_I18N.pt, {
+ "dialog": "diálogo", "agent receipts": "recibos do agente", "view your signed activity chain": "ver sua cadeia de atividades assinada",
+ "{count} signed receipts · chain intact": "{count} recibos assinados · cadeia íntegra",
+ "{count} signed receipts · chain needs attention": "{count} recibos assinados · a cadeia precisa de atenção",
+ "chain verified": "cadeia verificada", "chain needs attention": "a cadeia precisa de atenção",
+ "{count} receipts": "{count} recibos", "{count} signed receipts": "{count} recibos assinados", "signing key unavailable": "chave de assinatura indisponível",
+ "verify chain": "verificar cadeia", "export NDJSON": "exportar NDJSON", "public key PEM": "chave pública PEM",
+ "export bundle": "exportar pacote", "This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger.": "Este registro permite detectar alterações ou registros ausentes neste dispositivo. Não é um livro-razão imutável em servidor.",
+ "copy fingerprint": "copiar impressão digital", "copy json": "copiar JSON",
+ "no receipts yet": "ainda não há recibos", "receipt detail": "detalhes do recibo", "parent receipt": "recibo anterior",
+ "view receipt": "ver recibo", "receipt export failed": "falha ao exportar recibo",
+ "a2a.message": "mensagem entre agentes", "charter.injection-blocked": "solicitação insegura bloqueada",
+ "charter.check": "verificação da carta", "consent.mutual": "consentimento mútuo",
+ "followup.drafted": "acompanhamento redigido", "charter.updated": "carta atualizada",
+ "key.created": "chave de assinatura criada", "bundle.exported": "exportação assinada criada",
+ "language": "idioma", "primary navigation": "navegação principal"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "agents exchanged a message": "los agentes intercambiaron un mensaje", "charter check passed": "verificación de la carta aprobada",
+ "blocked a prompt injection": "se bloqueó una inyección de instrucciones", "you both said yes": "ambos dijeron que sí",
+ "follow-up drafted": "seguimiento redactado", "charter changed": "carta modificada",
+ "signing key created": "clave de firma creada", "receipts exported": "recibos exportados",
+ "non-extractable browser key": "clave de navegador no extraíble", "software key": "clave de software"
+});
+Object.assign(window.R4_I18N.pt, {
+ "agents exchanged a message": "os agentes trocaram uma mensagem", "charter check passed": "verificação da carta aprovada",
+ "blocked a prompt injection": "uma injeção de prompt foi bloqueada", "you both said yes": "vocês dois disseram sim",
+ "follow-up drafted": "acompanhamento redigido", "charter changed": "carta alterada",
+ "signing key created": "chave de assinatura criada", "receipts exported": "recibos exportados",
+ "non-extractable browser key": "chave de navegador não extraível", "software key": "chave de software"
+});

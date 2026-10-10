@@ -241,7 +241,8 @@
       state.cosSeeded = true;
     }
     state.agents = { ...freshAgents(), ...(state.agents || {}) };
-    state.me = { role: '', company: '', linkedin: '', email: '', phone: '', lookingFor: '', canOffer: '', discoverable: true, ...state.me };
+    state.me = { role: '', company: '', linkedin: '', email: '', phone: '', lookingFor: '', canOffer: '', discoverable: true, brand: 'slalom', ...state.me };
+    if (!['slalom', 'aigovops'].includes(state.me.brand)) state.me.brand = 'slalom';
     state.passport = { scans: 0, coffee: false, ...(state.passport || {}) }; state.passport.stamps = state.passport.stamps || {};
     const base = {
       live: true, onboarded: false, autonomy: 'suggest',
@@ -270,6 +271,14 @@
     webFocus: null, groupSize: 4, groupPool: 'all', groupSeed: 1, groupTopic: null,
     recapDay: null, reportPersonas: true, islandOpen: false, charterAsked: false,
   };
+
+  const applyBrand = () => {
+    document.documentElement.dataset.brand = state.me.brand;
+    const primary = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
+    $('meta[name="theme-color"]')?.setAttribute('content', primary);
+  };
+  const brandThemeChange = window.matchMedia('(prefers-color-scheme: dark)');
+  brandThemeChange.addEventListener?.('change', applyBrand);
 
   const dayDate = (i) => { const [y, m, d] = state.me.eventStart.split('-').map(Number); return new Date(y, m - 1, d + i); };
   const dayLabel = (i, long) => dayDate(i).toLocaleDateString(LANGS[lang()].locale, long ? { weekday: 'long', month: 'short', day: 'numeric' } : { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase();
@@ -650,13 +659,23 @@
 
   // ---------- toast / sheet ----------
   let toastT;
+  let islandMarkup = '';
+  let lastIslandUpdate = 0;
+  let islandTimer = null;
   function toast(msg) { const x = $('#toast'); x.textContent = msg; x.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => x.classList.remove('show'), 2600); }
+  let sheetReturnFocus = null;
   function openSheet(title, body) {
-    $('#sheet-root').innerHTML = `<div class="sheet-backdrop" data-action="close-sheet-bg"><div class="sheet" role="dialog" aria-label="${esc(title)}">
-      <div class="sheet-handle"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="btn ghost" data-action="close-sheet">${t('close')}</button></div>${body}</div></div>`;
-    const f = $('#sheet-root [data-autofocus]'); if (f) f.focus();
+    if (!$('#sheet-root [role="dialog"]')) sheetReturnFocus = document.activeElement;
+    $('#sheet-root').innerHTML = `<div class="sheet-backdrop" data-action="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1">
+      <div class="sheet-handle" aria-hidden="true"></div><div class="sheet-head"><h2 id="sheet-title">${esc(title || t('dialog'))}</h2><button class="btn ghost" data-action="close-sheet">${t('close')}</button></div>${body}</div></div>`;
+    const sheet = $('#sheet-root .sheet');
+    (sheet.querySelector('[data-autofocus]') || sheet.querySelector('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])') || sheet).focus();
   }
-  const closeSheet = () => { $('#sheet-root').innerHTML = ''; };
+  const closeSheet = () => {
+    $('#sheet-root').innerHTML = '';
+    if (sheetReturnFocus?.isConnected) sheetReturnFocus.focus();
+    sheetReturnFocus = null;
+  };
 
   // ---------- icons ----------
   const I = {
@@ -1062,8 +1081,15 @@
     const text = t(key, resolved);
     const from = fromKind === 'peer' ? (nameVisible(th) ? peerAgentName(p) : t('peer agent')) : t('your agent');
     const to = fromKind === 'peer' ? t('your agent') : (nameVisible(th) ? peerAgentName(p) : t('peer agent'));
-    th.msgs.push({ ts: Date.now(), fromKind, personId: p?.id, from, to, text, key, params, json: envelope(from, to, text, data), flag });
-    if (fromKind === 'peer') say('peer', from, to, text, data);
+    const message = { ts: Date.now(), fromKind, personId: p?.id, from, to, text, key, params, json: envelope(from, to, text, data), flag };
+    th.msgs.push(message);
+    let eventType = 'inference.observed', action = 'a2a.message';
+    if (flag === 'injection' || data.trust === 'blocked') { eventType = 'gate.failed'; action = 'charter.injection-blocked'; }
+    else if (data.status === 'spark') action = 'followup.drafted';
+    else if (text.startsWith('you both said yes')) { eventType = 'gate.evaluated'; action = 'consent.mutual'; }
+    else if (data.status === 'needs-you' || data.status === 'declined-privately') { eventType = 'gate.evaluated'; action = 'charter.check'; }
+    recordReceipt(th, eventType, action, message.json, text, message);
+    if (fromKind === 'peer') say('peer', from, to, text, data, false);
   }
   function hookText(th) {
     if (!th?.hookData) return th?.hook || t('finding a shared thread');
@@ -1412,9 +1438,22 @@
   const logHtml = () => AG().log.slice(-60).reverse().map((m) => `<div class="msg ${m.fromKind}"><div class="msg-head"><b>${esc(m.from)}</b> → ${esc(m.to)} <span class="muted">${new Date(m.ts).toLocaleTimeString(LANGS[lang()].locale, { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span></div>
       <div>${esc(m.text)}</div><details><summary>a2a json</summary><pre>${esc(JSON.stringify(m.json, null, 1))}</pre></details></div>`).join('')
     || `<div class="card empty small">${t('no agent messages yet. tap the button above to start.')}</div>`;
-  function say(fromKind, from, to, text, data) {
+  function recordReceipt(th, eventType, action, prompt, result, message = null) {
+    try {
+      window.R4Receipts?.record(eventType, action, prompt, result, {
+        threadId: th?.id, parentReceiptId: th?.lastReceiptId,
+      }).then((receipt) => {
+        if (!receipt) return;
+        if (message) message.receiptId = receipt.id;
+        if (th) th.lastReceiptId = receipt.id;
+        save();
+      }).catch((error) => console.warn('Receipt logging failed', error));
+    } catch (error) { console.warn('Receipt logging failed', error); }
+  }
+  function say(fromKind, from, to, text, data, receipt = true) {
     const log = AG().log;
     log.push({ id: uid(), ts: Date.now(), fromKind, from, to, text, json: envelope(from, to, text, data) });
+    if (receipt) recordReceipt(null, 'inference.observed', 'a2a.message', data, text);
     if (log.length > 200) log.splice(0, log.length - 200);
     save();
     const el = $('#agent-log'); if (el) el.innerHTML = logHtml();
@@ -1595,11 +1634,88 @@
     const list = [...active, ...terminal];
     const newest = list.slice().sort((a, b) => b.createdAt - a.createdAt || (b.seed || 0) - (a.seed || 0))[0]?.id;
     const cx = 170, cy = 100, radius = 70;
-    const colors = { discover: '#7d8ab5', overlap: '#18c39a', propose: '#3fb6ff', negotiate: '#ffc23d', 'needs-you': '#ff5a4e', confirmed: '#0c2bd8', live: '#8b5cf6' };
+    const colors = { discover: 'var(--muted)', overlap: 'var(--mint)', propose: 'var(--sky)', negotiate: 'var(--sun)', 'needs-you': 'var(--coral)', confirmed: 'var(--blue)', live: 'var(--violet)' };
     return `<div class="backstage-graph"><svg viewBox="0 0 340 200" role="img" aria-label="${t('live agent graph')}">
-      ${list.map((th, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / Math.max(1, list.length); const x = cx + radius * Math.cos(a), y = cy + radius * Math.sin(a); const peer = threadPerson(th); const dim = TERMINAL_THREADS.has(th.stage); const edge = th.stage === 'blocked' ? '#ff5a4e' : colors[th.stage] || '#9aa4c6'; return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${edge}" class="graph-edge ${th.stage === 'declined' ? 'declined' : ''} ${th.stage === 'blocked' ? 'blocked' : ''} ${th.id === newest ? 'recent' : ''}"/><g class="graph-node ${dim ? 'dim' : ''} ${persona(peer).cls}" data-action="thread-open" data-id="${th.id}" tabindex="0"><circle cx="${x}" cy="${y}" r="22"/><text x="${x}" y="${y + 5}">${nameVisible(th) ? esc(initials(peer?.name || '?')) : '?'}</text>${th.stage === 'blocked' ? `<text class="graph-shield" x="${x + 15}" y="${y - 14}">🛡</text>` : ''}</g>`; }).join('')}
+      ${list.map((th, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / Math.max(1, list.length); const x = cx + radius * Math.cos(a), y = cy + radius * Math.sin(a); const peer = threadPerson(th); const dim = TERMINAL_THREADS.has(th.stage); const edge = th.stage === 'blocked' ? 'var(--coral)' : colors[th.stage] || 'var(--muted)'; return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${edge}" class="graph-edge ${th.stage === 'declined' ? 'declined' : ''} ${th.stage === 'blocked' ? 'blocked' : ''} ${th.id === newest ? 'recent' : ''}"/><g class="graph-node ${dim ? 'dim' : ''} ${persona(peer).cls}" data-action="thread-open" data-id="${th.id}" tabindex="0"><circle cx="${x}" cy="${y}" r="22"/><text x="${x}" y="${y + 5}">${nameVisible(th) ? esc(initials(peer?.name || '?')) : '?'}</text>${th.stage === 'blocked' ? `<text class="graph-shield" aria-hidden="true" x="${x + 15}" y="${y - 14}">🛡</text>` : ''}</g>`; }).join('')}
       <circle cx="${cx}" cy="${cy}" r="30" class="graph-me"/><text x="${cx}" y="${cy + 4}" class="graph-me-label">${esc(initials(state.me.name))}</text></svg>
-      ${list.length ? '' : `<div class="graph-empty">${t('your agent is listening for a useful overlap.')}</div>`}<div class="graph-legend">${[['discover', '#7d8ab5'], ['negotiate', '#ffc23d'], ['needs you', '#ff5a4e'], ['confirmed', '#0c2bd8']].map(([label, color]) => `<span><i style="--legend-color:${color}"></i>${t(label)}</span>`).join('')}</div></div>`;
+      ${list.length ? '' : `<div class="graph-empty">${t('your agent is listening for a useful overlap.')}</div>`}<div class="graph-legend">${[['discover', 'var(--muted)'], ['negotiate', 'var(--sun)'], ['needs you', 'var(--coral)'], ['confirmed', 'var(--blue)']].map(([label, color]) => `<span><i style="--legend-color:${color}"></i>${t(label)}</span>`).join('')}</div></div>`;
+  }
+  const RECEIPT_ACTION_TITLES = {
+    'a2a.message': 'agents exchanged a message',
+    'charter.check': 'charter check passed',
+    'charter.injection-blocked': 'blocked a prompt injection',
+    'consent.mutual': 'you both said yes',
+    'followup.drafted': 'follow-up drafted',
+    'charter.updated': 'charter changed',
+    'key.created': 'signing key created',
+    'bundle.exported': 'receipts exported',
+  };
+  const receiptActionTitle = (action) => t(RECEIPT_ACTION_TITLES[action] || action);
+  function viewReceipts() {
+    const items = ui.receipts || [];
+    const status = ui.receiptVerification;
+    const groups = items.reduce((all, receipt) => ((all[receipt.ts_utc.slice(0, 10)] ||= []).push(receipt), all), {});
+    const keyFpr = ui.receiptKey?.keyFpr || '';
+    const shortFingerprint = keyFpr.startsWith('SHA256:')
+      ? `SHA256:${keyFpr.slice(7, 13)}…${keyFpr.slice(-6)}`
+      : keyFpr || t('signing key unavailable');
+    const keyKind = ui.receiptKey?.keyKind === 'hardware' ? t('non-extractable browser key')
+      : ui.receiptKey?.keyKind === 'software' ? t('software key') : '';
+    return `<h1 class="page-title">${t('agent receipts')}</h1><div class="card">
+      <div class="row between"><b><span aria-hidden="true">${status?.ok ? '✓' : '!'}</span> ${status?.ok ? t('chain verified') : t('chain needs attention')}</b><span>${t('{count} signed receipts', { count: status?.count ?? items.length })}</span></div>
+      <p class="small muted"><code title="${esc(keyFpr)}" aria-label="${esc(keyFpr)}">${esc(shortFingerprint)}</code><button class="btn ghost sm" data-action="receipt-copy" data-value="${esc(keyFpr)}">${t('copy fingerprint')}</button>${keyKind ? ` · ${esc(keyKind)}` : ''}</p>
+      <div class="row wrap"><button class="btn secondary" data-action="receipt-verify">${t('verify chain')}</button><button class="btn secondary" data-action="receipt-export" data-format="ndjson">${t('export NDJSON')}</button><button class="btn secondary" data-action="receipt-export" data-format="pem">${t('public key PEM')}</button><button class="btn secondary" data-action="receipt-export" data-format="bundle">${t('export bundle')}</button></div>
+      <p class="small receipt-explanation">${t('This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger.')}</p></div>
+      ${Object.entries(groups).sort(([a], [b]) => b.localeCompare(a)).map(([day, records]) => `<h2 class="section">${esc(day)}</h2>${records.slice().reverse().map((r) => {
+        const th = BK().threads.find((x) => x.id === r.thread_id);
+        const peer = th ? threadPerson(th) : null;
+        const person = peer ? (nameVisible(th) ? peer.name : t('peer agent')) : t('your agent');
+        const title = receiptActionTitle(r.action);
+        const meta = `${person} · ${fmtTime(r.ts_utc.slice(11, 16))} · #${r.seq}`;
+        return `<button class="card receipt-row" data-action="receipt-open" data-id="${r.id}" aria-label="${esc(`${title} ${meta}`)}"><span class="receipt-icon" aria-hidden="true"></span><span class="receipt-copy"><b>${esc(title)}</b> <small><code class="receipt-action" aria-hidden="true" data-label="${esc(r.action)}"></code><span>${esc(meta)}</span></small></span></button>`;
+      }).join('')}`).join('') || `<div class="card empty">${t('no receipts yet')}</div>`}`;
+  }
+  let receiptsRefreshVersion = 0;
+  async function refreshReceipts() {
+    const version = ++receiptsRefreshVersion;
+    try {
+      await window.R4Receipts?.init();
+      const receipts = await window.R4Receipts.list();
+      const verification = await window.R4Receipts.verify();
+      const key = await window.R4Receipts.keyInfo();
+      if (version !== receiptsRefreshVersion) return;
+      ui.receipts = receipts;
+      ui.receiptVerification = verification;
+      ui.receiptKey = key;
+      if (ui.tab === 'receipts') render();
+    } catch (error) { console.warn('Unable to load receipts', error); }
+  }
+  let receiptRefreshTimer;
+  window.addEventListener('r4-receipts-changed', () => {
+    if (ui.tab !== 'receipts') return;
+    clearTimeout(receiptRefreshTimer);
+    receiptRefreshTimer = setTimeout(() => {
+      if (ui.tab === 'receipts') void refreshReceipts();
+    }, 100);
+  });
+  async function openReceiptDetail(id) {
+    const receipt = await window.R4Receipts?.get(id);
+    if (!receipt) return;
+    const title = receiptActionTitle(receipt.action);
+    const day = receipt.ts_utc.slice(0, 10);
+    const date = new Date(`${day}T12:00:00`).toLocaleDateString(LANGS[lang()].locale, { year: 'numeric', month: 'long', day: 'numeric' });
+    const time = fmtTime(receipt.ts_utc.slice(11, 16));
+    const field = (key, value, parent = '') => {
+      const fieldName = parent ? `${parent}.${key}` : key;
+      if ((key === 'user' || key === 'signature') && value && typeof value === 'object' && !Array.isArray(value)) {
+        return `<div class="receipt-field"><dt>${esc(fieldName)}</dt><dd><dl class="receipt-nested">${Object.entries(value).map(([childKey, childValue]) => field(childKey, childValue, fieldName)).join('')}</dl></dd></div>`;
+      }
+      const display = typeof value === 'string' ? value : JSON.stringify(value);
+      const copyable = /hash|key_fpr|sig_b64/i.test(fieldName) || fieldName === 'signature';
+      const copyButton = copyable ? `<button class="btn ghost sm" aria-label="${esc(`${t('copy')} ${fieldName}`)}" data-action="receipt-copy" data-value="${esc(display)}">${t('copy')}</button>` : '';
+      return `<div class="receipt-field"><dt><span>${esc(fieldName)}</span>${copyButton}</dt><dd>${copyable ? `<code>${esc(display)}</code>` : esc(display)}</dd></div>`;
+    };
+    openSheet(title, `<div class="receipt-detail-header"><p class="small muted">${esc(date)} · ${esc(time)}</p></div><dl class="receipt-fields">${Object.entries(receipt).map(([key, value]) => field(key, value)).join('')}</dl><button class="btn secondary" data-action="receipt-copy-json" data-id="${receipt.id}">${t('copy json')}</button>${receipt.parent_receipt_id ? `<button class="btn secondary" data-action="receipt-open" data-id="${receipt.parent_receipt_id}">${t('parent receipt')}</button>` : ''}`);
   }
   function viewBackstage() {
     const active = activeThreads();
@@ -1615,7 +1731,10 @@
     const autonomyLabels = { ask: 'ask me', suggest: 'suggest', act: 'act' };
     const charterChip = (enabled, label) => `<span class="chip ${enabled ? 'good' : 'bad'}">${enabled ? '✓' : '⊘'} ${t(label)}</span>`;
     const maxLabel = charter.maxPerHour > 0 ? t('max {n} moments an hour', { n: charter.maxPerHour }) : t('no hourly limit');
+    const receiptCount = ui.receiptVerification?.count ?? Number(JSON.parse(localStorage.getItem('r4-beacon-head') || 'null')?.seq || 0);
+    const receiptStatus = ui.receiptVerification?.ok === false ? t('{count} signed receipts · chain needs attention', { count: receiptCount }) : t('{count} signed receipts · chain intact', { count: receiptCount });
     return `<h1 class="page-title">${t('backstage')}</h1><p class="page-sub">${t('what your agent is doing for you right now. every other agent here is simulated.')}</p>
+      <button class="card receipt-entry" data-action="open-receipts"><b>${t('agent receipts')}</b><span>${receiptStatus}</span></button>
       <div class="card backstage-controls"><div class="row between"><label class="check"><input type="checkbox" data-action="backstage-live" ${BK().live ? 'checked' : ''}/> ${t('agent live')}</label>
       <button class="btn secondary sm" data-action="fast-forward">${t('fast-forward')}</button></div>
       <div class="seg mode-seg">${[['open', _('open')], ['selective', _('selective')], ['heads-down', _('heads-down')]].map(([v, l]) => `<button class="${BK().beacon.mode === v ? 'on' : ''}" data-action="beacon-mode" data-mode="${v}">${t(l)}</button>`).join('')}</div></div>
@@ -1677,8 +1796,18 @@
     const typing = a && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
     if (!typing && ['today', 'backstage'].includes(ui.tab)) render();
   }
-  function updateAgentIsland() {
-    const island = $('#agent-island'); if (island) island.innerHTML = islandHtml();
+  function updateAgentIsland(force = false) {
+    const island = $('#agent-island'); if (!island) return;
+    const markup = islandHtml();
+    if (markup === islandMarkup) return;
+    const elapsed = Date.now() - lastIslandUpdate;
+    if (!force && elapsed < 5000) {
+      if (!islandTimer) islandTimer = setTimeout(() => { islandTimer = null; updateAgentIsland(); }, 5000 - elapsed);
+      return;
+    }
+    island.innerHTML = markup;
+    islandMarkup = markup;
+    lastIslandUpdate = Date.now();
   }
   function charterSheet() {
     const c = BK().charter;
@@ -1698,7 +1827,7 @@
   }
   function openThreadSheet(th) {
     if (!th) return;
-    const jsonMessages = th.msgs.map((m) => `<div class="thread-msg ${m.flag === 'injection' ? 'flagged' : ''}"><div class="small muted">${esc(messageFrom(th, m))} → ${esc(messageTo(th, m))}${m.flag === 'injection' ? ` <span class="shield-chip">🛡 ${t('untrusted instruction blocked')}</span>` : ''}</div><p>${esc(messageText(m, th))}</p><details><summary>${t('a2a json')}</summary><pre>${esc(JSON.stringify(m.json, null, 2))}</pre></details></div>`).join('');
+    const jsonMessages = th.msgs.map((m) => `<div class="thread-msg ${m.flag === 'injection' ? 'flagged' : ''}"><div class="small muted">${esc(messageFrom(th, m))} → ${esc(messageTo(th, m))}${m.flag === 'injection' ? ` <span class="shield-chip">🛡 ${t('untrusted instruction blocked')}</span>` : ''}</div><p>${esc(messageText(m, th))}</p>${m.receiptId ? `<button class="btn ghost sm" data-action="receipt-open" data-id="${m.receiptId}">${t('view receipt')}</button>` : ''}<details><summary>${t('a2a json')}</summary><pre>${esc(JSON.stringify(m.json, null, 2))}</pre></details></div>`).join('');
     const actions = th.stage === 'needs-you' ? `<div class="moment-pillbar"><button class="btn" data-action="thread-yes" data-id="${th.id}">${t('yes')}</button><button class="btn secondary" data-action="thread-not-now" data-id="${th.id}">${t('not now')}</button><button class="btn ghost" data-action="thread-ask" data-id="${th.id}">${t('ask my agent')}</button></div>` : '';
     openSheet(t('agent thread'), `<div class="thread-sheet">
       <div class="row wrap"><span class="chip">${t(th.kind)}</span><span class="chip">${t(th.stage)}</span>${th.inbound ? `<span class="chip good">${t('inbound')}</span>` : ''}</div>
@@ -1842,20 +1971,29 @@
   const foundationFooter = () => `<footer class="foundation-footer">${foundationText()}</footer>`;
   function settingsSheet() {
     const m = state.me;
+    const brandOptions = [
+      { id: 'slalom', name: 'Slalom', colors: ['#0C62FB', '#DEFF4D', '#F5F5F5'] },
+      { id: 'aigovops', name: 'AiGovOps', colors: ['#6C3DE6', '#1D9E75', '#F8F7FF'] },
+    ];
     openSheet(t('me & event'), `
       <div class="field"><label>${t('language')}</label><div class="seg">${Object.entries({ en: 'english', es: 'español', pt: 'português' }).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}">${l}</button>`).join('')}</div></div>
       <form data-form="settings">
-        <div class="field-row"><div class="field"><label>${t('my name')}</label><input name="name" value="${esc(m.name)}" /></div><div class="field"><label>${t('my team (for reports)')}</label><input name="team" value="${esc(m.team)}" /></div></div>
-        <div class="field"><label>${t('my interests (drives matching)')}</label><input name="interests" value="${esc(m.interests.join(', '))}" /></div>
-        <div class="field-row"><div class="field"><label>${t('event name')}</label><input name="eventName" value="${esc(m.eventName)}" /></div><div class="field"><label>${t('first day')}</label><input type="date" name="eventStart" value="${m.eventStart}" /></div></div>
-        <div class="field-row"><div class="field"><label>${t('days')}</label><input type="number" min="1" max="7" name="days" value="${m.days}" /></div><div class="field"><label>${t('day hours')}</label><div class="row"><input type="time" name="dayStart" value="${m.dayStart}" /><input type="time" name="dayEnd" value="${m.dayEnd}" /></div></div></div>
+        <div class="field-row"><div class="field"><label for="settings-name">${t('my name')}</label><input id="settings-name" name="name" value="${esc(m.name)}" /></div><div class="field"><label for="settings-team">${t('my team (for reports)')}</label><input id="settings-team" name="team" value="${esc(m.team)}" /></div></div>
+        <div class="field"><label for="settings-interests">${t('my interests (drives matching)')}</label><input id="settings-interests" name="interests" value="${esc(m.interests.join(', '))}" /></div>
+        <div class="field-row"><div class="field"><label for="settings-event-name">${t('event name')}</label><input id="settings-event-name" name="eventName" value="${esc(m.eventName)}" /></div><div class="field"><label for="settings-event-start">${t('first day')}</label><input id="settings-event-start" type="date" name="eventStart" value="${m.eventStart}" /></div></div>
+        <div class="field-row"><div class="field"><label for="settings-days">${t('days')}</label><input id="settings-days" type="number" min="1" max="7" name="days" value="${m.days}" /></div><div class="field"><label>${t('day hours')}</label><div class="row"><input id="settings-day-start" type="time" name="dayStart" value="${m.dayStart}" aria-label="${t('start')}" /><input id="settings-day-end" type="time" name="dayEnd" value="${m.dayEnd}" aria-label="${t('end')}" /></div></div></div>
         <button class="btn block">${t('save')}</button></form>
+      <section class="card design-section"><h3>${t('design')}</h3><p class="small muted">${t('choose a visual identity')}</p>
+        <div class="design-picker" role="radiogroup" aria-label="${t('design')}">${brandOptions.map((brand) => `<button type="button" class="brand-option ${state.me.brand === brand.id ? 'selected' : ''}" data-action="brand-select" data-brand="${brand.id}" role="radio" aria-checked="${state.me.brand === brand.id}" tabindex="${state.me.brand === brand.id ? '0' : '-1'}">
+          <span class="brand-option-name">${brand.name}</span><span class="brand-swatches" aria-hidden="true">${brand.colors.map((color) => `<i style="background:${color}"></i>`).join('')}</span>
+          <span class="brand-preview-aa" style="font-family:${brand.id === 'slalom' ? '"DM Sans", sans-serif' : 'Fraunces, serif'}" aria-hidden="true">Aa</span></button>`).join('')}</div></section>
       <div class="card" style="margin-top:14px"><h3>${t('your data')}</h3><p class="small muted" style="margin-bottom:10px">${t('everything stays on this device (browser storage). back it up or move it to another device with export / import.')}</p>
         <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
         <button class="btn secondary sm" data-action="reset-demo">${t('reset to demo data')}</button><button class="btn danger sm" data-action="clear-all">${t('start fresh (empty)')}</button></div>
         <input type="file" id="json-file" accept="application/json,.json" hidden /></div>${backendCard()}
       <div class="card foundation-about"><h3>${t('about')}</h3><p class="foundation-line">${foundationText()}</p>
-        <a href="https://github.com/bobrapp/OpenConvention-rapp-v1" target="_blank" rel="noopener">${t('source repository')}</a></div>`);
+        <a href="https://github.com/bobrapp/OpenConvention-rapp-v1" target="_blank" rel="noopener">${t('source repository')}</a>
+        <button class="btn secondary block" data-action="open-receipts">${t('agent receipts')}</button></div>`);
   }
   function goalsSheet() {
     openSheet(t('my goals'), `<form data-form="goals">${state.goals.map((g) => `<div class="card tight"><div class="field"><label>${g.auto ? t('goal (auto-tracked)') : t('goal (tracked by hand)')}</label><input name="text-${g.id}" value="${esc(goalText(g))}" /></div>
@@ -1867,16 +2005,38 @@
   // ---------- render ----------
   function render() {
     syncMomentSessions();
+    applyBrand();
     document.documentElement.lang = lang();
     document.title = `${state.me.eventName} ${t('networking')}`;
     $('#brand-text').textContent = t('networking');
-    $('#lang-switch').innerHTML = Object.entries(LANGS).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}" aria-label="${k}">${l.label}</button>`).join('');
-    $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}"><span class="tab-ico">${I[k]}</span>${t(l)}</button>`).join('');
+    $('#lang-switch').setAttribute('role', 'group');
+    $('#lang-switch').setAttribute('aria-label', t('language'));
+    $('#lang-switch').innerHTML = Object.entries(LANGS).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}" aria-label="${l.label}" aria-pressed="${lang() === k}">${l.label}</button>`).join('');
+    $('#tabbar').setAttribute('aria-label', t('primary navigation'));
+    $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}" aria-current="${ui.tab === k ? 'page' : 'false'}"><span class="tab-ico" aria-hidden="true">${I[k]}</span>${t(l)}</button>`).join('');
     const hl = headliner();
     $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${hl.id}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
-    const island = $('#agent-island'); if (island) island.innerHTML = islandHtml();
-    const views = { today: viewToday, backstage: viewBackstage, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewBackstage, meet: viewMeet, pitch: viewPitch, report: viewReport };
+    updateAgentIsland();
+    const views = { today: viewToday, backstage: viewBackstage, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewBackstage, meet: viewMeet, pitch: viewPitch, report: viewReport, receipts: viewReceipts };
     $('#view').innerHTML = views[ui.tab]() + foundationFooter();
+    if (window.ResizeObserver && !window.__r4TopbarObserver) {
+      const topbar = document.querySelector('.topbar');
+      if (topbar) {
+        const publishHeight = () => document.documentElement.style.setProperty('--topbar-h', `${topbar.getBoundingClientRect().height}px`);
+        window.__r4TopbarObserver = new ResizeObserver(publishHeight);
+        window.__r4TopbarObserver.observe(topbar);
+        publishHeight();
+      }
+    } else if (!window.ResizeObserver && !window.__r4TopbarResize) {
+      const publishHeight = () => {
+        const topbar = document.querySelector('.topbar');
+        if (topbar) document.documentElement.style.setProperty('--topbar-h', `${topbar.getBoundingClientRect().height}px`);
+      };
+      window.__r4TopbarResize = true;
+      window.addEventListener('resize', publishHeight);
+      publishHeight();
+    }
+    requestAnimationFrame(() => document.querySelector('#tabbar .tab.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'auto' }));
     if (!BK().onboarded && ['today', 'backstage'].includes(ui.tab) && !ui.charterAsked) { ui.charterAsked = true; setTimeout(charterSheet, 0); }
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
@@ -1886,13 +2046,14 @@
   // ---------- actions ----------
   const A = {
     go: (el) => go(el.dataset.tab),
-    'island-toggle': () => { ui.islandOpen = !ui.islandOpen; updateAgentIsland(); },
+    'island-toggle': () => { ui.islandOpen = !ui.islandOpen; updateAgentIsland(true); },
     'open-charter': charterSheet,
     'fast-forward': fastForward,
     'backstage-live': (el) => { BK().live = el.checked; save(); refreshBackstageUi(); },
     'beacon-mode': (el) => { BK().beacon.mode = el.dataset.mode; save(); refreshBackstageUi(); },
     'charter-toggle': (el) => {
       const value = el.dataset.key === 'maxPerHour' ? (el.checked ? 2 : 0) : el.checked;
+      recordReceipt(null, 'inventory.trust.changed', 'charter.updated', { key: el.dataset.key }, String(value));
       BK().charter[el.dataset.key] = value; save();
     },
     'thread-send-draft': (el) => { const th = threadById(el.dataset.id); if (!th) return; th.draftPending = false; th.proposeApproved = true; save(); closeSheet(); render(); },
@@ -1965,7 +2126,28 @@
     'go-connect': (el) => { ui.connectSeg = el.dataset.seg; go('connect'); },
     'go-recap': () => { ui.reportSeg = 'recap'; ui.recapDay = currentDay(); go('report'); },
     'open-settings': settingsSheet,
+    'open-receipts': () => { closeSheet(); ui.tab = 'receipts'; render(); void refreshReceipts(); },
+    'receipt-open': (el) => { void openReceiptDetail(el.dataset.id); },
+    'receipt-copy': (el) => { void copy(el.dataset.value || '', t('copied')); },
+    'receipt-copy-json': async (el) => {
+      const receipt = await window.R4Receipts?.get(el.dataset.id);
+      if (receipt) await copy(JSON.stringify(receipt, null, 2), t('copied'));
+    },
+    'receipt-verify': () => { void refreshReceipts(); },
+    'receipt-export': async (el) => {
+      try {
+        const data = await window.R4Receipts.exportData();
+        const date = new Date().toISOString().slice(0, 10);
+        if (el.dataset.format === 'ndjson') download(`r4-receipts-${date}.ndjson`, data.ndjson, 'application/x-ndjson');
+        else if (el.dataset.format === 'pem') download('r4-beacon-public-key.pem', data.pem, 'application/x-pem-file');
+        else download(`r4-receipts-bundle-${date}.json`, data.bundle, 'application/json');
+      } catch (error) { console.warn('Receipt export failed', error); toast(t('receipt export failed')); }
+    },
     'set-lang': (el) => { state.me.lang = el.dataset.lang; save(); const inSheet = !!el.closest('.sheet'); render(); if (inSheet) settingsSheet(); },
+    'brand-select': (el) => {
+      if (!['slalom', 'aigovops'].includes(el.dataset.brand)) return;
+      state.me.brand = el.dataset.brand; save(); applyBrand(); render(); settingsSheet();
+    },
     'close-sheet': closeSheet,
     'close-sheet-bg': (el, e) => { if (e.target === el) closeSheet(); },
     'alert-close': () => { $('#alert-root').innerHTML = ''; },
@@ -2072,9 +2254,10 @@
   // ---------- forms ----------
   const F = {
     charter: (fd) => {
-      BK().beacon.give = fd.get('give').trim();
-      BK().beacon.ask = fd.get('ask').trim();
-      BK().charter.quietAfter = fd.get('quietAfter') || '21:00';
+      const settings = { give: fd.get('give').trim(), ask: fd.get('ask').trim(), quietAfter: fd.get('quietAfter') || '21:00' };
+      recordReceipt(null, 'inventory.trust.changed', 'charter.updated', settings, 'charter settings saved');
+      Object.assign(BK().beacon, { give: settings.give, ask: settings.ask });
+      BK().charter.quietAfter = settings.quietAfter;
       BK().onboarded = true; BK().live = true;
       save(); closeSheet(); render(); fastForward();
     },
@@ -2607,8 +2790,8 @@
     const c = window.R4Backend ? R4Backend.config() : {};
     return `<div class="card" style="margin-top:14px"><h3>${t('community backend')}</h3>
       <p class="small muted" style="margin-bottom:8px">${comm.mode === 'live' ? t('live: pods, back-channels, roulette and the board are shared with other attendees through supabase.') : t('demo mode: pods and rooms use simulated attendees on this device. add your supabase project to go live.')}${comm.error ? ` <b>${esc(comm.error)}</b>` : ''}</p>
-      <form data-form="backend"><div class="field"><label>${t('supabase project url')}</label><input name="url" value="${esc(c.url || '')}" placeholder="https://xxxx.supabase.co" /></div>
-      <div class="field"><label>${t('anon / publishable key')}</label><input name="key" value="${esc(c.key || '')}" autocomplete="off" /></div>
+      <form data-form="backend"><div class="field"><label for="backend-url">${t('supabase project url')}</label><input id="backend-url" name="url" value="${esc(c.url || '')}" placeholder="https://xxxx.supabase.co" /></div>
+      <div class="field"><label for="backend-key">${t('anon / publishable key')}</label><input id="backend-key" name="key" value="${esc(c.key || '')}" autocomplete="off" /></div>
       <div class="row wrap" style="gap:8px"><button class="btn sm">${t('connect')}</button><button type="button" class="btn secondary sm" data-action="backend-demo">${t('use demo mode')}</button>${comm.mode === 'demo' ? `<button type="button" class="btn secondary sm" data-action="community-reset">${t('reset demo community')}</button>` : ''}</div></form></div>`;
   }
 
@@ -2807,7 +2990,26 @@
       x.value = '';
     }
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSheet(); $('#alert-root').innerHTML = ''; } });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeSheet(); $('#alert-root').innerHTML = ''; return; }
+    if (e.key !== 'Tab') return;
+    const dialog = $('#sheet-root [role="dialog"]');
+    if (!dialog) return;
+    const items = [...dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter((item) => item.getClientRects().length && !item.disabled && !item.closest('[hidden], [inert]') && getComputedStyle(item).visibility !== 'hidden');
+    if (!items.length) { e.preventDefault(); dialog.focus(); return; }
+    if (e.shiftKey && document.activeElement === items[0]) { e.preventDefault(); items.at(-1).focus(); }
+    else if (!e.shiftKey && document.activeElement === items.at(-1)) { e.preventDefault(); items[0].focus(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    const option = e.target.closest?.('[data-action="brand-select"]');
+    if (!option || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    e.preventDefault();
+    const options = [...$('#sheet-root [role="radiogroup"]').querySelectorAll('[role="radio"]')];
+    const nextIndex = (options.indexOf(option) + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : options.length - 1)) % options.length;
+    options[nextIndex].click();
+    $('#sheet-root [role="radio"][aria-checked="true"]')?.focus();
+  });
 
   function handleAgentHash() {
     if (!/^#agent=/.test(location.hash)) return;
@@ -2819,6 +3021,7 @@
     render();
   }
   window.addEventListener('hashchange', handleAgentHash);
+  void refreshReceipts();
   render();
   handleAgentHash();
   handleMeetHash();

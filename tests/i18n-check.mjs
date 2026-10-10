@@ -14,6 +14,10 @@ const DYNAMIC_KEYS = [
   'discover', 'overlap', 'propose', 'negotiating', 'needs you', 'confirmed', 'live', 'done',
   'coffee bar', 'lounge', 'atrium', 'garden room',
   'ask me', 'suggest', 'act',
+  'a2a.message', 'charter.injection-blocked', 'charter.check', 'consent.mutual',
+  'followup.drafted', 'charter.updated', 'key.created', 'bundle.exported',
+  'agents exchanged a message', 'charter check passed', 'blocked a prompt injection',
+  'you both said yes', 'follow-up drafted', 'charter changed', 'signing key created', 'receipts exported',
   'they want {ask}; you offer {give}', 'you want {ask}; they offer {give}',
 ];
 for (const key of DYNAMIC_KEYS) keys.add(key);
