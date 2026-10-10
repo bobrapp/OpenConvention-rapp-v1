@@ -114,6 +114,70 @@ try {
     assert.equal(running, 0, `${brand}/${colorScheme}: running CSS animations under reduced motion`);
     await context.close();
   }
+  const narrowContext = await browser.newContext({ viewport: { width: 320, height: 844 } });
+  const narrowPage = await narrowContext.newPage();
+  await narrowPage.addInitScript(() => {
+    setInterval(() => document.querySelector('#alert-root .alert-pop')?.remove(), 250);
+  });
+  await narrowPage.goto(base);
+  await narrowPage.evaluate(() => document.querySelector('#sheet-root [data-action="close-sheet"]')?.click());
+  const tabSizes = await narrowPage.locator('#tabbar .tab').evaluateAll((items) => items.map((item) => {
+    const rect = item.getBoundingClientRect();
+    return { label: item.textContent.trim(), width: rect.width, height: rect.height };
+  }));
+  assert.equal(await narrowPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, '320px tabbar overflows document');
+  assert.ok(tabSizes.every((tab) => tab.width >= 44 && tab.height >= 44), JSON.stringify(tabSizes));
+  const lastTab = narrowPage.locator('#tabbar .tab').last();
+  await lastTab.scrollIntoViewIfNeeded();
+  await lastTab.click();
+  assert.equal(await lastTab.getAttribute('aria-current'), 'page');
+  assert.equal(await lastTab.evaluate((tab) => { const rect = tab.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth; }), true, 'active last tab is not visible');
+  await narrowContext.close();
+  const stickyContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const stickyPage = await stickyContext.newPage();
+  await stickyPage.addInitScript(() => {
+    setInterval(() => document.querySelector('#alert-root .alert-pop')?.remove(), 250);
+  });
+  await stickyPage.goto(base);
+  await stickyPage.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+    state.me.eventStart = '2030-01-01';
+    const featured = state.sessions.find((session) => session.featured);
+    if (featured) featured.day = 0;
+    localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+  });
+  await stickyPage.reload();
+  await stickyPage.evaluate(() => document.querySelector('#sheet-root [data-action="close-sheet"]')?.click());
+  await stickyPage.evaluate(() => document.querySelector('#alert-root')?.replaceChildren());
+  await stickyPage.locator('#tabbar [data-tab="agenda"]').click({ force: true });
+  assert.equal(await stickyPage.locator('#tabbar .active').getAttribute('data-tab'), 'agenda', 'agenda tab should be active for the sticky-strip check');
+  const featuredSession = stickyPage.locator('.t-card.featured').first();
+  await featuredSession.waitFor();
+  const checkStickyOffset = async (label) => {
+    await featuredSession.scrollIntoViewIfNeeded();
+    await stickyPage.evaluate(() => window.scrollBy(0, 100));
+    await stickyPage.waitForTimeout(100);
+    const sticky = await stickyPage.evaluate(() => {
+      const header = document.querySelector('.topbar'), strip = document.querySelector('#hl-strip .hl-strip');
+      const headerRect = header.getBoundingClientRect(), stripRect = strip.getBoundingClientRect();
+      return {
+        headerBottom: headerRect.bottom,
+        stripTop: stripRect.top,
+        covered: document.elementFromPoint(stripRect.left + stripRect.width / 2, stripRect.top + stripRect.height / 2)?.closest('.hl-strip') === strip,
+      };
+    });
+    assert.ok(sticky.stripTop >= sticky.headerBottom - 1 && sticky.covered, `${label}: headliner strip is hidden by the header: ${JSON.stringify(sticky)}`);
+  };
+  await checkStickyOffset('390px');
+  const beforeTextScale = await stickyPage.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+  await stickyPage.evaluate(() => [document.documentElement, ...document.querySelectorAll('body *')].forEach((el) => {
+    const size = parseFloat(getComputedStyle(el).fontSize);
+    el.style.setProperty('font-size', `${size * 2}px`, 'important');
+  }));
+  const afterTextScale = await stickyPage.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+  assert.ok(afterTextScale >= beforeTextScale * 1.99, '200% text test doubles computed font sizes');
+  await checkStickyOffset('390px at 200% text');
+  await stickyContext.close();
   assert.deepEqual(targetErrors, [], targetErrors.join('\n'));
   console.log('a11y ok: 4 brand/scheme combinations; tabs, settings, receipts, details; targets >=44px; no serious/critical axe findings; no 200% overflow or reduced-motion animations.');
 } finally {

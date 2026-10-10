@@ -183,6 +183,26 @@ try {
   const afterTruncationReload = await page.evaluate(async () => ({ verification: await R4Receipts.verify(), key: (await R4Receipts.keyInfo()).keyFpr }));
   assert.equal(afterTruncationReload.verification.ok, false, 'truncation remains detectable after reload');
   assert.equal(afterTruncationReload.key, before.keyFpr);
+  await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('r4-beacon');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('receipts', 'readwrite');
+      tx.objectStore('receipts').clear();
+      tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    localStorage.removeItem('r4-beacon-head');
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(async () => { const rows = await R4Receipts.list(); return rows.length === 1 && rows[0].seq === 1 && rows[0].action === 'key.created'; });
+  const recovered = await page.evaluate(() => R4Receipts.record('test.recovery', 'devin.recovered-action', {}, { ok: true }));
+  assert.equal(recovered.seq, 2);
+  assert.equal((await page.evaluate(() => R4Receipts.verify())).ok, true);
+  console.log('interrupted first launch recovery ok: key.created seq 1; action seq 2; verify ok');
   console.log(`receipts ok: ${persisted.count} persisted; tamper seq ${tampered.firstBadSeq}; truncation seq ${truncated.firstBadSeq}; key ${persisted.key}`);
 } finally {
   await browser.close();

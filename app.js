@@ -2019,6 +2019,24 @@
     updateAgentIsland();
     const views = { today: viewToday, backstage: viewBackstage, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewBackstage, meet: viewMeet, pitch: viewPitch, report: viewReport, receipts: viewReceipts };
     $('#view').innerHTML = views[ui.tab]() + foundationFooter();
+    if (window.ResizeObserver && !window.__r4TopbarObserver) {
+      const topbar = document.querySelector('.topbar');
+      if (topbar) {
+        const publishHeight = () => document.documentElement.style.setProperty('--topbar-h', `${topbar.getBoundingClientRect().height}px`);
+        window.__r4TopbarObserver = new ResizeObserver(publishHeight);
+        window.__r4TopbarObserver.observe(topbar);
+        publishHeight();
+      }
+    } else if (!window.ResizeObserver && !window.__r4TopbarResize) {
+      const publishHeight = () => {
+        const topbar = document.querySelector('.topbar');
+        if (topbar) document.documentElement.style.setProperty('--topbar-h', `${topbar.getBoundingClientRect().height}px`);
+      };
+      window.__r4TopbarResize = true;
+      window.addEventListener('resize', publishHeight);
+      publishHeight();
+    }
+    requestAnimationFrame(() => document.querySelector('#tabbar .tab.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'auto' }));
     if (!BK().onboarded && ['today', 'backstage'].includes(ui.tab) && !ui.charterAsked) { ui.charterAsked = true; setTimeout(charterSheet, 0); }
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
