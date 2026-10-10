@@ -9,7 +9,9 @@ import { chromium } from 'playwright-core';
 const base = process.env.BASE_URL || 'http://127.0.0.1:60804/R4%20Muse%20V1';
 const executablePath = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const browser = await chromium.launch({ headless: true, executablePath });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const page = await context.newPage();
+const secondPage = await context.newPage();
 await page.addInitScript(() => {
   window.__beaconLegacyTouches = [];
   for (const method of ['getItem', 'setItem', 'removeItem']) {
@@ -25,14 +27,24 @@ await page.addInitScript(() => {
     return open.call(this, name, ...args);
   };
 });
-await page.goto(base);
-await page.getByRole('button', { name: 'settings' }).click();
+const dismissAlert = async () => {
+  const close = page.locator('[data-action="alert-close"]');
+  if (await close.count()) await close.click({ force: true });
+};
+const clickAfterAlert = async (locator) => {
+  await dismissAlert();
+  try { await locator.click({ timeout: 1000 }); }
+  catch { await dismissAlert(); await locator.click(); }
+};
+await Promise.all([page.goto(base), secondPage.goto(base)]);
+await dismissAlert();
+await clickAfterAlert(page.getByRole('button', { name: 'settings' }));
 await page.locator('[data-form="settings"] input[name="name"]').fill('Beacon Test');
-await page.locator('[data-form="settings"] button').last().click();
-await page.getByRole('button', { name: 'agents', exact: true }).click();
-await page.getByRole('button', { name: /let my agents network/i }).click();
+await clickAfterAlert(page.locator('[data-form="settings"] button').last());
+await clickAfterAlert(page.getByRole('button', { name: 'agents', exact: true }));
+await clickAfterAlert(page.getByRole('button', { name: /let my agents network/i }));
 await page.waitForTimeout(500);
-await page.locator('[data-action="receipts-verify"]').click();
+await clickAfterAlert(page.locator('[data-action="receipts-verify"]'));
 await page.waitForFunction(() => document.querySelector('#receipts-status')?.textContent.startsWith('OK'));
 const result = await page.evaluate(async () => {
   const rows = await window.R4Receipts.list();
@@ -49,6 +61,27 @@ assert.equal(JSON.parse(result.exported.bundle).manifest.app, 'muse');
 assert.ok(result.exported.ndjson.includes('"action":"bundle.exported"'));
 assert.equal(result.dbs.some((x) => x.name === 'r4-beacon'), false);
 assert.deepEqual(await page.evaluate(() => window.__beaconLegacyTouches), []);
+const beforeConcurrent = await page.evaluate(async () => (await window.R4Receipts.list()).length);
+const concurrentWrites = [];
+for (let i = 0; i < 10; i++) {
+  concurrentWrites.push(page.evaluate((index) => window.R4Receipts.record('test.concurrent', 'muse.concurrent', { page: 1, index }, { ok: true }), i));
+  concurrentWrites.push(secondPage.evaluate((index) => window.R4Receipts.record('test.concurrent', 'muse.concurrent', { page: 2, index }, { ok: true }), i));
+}
+assert.ok((await Promise.all(concurrentWrites)).every(Boolean));
+const concurrentResult = await page.evaluate(async () => {
+  const db = await new Promise((resolve, reject) => { const req = indexedDB.open('r4-beacon-muse'); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
+  const keys = await new Promise((resolve, reject) => { const req = db.transaction('keys').objectStore('keys').getAll(); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
+  db.close();
+  const rows = await window.R4Receipts.list();
+  return { rows, verification: await window.R4Receipts.verify(), signingKeys: keys.filter((entry) => entry.id === 'signing') };
+});
+assert.equal(concurrentResult.verification.ok, true);
+assert.equal(concurrentResult.rows.length, beforeConcurrent + 20);
+assert.deepEqual(concurrentResult.rows.map((entry) => entry.seq), Array.from({ length: concurrentResult.rows.length }, (_, index) => index + 1));
+assert.equal(concurrentResult.signingKeys.length, 1);
+await page.waitForFunction((count) => document.querySelectorAll('.receipt-list .receipt-row').length === count, concurrentResult.rows.length);
+assert.equal(await page.locator('.receipt-list .receipt-row').count(), concurrentResult.rows.length);
+await secondPage.close();
 if (process.env.BEACON_VERIFY) {
   const work = mkdtempSync(path.join(tmpdir(), 'r4-muse-beacon-'));
   try {
