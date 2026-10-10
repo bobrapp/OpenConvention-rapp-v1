@@ -58,6 +58,14 @@ for (const scheme of ['light', 'dark']) {
   await p.click('.tab[data-tab="today"]'); await p.click('[data-act="clearExamples"]'); await p.waitForTimeout(100);
   const s = await stored();
   note(s.people.length === 1 && s.sessions.length === 0 && s.goals.length === 0 && s.settings.example === false, 'clearing examples leaves only real entries');
+  if (scheme === 'light') {
+    await p.click('[data-act="settings"]');
+    await p.click('[role="radio"][data-brand="aigovops"]');
+    note(await p.locator('html').getAttribute('data-brand') === 'aigovops', 'brand choice applies immediately');
+    note((await stored()).settings.brand === 'aigovops', 'brand choice persists in local storage');
+    await p.reload(); await p.waitForTimeout(100);
+    note(await p.locator('html').getAttribute('data-brand') === 'aigovops', 'brand choice persists after reload');
+  }
   await ctx.close();
 }
 await browser.close();
