@@ -86,7 +86,7 @@ html = html.replace(headTag, (tag) => `${tag}\n<meta name="r4-share-base" conten
 writeFileSync(indexPath, html);
 const scriptHashes = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
   .filter(([, attributes, source]) => !/\bsrc\s*=/i.test(attributes) && source.trim())
-  .map(([, , source]) => `'sha256-${createHash('sha256').update(source, 'utf8').digest('base64')}'`);
+  .map(([, , source]) => `'sha256-${createHash('sha256').update(source.replace(/\r\n?/g, '\n'), 'utf8').digest('base64')}'`);
 const scriptDirective = `script-src 'self'${scriptHashes.length ? ` ${scriptHashes.join(' ')}` : ''}`;
 const configPath = join(work, 'www', 'config.js');
 if (existsSync(configPath)) {

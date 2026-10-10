@@ -36,7 +36,7 @@ try {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const expectedScriptHashes = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
       .filter(([, attributes, source]) => !/\bsrc\s*=/i.test(attributes) && source.trim())
-      .map(([, , source]) => `'sha256-${createHash('sha256').update(source, 'utf8').digest('base64')}'`);
+      .map(([, , source]) => `'sha256-${createHash('sha256').update(source.replace(/\r\n?/g, '\n'), 'utf8').digest('base64')}'`);
     const scriptDirective = nativeCsp.split(';').map((directive) => directive.trim()).find((directive) => directive.startsWith('script-src '));
     assert.equal(scriptDirective, `script-src 'self'${expectedScriptHashes.length ? ` ${expectedScriptHashes.join(' ')}` : ''}`, `${app} script hashes must match the packaged HTML`);
     assert.ok(!scriptDirective.includes('unsafe-inline'), `${app} must not use unsafe-inline`);
@@ -123,11 +123,21 @@ try {
       assert.ok(tabs.length, `${app} should render main tabs`);
       const dismissAlert = async () => {
         const alert = page.locator('.alert-pop[data-action="alert-close-bg"]');
-        if (await alert.count()) await alert.evaluate((element) => element.click());
+        const close = alert.locator('[data-action="alert-close"]');
+        if (await close.count()) await close.click();
+        else if (await alert.count()) await alert.evaluate((element) => element.click());
+        if (await alert.count()) await alert.waitFor({ state: 'detached', timeout: 1000 });
       };
       for (const tab of tabs) {
         await dismissAlert();
-        await page.locator(`.tab[data-tab="${tab}"]`).first().click();
+        const tabButton = page.locator(`.tab[data-tab="${tab}"]`).first();
+        try {
+          await tabButton.click({ timeout: 1000 });
+        } catch (error) {
+          if (!await page.locator('.alert-pop').count()) throw error;
+          await dismissAlert();
+          await tabButton.click();
+        }
         await page.waitForTimeout(100);
       }
       await page.waitForTimeout(250);
