@@ -54,6 +54,54 @@ try {
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     console.log(`beacon_verify.py:\n${result.stdout.trim()}`);
   } finally { rmSync(work, { recursive: true, force: true }); }
+  for (let iteration = 0; iteration < 5; iteration++) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const [first, second] = await Promise.all([context.newPage(), context.newPage()]);
+    await Promise.all([first.goto(base, { waitUntil: 'domcontentloaded' }), second.goto(base, { waitUntil: 'domcontentloaded' })]);
+    await Promise.all([first.waitForFunction(() => window.R4Receipts), second.waitForFunction(() => window.R4Receipts)]);
+    await Promise.all([
+      first.evaluate(() => R4Receipts.record('test.concurrent', 'devin.first-launch.a', { iteration: 0 }, { ok: true })),
+      second.evaluate(() => R4Receipts.record('test.concurrent', 'devin.first-launch.b', { iteration: 0 }, { ok: true })),
+    ]);
+    const fresh = await first.evaluate(async () => {
+      const entries = await R4Receipts.list();
+      const db = await new Promise((resolve, reject) => { const r = indexedDB.open('r4-beacon'); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+      const keys = await new Promise((resolve, reject) => { const r = db.transaction('keys', 'readonly').objectStore('keys').getAll(); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+      return { entries, keys, verification: await R4Receipts.verify() };
+    });
+    assert.equal(fresh.entries[0].seq, 1); assert.equal(fresh.entries[0].action, 'key.created');
+    assert.equal(fresh.entries.filter((r) => r.action === 'key.created').length, 1);
+    assert.deepEqual(fresh.entries.map((r) => r.seq), fresh.entries.map((_r, i) => i + 1));
+    assert.equal(fresh.keys.filter((key) => key.id === 'signing').length, 1);
+    assert.equal(fresh.keys.filter((key) => key.id === 'device').length, 1);
+    assert.equal(fresh.verification.ok, true);
+    await context.close();
+  }
+  console.log('first-launch concurrency ok: five fresh two-page contexts; key.created seq 1; contiguous; one signing key; verify ok');
+  const shared = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const [listPage, writePage] = await Promise.all([shared.newPage(), shared.newPage()]);
+  await Promise.all([listPage.goto(base, { waitUntil: 'domcontentloaded' }), writePage.goto(base, { waitUntil: 'domcontentloaded' })]);
+  await Promise.all([listPage.waitForFunction(() => window.R4Receipts), writePage.waitForFunction(() => window.R4Receipts)]);
+  await Promise.all([listPage, writePage].map((tab) => tab.evaluate(() => R4Receipts.init())));
+  if (await listPage.locator('[data-form="charter"]').count()) {
+    await listPage.locator('input[name="give"]').fill('facilitation');
+    await listPage.locator('input[name="ask"]').fill('AI adoption');
+    await listPage.locator('[data-action="charter-start"]').click();
+    await listPage.keyboard.press('Escape');
+  }
+  await listPage.locator('[data-tab="backstage"]').click();
+  await listPage.locator('[data-action="open-receipts"]').click();
+  await listPage.waitForSelector('.receipt-row');
+  const expectedCount = (await listPage.evaluate(() => R4Receipts.list().then((entries) => entries.length))) + 3;
+  await Promise.all([0, 1, 2].map((i) => writePage.evaluate((index) => R4Receipts.record('test.cross-tab', `devin.cross-tab.${index}`, { index }, { ok: true }), i)));
+  await listPage.waitForFunction(async (expected) => {
+    const matches = async () => document.querySelectorAll('.receipt-row').length === expected && (await R4Receipts.list()).length === expected;
+    if (!await matches()) return false;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return matches();
+  }, expectedCount, { timeout: 1500 });
+  await shared.close();
+  console.log('cross-tab refresh ok: receipts list matched 3 remote writes without interaction');
   const original = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open('r4-beacon');

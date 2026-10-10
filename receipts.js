@@ -7,6 +7,14 @@
   let keyPromise;
   let queue = Promise.resolve();
   const keyState = { logged: false };
+  const withLock = (fn) => navigator.locks?.request ? navigator.locks.request(`${DB_NAME}-write`, fn) : fn();
+  const withKeyLock = (fn) => navigator.locks?.request ? navigator.locks.request(`${DB_NAME}-key`, fn) : fn();
+  const changeChannel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(`${DB_NAME}-changes`);
+  changeChannel?.addEventListener('message', () => window.dispatchEvent(new CustomEvent('r4-receipts-changed')));
+  const announceChanged = () => {
+    window.dispatchEvent(new CustomEvent('r4-receipts-changed'));
+    changeChannel?.postMessage('changed');
+  };
 
   const jcs = (value) => {
     if (value === null || typeof value === 'boolean' || typeof value === 'string') return JSON.stringify(value);
@@ -58,8 +66,8 @@
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   }));
-  const keyInfo = () => {
-    if (!keyPromise) keyPromise = (async () => {
+  const getOrCreateKey = () => {
+    if (!keyPromise) keyPromise = withKeyLock(async () => {
       const found = await request('keys', 'get', 'signing');
       if (found) return found;
       const device = await request('keys', 'get', 'device');
@@ -78,7 +86,7 @@
         await request('keys', 'put', record);
         return { ...record, created: true };
       }
-    })();
+    });
     return keyPromise;
   };
   const fingerprint = async (key) => `SHA256:${b64(await crypto.subtle.digest('SHA-256', key.rawPublicKey)).replace(/=+$/, '')}`;
@@ -129,16 +137,27 @@
     localStorage.setItem('r4-beacon-head', JSON.stringify({ seq: body.seq, sha256: chainHead }));
     return body;
   }
-  const append = (eventType, action, options = {}) => {
-    queue = queue.then(async () => {
-      const key = await keyInfo();
-      if (key.created && !keyState.logged) {
-        keyState.logged = true;
-        try { await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' }); }
-        catch (error) { keyState.logged = false; throw error; }
+  const ensureKey = async () => {
+    const key = await getOrCreateKey();
+    if (key.created && !keyState.logged) {
+      keyState.logged = true;
+      try {
+        await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
+        announceChanged();
+      } catch (error) {
+        keyState.logged = false;
+        throw error;
       }
-      return writeReceipt(key, eventType, action, options);
-    }).catch((error) => { console.warn('Beacon receipt write failed', error); return null; });
+    }
+    return key;
+  };
+  const append = (eventType, action, options = {}) => {
+    queue = queue.then(() => withLock(async () => {
+      const key = await ensureKey();
+      const receipt = await writeReceipt(key, eventType, action, options);
+      announceChanged();
+      return receipt;
+    })).catch((error) => { console.warn('Beacon receipt write failed', error); return null; });
     return queue;
   };
   const record = (eventType, action, prompt, result, options = {}) => Promise.all([
@@ -146,8 +165,9 @@
   ]).then(([promptHash, resultHash]) => append(eventType, action, { ...options, promptHash, resultHash }));
   async function verify() {
     await queue;
+    return withLock(async () => {
     const entries = await fullReceipts();
-    const key = await keyInfo();
+    const key = await ensureKey();
     const keyFpr = await fingerprint(key);
     let firstBadSeq = null, reason = null, previousHash = ZERO;
     const verifierKey = key.keyKind === 'hardware' ? key.publicKey : await crypto.subtle.importKey('raw', key.rawPublicKey, { name: 'Ed25519' }, true, ['verify']).catch(() => null);
@@ -168,10 +188,11 @@
     else if (firstBadSeq == null && head && head.seq > entries.length) { firstBadSeq = entries.length + 1; reason = 'truncated'; }
     else if (firstBadSeq == null && head && (head.seq !== entries.length || head.sha256 !== previousHash)) { firstBadSeq = Math.max(1, entries.length); reason = 'head-mismatch'; }
     return { ok: firstBadSeq == null, count: entries.length, keyFpr, keyKind: key.keyKind, firstBadSeq, reason };
+    });
   }
   async function exportData() {
     await append('bundle.signed', 'bundle.exported', { result: 'signed receipt export' });
-    const entries = await fullReceipts(), key = await keyInfo(), verification = await verify();
+    const entries = await fullReceipts(), key = await withLock(ensureKey), verification = await verify();
     const publicKeyPem = await pem(key);
     return {
       ndjson: entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
@@ -180,20 +201,11 @@
     };
   }
   window.R4Receipts = {
-    init: async () => {
-      const key = await keyInfo();
-      if (key.created && !keyState.logged) {
-        keyState.logged = true;
-        const receipt = await append('key.rotated', 'key.created', { result: 'first signing key created' });
-        keyState.logged = Boolean(receipt);
-        return receipt;
-      }
-      return null;
-    },
+    init: () => withLock(ensureKey),
     append, record, jcs, sha256: (value) => sha(typeof value === 'string' ? value : jcs(value)),
     verify, list: fullReceipts,
     get: async (id) => (await fullReceipts()).find((item) => item.id === id || item.seq === Number(id)),
-    keyInfo: async () => { const key = await keyInfo(); return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) }; },
+    keyInfo: () => withLock(async () => { const key = await ensureKey(); return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) }; }),
     exportData,
   };
 })();

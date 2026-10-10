@@ -1675,15 +1675,29 @@
         return `<button class="card receipt-row" data-action="receipt-open" data-id="${r.id}" aria-label="${esc(`${title} ${meta}`)}"><span class="receipt-icon" aria-hidden="true"></span><span class="receipt-copy"><b>${esc(title)}</b> <small><code class="receipt-action" aria-hidden="true" data-label="${esc(r.action)}"></code><span>${esc(meta)}</span></small></span></button>`;
       }).join('')}`).join('') || `<div class="card empty">${t('no receipts yet')}</div>`}`;
   }
+  let receiptsRefreshVersion = 0;
   async function refreshReceipts() {
+    const version = ++receiptsRefreshVersion;
     try {
       await window.R4Receipts?.init();
-      ui.receipts = await window.R4Receipts.list();
-      ui.receiptVerification = await window.R4Receipts.verify();
-      ui.receiptKey = await window.R4Receipts.keyInfo();
+      const receipts = await window.R4Receipts.list();
+      const verification = await window.R4Receipts.verify();
+      const key = await window.R4Receipts.keyInfo();
+      if (version !== receiptsRefreshVersion) return;
+      ui.receipts = receipts;
+      ui.receiptVerification = verification;
+      ui.receiptKey = key;
       if (ui.tab === 'receipts') render();
     } catch (error) { console.warn('Unable to load receipts', error); }
   }
+  let receiptRefreshTimer;
+  window.addEventListener('r4-receipts-changed', () => {
+    if (ui.tab !== 'receipts') return;
+    clearTimeout(receiptRefreshTimer);
+    receiptRefreshTimer = setTimeout(() => {
+      if (ui.tab === 'receipts') void refreshReceipts();
+    }, 100);
+  });
   async function openReceiptDetail(id) {
     const receipt = await window.R4Receipts?.get(id);
     if (!receipt) return;
@@ -2963,7 +2977,8 @@
     if (e.key !== 'Tab') return;
     const dialog = $('#sheet-root [role="dialog"]');
     if (!dialog) return;
-    const items = [...dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((item) => item.offsetParent);
+    const items = [...dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter((item) => item.getClientRects().length && !item.disabled && !item.closest('[hidden], [inert]') && getComputedStyle(item).visibility !== 'hidden');
     if (!items.length) { e.preventDefault(); dialog.focus(); return; }
     if (e.shiftKey && document.activeElement === items[0]) { e.preventDefault(); items.at(-1).focus(); }
     else if (!e.shiftKey && document.activeElement === items.at(-1)) { e.preventDefault(); items[0].focus(); }

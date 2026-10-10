@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 
+// WCAG 2.5.8 inline exception: anchors inside paragraphs are exempt; no other target-size exemptions apply.
 const require = createRequire(import.meta.url);
 const axePath = require.resolve('axe-core/axe.min.js');
 const shots = process.env.SHOT_DIR || '/Users/devin/shots/brand-receipts-a11y';
@@ -22,8 +23,8 @@ const axeCheck = async (page, label) => {
   const violations = await page.evaluate(async () => (await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } })).violations);
   const serious = violations.filter((item) => ['serious', 'critical'].includes(item.impact));
   if (serious.length) targetErrors.push(`${label}: ${serious.map((x) => `${x.id}: ${x.nodes.map((n) => `${n.target.join(' ')} (${n.failureSummary?.replace(/\s+/g, ' ').trim()})`).join(', ')}`).join('; ')}`);
-  const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [data-action]')]
-    .filter((el) => el.offsetParent && !el.closest('svg'))
+  const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="switch"], [role="tab"], [data-action]')]
+    .filter((el) => el.offsetParent && !el.closest('svg') && !(el.matches('a[href]') && el.closest('p')))
     .map((el) => { const r = el.getBoundingClientRect(); return { name: el.getAttribute('aria-label') || el.textContent.trim().slice(0, 30) || el.tagName, width: r.width, height: r.height }; })
     .filter((el) => el.width < 43.9 || el.height < 43.9));
   if (small.length) targetErrors.push(`${label}: sub-44 targets ${JSON.stringify(small.slice(0, 12))}`);
