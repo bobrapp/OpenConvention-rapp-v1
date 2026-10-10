@@ -185,7 +185,7 @@ jobs:
                   exit 1
                 fi
                 case "$file" in
-                  *.ios-simulator.zip) extension="ios-simulator.zip" ;;
+                  *-ios-simulator.zip) extension="ios-simulator.zip" ;;
                   *) extension="${file##*.}" ;;
                 esac
                 renamed="dist/${artifact}.${extension}"
@@ -215,7 +215,7 @@ jobs:
           for extension in exe msi deb AppImage dmg apk; do
             assert_count "*.$extension"
           done
-          assert_count "*.ios-simulator.zip"
+          assert_count "*-ios-simulator.zip"
           ls -l dist
       - uses: softprops/action-gh-release@v2
         with:
