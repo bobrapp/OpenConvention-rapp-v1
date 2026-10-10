@@ -1,0 +1,184 @@
+name: native apps
+
+on:
+  push:
+    branches: [Devin-v1]
+  pull_request:
+    branches: [Devin-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TAURI_CLI: "@tauri-apps/cli@2.12.1"
+  CAP_VERSION: "7"
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build the three web apps (same builder as GitHub Pages)
+        run: DEVIN_REF=HEAD bash pages/build-pages.sh "$RUNNER_TEMP/_site" && cp -R "$RUNNER_TEMP/_site" _site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+
+  desktop:
+    needs: site
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [devin, claude, muse]
+        os: [windows-latest, ubuntu-22.04, macos-latest]
+        include:
+          - os: windows-latest
+            platform: windows
+            bundles: nsis,msi
+          - os: ubuntu-22.04
+            platform: linux
+            bundles: deb,appimage
+          - os: macos-latest
+            platform: macos
+            bundles: dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: _site
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux build deps
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Prepare
+        run: node native/prepare.mjs ${{ matrix.app }} _site
+      - name: Icons
+        working-directory: native/work/${{ matrix.app }}
+        run: npx --yes ${{ env.TAURI_CLI }} icon ../../../_site/devin/icons/icon-512.png --output src-tauri/icons
+      - name: Build
+        working-directory: native/work/${{ matrix.app }}
+        run: npx --yes ${{ env.TAURI_CLI }} build --bundles ${{ matrix.bundles }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r4-${{ matrix.app }}-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            native/work/${{ matrix.app }}/src-tauri/target/release/bundle/nsis/*.exe
+            native/work/${{ matrix.app }}/src-tauri/target/release/bundle/msi/*.msi
+            native/work/${{ matrix.app }}/src-tauri/target/release/bundle/deb/*.deb
+            native/work/${{ matrix.app }}/src-tauri/target/release/bundle/appimage/*.AppImage
+            native/work/${{ matrix.app }}/src-tauri/target/release/bundle/dmg/*.dmg
+
+  android:
+    needs: site
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [devin, claude, muse]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: _site
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Prepare
+        run: node native/prepare.mjs ${{ matrix.app }} _site
+      - name: Capacitor Android project
+        working-directory: native/work/${{ matrix.app }}
+        run: |
+          npm install "@capacitor/core@${CAP_VERSION}" "@capacitor/cli@${CAP_VERSION}" "@capacitor/android@${CAP_VERSION}"
+          npx cap add android
+      - name: Build debug APK
+        working-directory: native/work/${{ matrix.app }}/android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Name the APK
+        run: cp native/work/${{ matrix.app }}/android/app/build/outputs/apk/debug/app-debug.apk r4-${{ matrix.app }}-android-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r4-${{ matrix.app }}-android
+          if-no-files-found: error
+          path: r4-${{ matrix.app }}-android-debug.apk
+
+  ios:
+    needs: site
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [devin, claude, muse]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: _site
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare
+        run: node native/prepare.mjs ${{ matrix.app }} _site
+      - name: Capacitor iOS project
+        working-directory: native/work/${{ matrix.app }}
+        run: |
+          npm install "@capacitor/core@${CAP_VERSION}" "@capacitor/cli@${CAP_VERSION}" "@capacitor/ios@${CAP_VERSION}"
+          npx cap add ios
+      - name: Build for the iOS Simulator (unsigned)
+        working-directory: native/work/${{ matrix.app }}
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+            -sdk iphonesimulator -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          cd build/Build/Products/Release-iphonesimulator
+          zip -qry "$GITHUB_WORKSPACE/r4-${{ matrix.app }}-ios-simulator.zip" App.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r4-${{ matrix.app }}-ios
+          if-no-files-found: error
+          path: r4-${{ matrix.app }}-ios-simulator.zip
+
+  release:
+    if: github.event_name != 'pull_request'
+    needs: [desktop, android, ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: r4-*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: native-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: r4 native apps (build ${{ github.run_number }})
+          prerelease: true
+          make_latest: false
+          body: |
+            Unsigned native builds of the three r4 apps (Devin, Claude, Muse) from ${{ github.sha }}.
+            Windows: .exe / .msi · Linux: .deb / .AppImage · macOS: .dmg · Android: debug .apk · iOS: Simulator .app (zip).
+            © 2026 AiGovOps Foundation · www.aigovops-foundation.com
+          files: dist/*
