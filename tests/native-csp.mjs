@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
@@ -30,7 +31,34 @@ try {
     const work = join(repo, 'native', 'work', app);
     const root = join(work, 'www');
     const config = JSON.parse(readFileSync(join(work, 'src-tauri', 'tauri.conf.json'), 'utf8'));
-    const csp = config.app.security.csp.replace(' ipc: http://ipc.localhost', '');
+    const nativeCsp = config.app.security.csp;
+    const csp = nativeCsp.replace(' ipc: http://ipc.localhost', '');
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const expectedScriptHashes = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
+      .filter(([, attributes, source]) => !/\bsrc\s*=/i.test(attributes) && source.trim())
+      .map(([, , source]) => `'sha256-${createHash('sha256').update(source, 'utf8').digest('base64')}'`);
+    const scriptDirective = nativeCsp.split(';').map((directive) => directive.trim()).find((directive) => directive.startsWith('script-src '));
+    assert.equal(scriptDirective, `script-src 'self'${expectedScriptHashes.length ? ` ${expectedScriptHashes.join(' ')}` : ''}`, `${app} script hashes must match the packaged HTML`);
+    assert.ok(!scriptDirective.includes('unsafe-inline'), `${app} must not use unsafe-inline`);
+    console.log(`${app} script-src: ${scriptDirective}`);
+    const connectDirective = nativeCsp.split(';').map((directive) => directive.trim()).find((directive) => directive.startsWith('connect-src '));
+    const connectSources = new Set(connectDirective.slice('connect-src '.length).split(/\s+/));
+    const expectedConnectSources = [];
+    const addOriginPair = (value) => {
+      const origin = new URL(value);
+      assert.equal(origin.protocol, 'https:', `${app} extra connect source must use https://`);
+      expectedConnectSources.push(origin.origin, origin.origin.replace(/^https:/, 'wss:'));
+    };
+    const configPath = join(root, 'config.js');
+    if (existsSync(configPath)) {
+      const configSource = readFileSync(configPath, 'utf8');
+      const configuredUrl = /\bsupabaseUrl\s*:\s*(['"])(.*?)\1/.exec(configSource)?.[2]?.trim();
+      if (configuredUrl) addOriginPair(configuredUrl);
+    }
+    for (const value of (process.env.R4_CONNECT_SRC || '').trim().split(/\s+/).filter(Boolean)) addOriginPair(value);
+    for (const source of expectedConnectSources) {
+      assert.ok(connectSources.has(source), `${app} connect-src is missing ${source}`);
+    }
     const server = createServer((request, response) => {
       try {
         const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
