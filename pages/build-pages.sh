@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Builds the GitHub Pages site: a version picker at / and one folder per app branch.
 # Usage (from the repo root): pages/build-pages.sh [out_dir]
-# VERSIONS entries: branch:folder:maker[:app subfolder][:source ref]
+# VERSIONS entries: branch:folder:maker[:app subfolder][:source ref][:entry file served as index.html]
 set -euo pipefail
 OUT=${1:-_site}
-VERSIONS=("Devin-v1:devin:Devin::8140411" "Devin-v2:devin-v2:Devin v2::${DEVIN_V2_REF:-origin/Devin-v1}" "Claude-v1:claude:Claude:claude-v1" "Muse-v1:muse:Muse")
+VERSIONS=("Devin-v1:devin:Devin::${DEVIN_REF:-origin/Devin-v1}" "Claude-v1:claude:Claude:claude-v1" "muse-v1:muse:Muse:::R4 Muse V1")
 
 git fetch --quiet origin
 rm -rf "$OUT"; mkdir -p "$OUT"
@@ -13,7 +13,7 @@ touch "$OUT/.nojekyll"
 
 json="["
 for v in "${VERSIONS[@]}"; do
-  IFS=: read -r branch dir maker sub ref <<<"$v"
+  IFS=: read -r branch dir maker sub ref entry <<<"$v"
   ref=${ref:-origin/$branch}
   mkdir -p "$OUT/$dir"
   live=false; sha=""; date=""
@@ -23,6 +23,7 @@ for v in "${VERSIONS[@]}"; do
     else
       git archive "$ref" | tar -x -C "$OUT/$dir"
     fi
+    if [ -n "${entry:-}" ] && [ -f "$OUT/$dir/$entry" ]; then mv "$OUT/$dir/$entry" "$OUT/$dir/index.html"; fi
     rm -rf "$OUT/$dir/pages" "$OUT/$dir/tests"
     sha=$(git rev-parse --short "$ref")
     date=$(git log -1 --format=%cs "$ref")
@@ -34,4 +35,12 @@ for v in "${VERSIONS[@]}"; do
   json+="{\"branch\":\"$branch\",\"maker\":\"$maker\",\"path\":\"$dir/\",\"live\":$live,\"sha\":\"$sha\",\"date\":\"$date\"},"
 done
 echo "${json%,}]" > "$OUT/versions.json"
+fallback_json="${json%,}]"
+V="$fallback_json" perl -0pi -e 's/const FALLBACK = \[.*?\];/const FALLBACK = $ENV{V};/s' "$OUT/index.html"
+if ! grep -Fq "const FALLBACK = $fallback_json;" "$OUT/index.html"; then
+  echo "error: failed to update picker fallback in $OUT/index.html" >&2
+  exit 1
+fi
+# devin-v2/ was the first shared link for the Devin app; keep it serving the same build.
+rm -rf "$OUT/devin-v2"; cp -R "$OUT/devin" "$OUT/devin-v2"
 echo "built $OUT:"; cat "$OUT/versions.json"
