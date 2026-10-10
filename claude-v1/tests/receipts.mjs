@@ -1,3 +1,4 @@
+// Set BEACON_VERIFY=/path/to/beacon_verify.py to run the optional independent verifier.
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,14 +41,18 @@ try {
   const exported=await page.evaluate(()=>R4Receipts.exportData());
   const manifest=JSON.parse(exported.bundle).manifest;
   assert.equal(manifest.app,'claude');
-  const work=mkdtempSync(path.join(tmpdir(),'claude-beacon-'));
-  try {
-    const ndjson=path.join(work,'receipts.ndjson'), pem=path.join(work,'public-key.pem');
-    writeFileSync(ndjson,exported.ndjson); writeFileSync(pem,exported.pem);
-    const result=spawnSync('python3',['/Users/devin/refs/aigovops-beacon/src/beacon_verify.py','--format=runtime','--public-key',pem,ndjson],{encoding:'utf8'});
-    assert.equal(result.status,0,`${result.stdout}\n${result.stderr}`);
-    console.log(result.stdout.trim());
-  } finally { rmSync(work,{recursive:true,force:true}); }
+  if (process.env.BEACON_VERIFY) {
+    const work=mkdtempSync(path.join(tmpdir(),'claude-beacon-'));
+    try {
+      const ndjson=path.join(work,'receipts.ndjson'), pem=path.join(work,'public-key.pem');
+      writeFileSync(ndjson,exported.ndjson); writeFileSync(pem,exported.pem);
+      const result=spawnSync('python3',[process.env.BEACON_VERIFY,'--format=runtime','--public-key',pem,ndjson],{encoding:'utf8'});
+      assert.equal(result.status,0,`${result.stdout}\n${result.stderr}`);
+      console.log(result.stdout.trim());
+    } finally { rmSync(work,{recursive:true,force:true}); }
+  } else {
+    console.log('beacon-verify step skipped (set BEACON_VERIFY=/path/to/beacon_verify.py)');
+  }
   const dbName='r4-beacon-claude';
   const mutate=async(seq, mode, receipt)=>page.evaluate(async({seq,mode,receipt,dbName})=>{
     const db=await new Promise((resolve,reject)=>{const r=indexedDB.open(dbName);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
