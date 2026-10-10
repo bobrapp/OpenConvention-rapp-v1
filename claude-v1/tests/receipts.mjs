@@ -109,4 +109,15 @@ try {
   assert.deepEqual(await page.evaluate(()=>window.__sharedTouches),[]);
   assert.equal(await page.evaluate(()=>localStorage.getItem('r4-beacon-head-claude')!==null),true);
   console.log(`receipts ok: ${receipts.length} records; tamper seq ${tampered.firstBadSeq}; truncation seq ${truncated.firstBadSeq}; isolated storage`);
+  await page.evaluate(async()=>{
+    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('r4-beacon-claude');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+    await new Promise((resolve,reject)=>{const tx=db.transaction('receipts','readwrite');tx.objectStore('receipts').clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+    db.close(); localStorage.removeItem('r4-beacon-head-claude');
+  });
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(async()=>{const rows=await R4Receipts.list();return rows.length===1&&rows[0].seq===1&&rows[0].action==='key.created'});
+  const recovered=await page.evaluate(()=>R4Receipts.record('test.recovery','claude.recovered-action',{}, {ok:true}));
+  assert.equal(recovered.seq,2);
+  assert.equal((await page.evaluate(()=>R4Receipts.verify())).ok,true);
+  console.log('interrupted first launch recovery ok: key.created seq 1; action seq 2; verify ok');
 } finally { await browser.close(); }

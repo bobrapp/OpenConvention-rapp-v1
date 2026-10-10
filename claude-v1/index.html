@@ -2667,7 +2667,7 @@ var qrcode = function() {
     return dbPromise;
   };
   const request = (store, method, value) => openDb().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(store, method === 'getAll' ? 'readonly' : 'readwrite');
+    const tx = db.transaction(store, method === 'getAll' || method === 'count' ? 'readonly' : 'readwrite');
     const req = value === undefined ? tx.objectStore(store)[method]() : tx.objectStore(store)[method](value);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -2746,14 +2746,20 @@ var qrcode = function() {
   }
   const ensureKey = async () => {
     const key = await getOrCreateKey();
-    if (key.created && !keyState.logged) {
-      keyState.logged = true;
-      try {
-        await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
-        announceChanged();
-      } catch (error) {
-        keyState.logged = false;
-        throw error;
+    if (!keyState.logged) {
+      const receiptCount = await request('receipts', 'count');
+      const head = JSON.parse(localStorage.getItem(HEAD_KEY) || 'null');
+      if (key.created || (receiptCount === 0 && !head)) {
+        keyState.logged = true;
+        try {
+          await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
+          announceChanged();
+        } catch (error) {
+          keyState.logged = false;
+          throw error;
+        }
+      } else if (receiptCount > 0 || head) {
+        keyState.logged = true;
       }
     }
     return key;
