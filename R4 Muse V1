@@ -98,7 +98,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tab {
   background: none; border: 0; cursor: pointer; padding: 6px 0 4px;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  color: var(--muted); font-size: 10px; font-weight: 500; border-radius: 12px; white-space: nowrap; min-width: 0;
+  color: var(--muted); font-size: 10px; font-weight: 500; border-radius: 12px; white-space: nowrap; min-width: 44px; min-height: 44px; scroll-snap-align: center;
 }
 .tab svg { width: 22px; height: 22px; }
 .tab.active { color: var(--blue); }
@@ -424,9 +424,13 @@ button.chip { cursor: pointer; }
 .hl-strip {
   display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; border: 0; cursor: pointer;
   background: linear-gradient(90deg, #ff5a4e, #c2185b); color: #fff; font-weight: 600; font-size: 14px; padding: 8px 12px;
-  position: sticky; top: 68px; z-index: 19;
 }
+#hl-strip { position: sticky; top: var(--topbar-h, 68px); z-index: 19; }
 .hl-strip b { font-variant-numeric: tabular-nums; }
+@media (max-width: 359px) {
+  .tabbar { grid-template-columns: unset; grid-auto-flow: column; grid-auto-columns: minmax(44px, 1fr); overflow-x: auto; scroll-snap-type: x proximity; }
+  .tabbar::after { content: ""; position: sticky; right: 0; width: 12px; min-width: 12px; height: 100%; background: linear-gradient(90deg, transparent, rgba(10,16,51,.18)); pointer-events: none; }
+}
 .alert-pop {
   position: fixed; inset: 0; z-index: 70; background: rgba(10, 16, 51, .55); display: grid; place-items: center; padding: 20px; animation: fade .2s;
 }
@@ -3918,7 +3922,7 @@ window.R4_I18N = {
     return dbPromise;
   };
   const request = (store, method, value) => openDb().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(store, method === 'getAll' ? 'readonly' : 'readwrite');
+    const tx = db.transaction(store, method === 'getAll' || method === 'count' ? 'readonly' : 'readwrite');
     const req = value === undefined ? tx.objectStore(store)[method]() : tx.objectStore(store)[method](value);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -4004,14 +4008,20 @@ window.R4_I18N = {
   }
   const ensureKey = async () => {
     const key = await keyInfo();
-    if (key.created && !keyState.logged) {
-      keyState.logged = true;
-      try {
-        await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
-        announceChanged();
-      } catch (error) {
-        keyState.logged = false;
-        throw error;
+    if (!keyState.logged) {
+      const receiptCount = await request('receipts', 'count');
+      const head = JSON.parse(localStorage.getItem(HEAD_KEY) || 'null');
+      if (key.created || (receiptCount === 0 && !head)) {
+        keyState.logged = true;
+        try {
+          await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
+          announceChanged();
+        } catch (error) {
+          keyState.logged = false;
+          throw error;
+        }
+      } else if (receiptCount > 0 || head) {
+        keyState.logged = true;
       }
     }
     return key;
@@ -5597,6 +5607,24 @@ window.R4_I18N = {
     $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${hl.id}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
     const views = { prep: viewPrep, today: viewToday, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewAgents, pitch: viewPitch, report: viewReport };
     $('#view').innerHTML = (views[ui.tab] || viewPrep)();
+    requestAnimationFrame(() => document.querySelector('#tabbar .tab.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'auto' }));
+    if (window.ResizeObserver && !window.__r4TopbarObserver) {
+      const topbar = document.querySelector('.topbar');
+      if (topbar) {
+        const publishHeight = () => document.documentElement.style.setProperty('--topbar-h', `${topbar.getBoundingClientRect().height}px`);
+        window.__r4TopbarObserver = new ResizeObserver(publishHeight);
+        window.__r4TopbarObserver.observe(topbar);
+        publishHeight();
+      }
+    } else if (!window.ResizeObserver && !window.__r4TopbarResize) {
+      const publishHeight = () => {
+        const topbar = document.querySelector('.topbar');
+        if (topbar) document.documentElement.style.setProperty('--topbar-h', `${topbar.getBoundingClientRect().height}px`);
+      };
+      window.__r4TopbarResize = true;
+      window.addEventListener('resize', publishHeight);
+      publishHeight();
+    }
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
     checkBadges();

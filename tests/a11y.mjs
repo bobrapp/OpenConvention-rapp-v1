@@ -97,5 +97,56 @@ await page.keyboard.press('Escape');
 await page.getByRole('button', { name: 'agents', exact: true }).click();
 assert.deepEqual(await checkTargets(), [], 'Agents tab has a target smaller than 44px');
 await page.screenshot({ path: '/Users/devin/shots/muse-brand/receipts.png', fullPage: true });
+await page.setViewportSize({ width: 320, height: 844 });
+await dismissAlert();
+await page.getByRole('button', { name: 'report', exact: true }).click();
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, '320px tabbar overflows document');
+const tabSizes = await page.locator('#tabbar .tab').evaluateAll((tabs) => tabs.map((tab) => {
+  const rect = tab.getBoundingClientRect();
+  return { label: tab.textContent.trim(), width: rect.width, height: rect.height };
+}));
+assert.ok(tabSizes.every((tab) => tab.width >= 44 && tab.height >= 44), JSON.stringify(tabSizes));
+const lastTab = page.locator('#tabbar .tab').last();
+await lastTab.scrollIntoViewIfNeeded();
+assert.equal(await lastTab.evaluate((tab) => { const rect = tab.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth; }), true, 'last tab is not reachable by horizontal scroll');
+await lastTab.click();
+assert.equal(await lastTab.getAttribute('aria-current'), 'page');
+assert.equal(await lastTab.evaluate((tab) => { const rect = tab.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth; }), true, 'active tab is not visible');
+await page.setViewportSize({ width: 390, height: 844 });
+await page.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v1'));
+  state.me.eventStart = '2030-01-01';
+  const featured = state.sessions.find((session) => session.featured);
+  if (featured) featured.day = 0;
+  localStorage.setItem('r4-networking-v1', JSON.stringify(state));
+});
+await page.reload();
+await dismissAlert();
+await page.getByRole('button', { name: 'agenda', exact: true }).click();
+const featuredSession = page.locator('.t-card.featured').first();
+await featuredSession.scrollIntoViewIfNeeded();
+await page.evaluate(() => window.scrollBy(0, 100));
+await page.waitForTimeout(80);
+const normalSticky = await page.evaluate(() => {
+  const bar = document.querySelector('.topbar'), strip = document.querySelector('#hl-strip .hl-strip');
+  if (!bar || !strip) return null;
+  const a = bar.getBoundingClientRect(), b = strip.getBoundingClientRect();
+  return { headerBottom: a.bottom, stripTop: b.top, covered: document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)?.closest('.hl-strip') === strip };
+});
+assert.ok(normalSticky && normalSticky.stripTop >= normalSticky.headerBottom - 1 && normalSticky.covered, JSON.stringify(normalSticky));
+await page.evaluate(() => {
+  const all = [document.documentElement, ...document.querySelectorAll('body *')];
+  all.forEach((el) => { const size = parseFloat(getComputedStyle(el).fontSize); el.style.setProperty('font-size', `${size * 2}px`, 'important'); });
+});
+await featuredSession.scrollIntoViewIfNeeded();
+await page.evaluate(() => window.scrollBy(0, 100));
+await page.waitForTimeout(80);
+const zoomSticky = await page.evaluate(() => {
+  const bar = document.querySelector('.topbar'), strip = document.querySelector('#hl-strip .hl-strip');
+  if (!bar || !strip) return null;
+  const a = bar.getBoundingClientRect(), b = strip.getBoundingClientRect();
+  return { headerBottom: a.bottom, stripTop: b.top, covered: document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)?.closest('.hl-strip') === strip };
+});
+assert.ok(zoomSticky && zoomSticky.stripTop >= zoomSticky.headerBottom - 1 && zoomSticky.covered, JSON.stringify(zoomSticky));
 await browser.close();
 console.log('Muse a11y ok: 390px, 200% text, modal focus, no serious/critical axe findings');
