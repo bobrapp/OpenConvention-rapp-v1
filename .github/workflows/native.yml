@@ -169,7 +169,54 @@ jobs:
         with:
           pattern: r4-*
           path: dist
-          merge-multiple: true
+          merge-multiple: false
+      - name: Flatten and validate release assets
+        shell: bash
+        run: |
+          duplicates="$(find dist -mindepth 2 -type f -printf '%f\n' | sort | uniq -d)"
+          if [[ -n "$duplicates" ]]; then
+            while IFS= read -r duplicate; do
+              files="$(find dist -mindepth 2 -type f -name "$duplicate" -print)"
+              while IFS= read -r file; do
+                relative="${file#dist/}"
+                artifact="${relative%%/*}"
+                if [[ ! $artifact =~ ^r4-(devin|claude|muse)-(windows|linux|macos|android|ios)$ ]]; then
+                  echo "Unable to identify colliding artifact: $file" >&2
+                  exit 1
+                fi
+                case "$file" in
+                  *-ios-simulator.zip) extension="ios-simulator.zip" ;;
+                  *) extension="${file##*.}" ;;
+                esac
+                renamed="dist/${artifact}.${extension}"
+                if [[ -e "$renamed" ]]; then
+                  echo "Asset filename collision after app/platform rename: $renamed" >&2
+                  exit 1
+                fi
+                echo "Renaming colliding asset $file to $renamed"
+                mv "$file" "$renamed"
+              done <<< "$files"
+            done <<< "$duplicates"
+          fi
+          find dist -mindepth 2 -type f -exec mv -n {} dist/ \;
+          if [[ -n "$(find dist -mindepth 2 -type f -print -quit)" ]]; then
+            echo "Release assets remain nested under dist" >&2
+            exit 1
+          fi
+          find dist -mindepth 1 -type d -empty -delete
+          assert_count() {
+            pattern="$1"
+            count="$(find dist -maxdepth 1 -type f -name "$pattern" | wc -l | tr -d '[:space:]')"
+            if [[ "$count" -ne 3 ]]; then
+              echo "Expected 3 files matching $pattern, found $count" >&2
+              exit 1
+            fi
+          }
+          for extension in exe msi deb AppImage dmg apk; do
+            assert_count "*.$extension"
+          done
+          assert_count "*-ios-simulator.zip"
+          ls -l dist
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: native-${{ github.run_number }}

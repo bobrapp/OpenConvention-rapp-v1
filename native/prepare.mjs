@@ -23,7 +23,7 @@ const BASE_CSP = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'"
-].join('; ');
+];
 const [app, siteArg] = process.argv.slice(2);
 if (!APPS[app] || !siteArg) {
   console.error('usage: node native/prepare.mjs <devin|claude|muse> <site dir>');
@@ -42,6 +42,16 @@ const version = Array.isArray(versions) ? versions.find((entry) => entry?.path =
 if (!version || version.live !== true) {
   console.error(`${app} is not live in versions.json (branch missing?) — refusing to package a placeholder`);
   process.exit(1);
+}
+const extraConnectOrigins = [];
+for (const rawOrigin of (process.env.R4_CONNECT_SRC || '').trim().split(/\s+/).filter(Boolean)) {
+  let origin;
+  try { origin = new URL(rawOrigin); } catch {}
+  if (!origin || origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) {
+    console.error(`invalid R4_CONNECT_SRC origin "${rawOrigin}" (expected an https:// origin)`);
+    process.exit(1);
+  }
+  extraConnectOrigins.push(origin.origin, origin.origin.replace(/^https:/, 'wss:'));
 }
 const { maker } = APPS[app];
 const work = join(here, 'work', app);
@@ -74,15 +84,38 @@ if (!headTag) {
 }
 html = html.replace(headTag, (tag) => `${tag}\n<meta name="r4-share-base" content="${escapeAttribute(shareBase)}">`);
 writeFileSync(indexPath, html);
-const scriptHashes = app === 'devin'
-  ? [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
-    .filter(([, attributes, source]) => !/\bsrc\s*=/i.test(attributes) && source.trim())
-    .map(([, , source]) => `'sha256-${createHash('sha256').update(source.replace(/\r\n?/g, '\n'), 'utf8').digest('base64')}'`)
-  : [];
-const scriptDirective = app === 'devin'
-  ? `script-src 'self'${scriptHashes.length ? ` ${scriptHashes.join(' ')}` : ''}`
-  : "script-src 'self' 'unsafe-inline'";
-const csp = BASE_CSP.replace("script-src 'self'", scriptDirective);
+const scriptHashes = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)]
+  .filter(([, attributes, source]) => !/\bsrc\s*=/i.test(attributes) && source.trim())
+  .map(([, , source]) => `'sha256-${createHash('sha256').update(source.replace(/\r\n?/g, '\n'), 'utf8').digest('base64')}'`);
+const scriptDirective = `script-src 'self'${scriptHashes.length ? ` ${scriptHashes.join(' ')}` : ''}`;
+const configPath = join(work, 'www', 'config.js');
+if (existsSync(configPath)) {
+  const config = readFileSync(configPath, 'utf8');
+  const configuredUrl = /\bsupabaseUrl\s*:\s*(['"])(.*?)\1/.exec(config)?.[2]?.trim();
+  if (configuredUrl) {
+    let supabaseUrl;
+    try { supabaseUrl = new URL(configuredUrl); } catch {}
+    if (!supabaseUrl || supabaseUrl.protocol !== 'https:') {
+      console.error(`${app} config.js supabaseUrl must use an https:// URL for native CSP`);
+      process.exit(1);
+    }
+    extraConnectOrigins.push(supabaseUrl.origin, supabaseUrl.origin.replace(/^https:/, 'wss:'));
+  }
+}
+const connectSources = [
+  "'self'",
+  'ipc:',
+  'http://ipc.localhost',
+  'https://*.supabase.co',
+  'wss://*.supabase.co',
+  ...extraConnectOrigins
+];
+const connectDirective = `connect-src ${[...new Set(connectSources)].join(' ')}`;
+const csp = BASE_CSP.map((directive) => {
+  if (directive === "script-src 'self'") return scriptDirective;
+  if (directive.startsWith('connect-src ')) return connectDirective;
+  return directive;
+}).join('; ');
 
 const name = `r4 ${maker}`;
 const id = `org.aigovops.r4.${app}`;
