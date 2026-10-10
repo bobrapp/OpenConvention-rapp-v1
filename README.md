@@ -34,6 +34,8 @@ App Store and Play Store releases require Bob's Apple Developer and Google Play 
 
 To build one app locally, run `node native/prepare.mjs <app> <site>`, then run `npx @tauri-apps/cli build` inside `native/work/<app>`.
 
+A Supabase URL on a custom domain entered at runtime is blocked in the desktop apps unless it was provided at build time through `config.js` or `R4_CONNECT_SRC`.
+
 ## Credits and license
 
 Built for the [AiGovOps Foundation](https://www.aigovops-foundation.com) by Bob Rapp (bob.rapp@aigovops.community) and Ken Johnston (ken.johnston@aigovops.community).

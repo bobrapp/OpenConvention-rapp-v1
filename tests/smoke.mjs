@@ -6,7 +6,7 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   args: ['--no-sandbox'],
 });
-const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, permissions: ['clipboard-read', 'clipboard-write'] });
 const page = await context.newPage();
 const errors = [];
 page.on('console', (msg) => { if (msg.type() === 'error') errors.push(`console: ${msg.text()}`); });
@@ -118,6 +118,23 @@ await page.locator('input[name="give"]').fill('facilitation');
 await page.locator('input[name="ask"]').fill('AI adoption');
 await page.locator('[data-form="charter"] button[type="submit"], [data-form="charter"] button').click();
 await page.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').backstage?.onboarded);
+await page.waitForFunction(() => !document.querySelector('#sheet-root .sheet'));
+const shareBase = 'https://cards.example.test/OpenConvention-rapp-v1/devin/';
+await page.evaluate((content) => {
+  const meta = document.createElement('meta');
+  meta.name = 'r4-share-base';
+  meta.content = content;
+  document.head.append(meta);
+}, shareBase);
+if (await page.locator('.alert-pop').count()) await page.locator('.alert-pop').evaluate((el) => el.click());
+await page.locator('#tabbar .tab[data-tab="backstage"]').click({ force: true });
+await page.waitForFunction(() => document.querySelector('#tabbar .tab.active[data-tab="backstage"]'));
+await page.evaluate(() => { document.querySelector('#view details.classic-tools').open = true; });
+await page.locator('#view [data-action="agent-copy-link"]').click();
+await page.waitForFunction(async (prefix) => (await navigator.clipboard.readText()).startsWith(prefix), `${shareBase}#agent=`);
+const copiedAgentLink = await page.evaluate(() => navigator.clipboard.readText());
+assert.ok(copiedAgentLink.startsWith(`${shareBase}#agent=`), 'copied agent card links should use r4-share-base');
+await page.locator('.tab[data-tab="today"]').evaluate((el) => el.click());
 
 for (let i = 0; i < 8 && !(await page.locator('.needs-you-card').count()); i++) {
   await page.locator('.tab[data-tab="backstage"]').click();
