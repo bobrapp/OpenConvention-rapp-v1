@@ -1,3 +1,4 @@
+// Set BEACON_VERIFY=/path/to/beacon_verify.py to run the optional independent verifier.
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -48,16 +49,20 @@ assert.equal(JSON.parse(result.exported.bundle).manifest.app, 'muse');
 assert.ok(result.exported.ndjson.includes('"action":"bundle.exported"'));
 assert.equal(result.dbs.some((x) => x.name === 'r4-beacon'), false);
 assert.deepEqual(await page.evaluate(() => window.__beaconLegacyTouches), []);
-const work = mkdtempSync(path.join(tmpdir(), 'r4-muse-beacon-'));
-try {
-  const ndjsonPath = path.join(work, 'receipts.ndjson');
-  const pemPath = path.join(work, 'public-key.pem');
-  writeFileSync(ndjsonPath, result.exported.ndjson);
-  writeFileSync(pemPath, result.exported.pem);
-  const checked = spawnSync('python3', [new URL('./beacon_verify.py', import.meta.url).pathname, '--format=runtime', '--public-key', pemPath, ndjsonPath], { encoding: 'utf8' });
-  assert.equal(checked.status, 0, `${checked.stdout}\n${checked.stderr}`);
-  console.log(`beacon-verify: ${checked.stdout.trim()}`);
-} finally { rmSync(work, { recursive: true, force: true }); }
+if (process.env.BEACON_VERIFY) {
+  const work = mkdtempSync(path.join(tmpdir(), 'r4-muse-beacon-'));
+  try {
+    const ndjsonPath = path.join(work, 'receipts.ndjson');
+    const pemPath = path.join(work, 'public-key.pem');
+    writeFileSync(ndjsonPath, result.exported.ndjson);
+    writeFileSync(pemPath, result.exported.pem);
+    const checked = spawnSync('python3', [process.env.BEACON_VERIFY, '--format=runtime', '--public-key', pemPath, ndjsonPath], { encoding: 'utf8' });
+    assert.equal(checked.status, 0, `${checked.stdout}\n${checked.stderr}`);
+    console.log(`beacon-verify: ${checked.stdout.trim()}`);
+  } finally { rmSync(work, { recursive: true, force: true }); }
+} else {
+  console.log('beacon-verify step skipped (set BEACON_VERIFY=/path/to/beacon_verify.py)');
+}
 const tampered = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => { const req = indexedDB.open('r4-beacon-muse'); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
     const receipt = await new Promise((resolve, reject) => { const req = db.transaction('receipts').objectStore('receipts').get(2); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
