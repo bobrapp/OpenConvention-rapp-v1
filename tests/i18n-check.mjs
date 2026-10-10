@@ -7,7 +7,7 @@ const browser = await chromium.launch({ headless: true, executablePath });
 const page = await browser.newPage();
 await page.goto(base);
 const missing = await page.evaluate(() => {
-  const keys = ['design','Slalom','AiGovOps','receipts','agent receipts','verified on this device','signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.','verify','export ndjson + pem bundle','no receipts yet','receipt {n}','receipt verification','settings saved','day start','day end'];
+  const keys = ['design','Slalom','AiGovOps','receipts','agent receipts','verified on this device','signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.','verify','export ndjson + pem bundle','no receipts yet','receipt {n}','receipt verification','receipt verification failed at sequence {seq}: {reason}','sequence mismatch','chain mismatch','key mismatch','signature invalid','head missing','truncated','head mismatch','unknown verification error','settings saved','day start','day end'];
   return Object.fromEntries(['es','pt'].map((locale) => [locale, keys.filter((key) => !window.R4_I18N[locale]?.[key])]));
 });
 assert.deepEqual(missing, { es: [], pt: [] });
