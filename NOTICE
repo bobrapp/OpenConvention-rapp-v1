@@ -1,0 +1,23 @@
+r4 networking (OpenConvention-rapp-v1)
+
+Copyright 2026 AiGovOps Foundation, Bob Rapp and Ken Johnston.
+https://www.aigovops-foundation.com
+
+Credits
+- AiGovOps Foundation (https://www.aigovops-foundation.com)
+- Bob Rapp (bob.rapp@aigovops.community)
+- Ken Johnston (ken.johnston@aigovops.community)
+
+All rights reserved, except as licensed for noncommercial purposes under the
+PolyForm Noncommercial License 1.0.0 (see LICENSE, or
+https://polyformproject.org/licenses/noncommercial/1.0.0). For commercial
+use, contact the AiGovOps Foundation.
+
+Required notices (keep these lines with any copy of the software):
+Required Notice: Copyright 2026 AiGovOps Foundation (https://www.aigovops-foundation.com)
+Required Notice: Copyright 2026 Bob Rapp (bob.rapp@aigovops.community) and Ken Johnston (ken.johnston@aigovops.community)
+Required Notice: All rights reserved, except as licensed for noncommercial purposes under the PolyForm Noncommercial License 1.0.0 (https://polyformproject.org/licenses/noncommercial/1.0.0)
+
+Third-party code keeps its own license: files under vendor/ (for example the
+QR code generator by Kazuhiko Arase, MIT) and any copy of such code embedded in
+a single-file build are licensed by their authors under the terms in their headers.

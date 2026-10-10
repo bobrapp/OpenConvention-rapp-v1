@@ -107,7 +107,12 @@ assert.deepEqual(pwa.icons.map((icon) => icon.size).sort(), ['180x180', '192x192
 assert.ok(pwa.icons.some((icon) => icon.purpose === 'maskable'), 'manifest should include a maskable icon');
 const foundationFooter = page.locator('#view .foundation-footer');
 assert.match(await foundationFooter.innerText(), /© 2026 AiGovOps Foundation/);
+assert.ok((await foundationFooter.innerText()).includes('© 2026 AiGovOps Foundation · Bob Rapp & Ken Johnston · source available · non-commercial (PolyForm NC 1.0.0) ·'), 'English footer should include the PolyForm attribution');
 assert.equal(await foundationFooter.locator('a').getAttribute('href'), 'https://www.aigovops-foundation.com');
+const pagesResponse = await context.request.get(new URL('/pages/index.html', base).href);
+assert.equal(pagesResponse.status(), 200, 'Pages picker should be fetchable');
+const pagesHtml = await pagesResponse.text();
+assert.match(pagesHtml, /© 2026 AiGovOps Foundation · Bob Rapp &amp; Ken Johnston · source available, non-commercial \(PolyForm Noncommercial 1\.0\.0\) ·/);
 await shot('charter-sheet', '#sheet-root .sheet');
 await page.locator('input[name="give"]').fill('facilitation');
 await page.locator('input[name="ask"]').fill('AI adoption');
@@ -131,7 +136,10 @@ for (const language of ['es', 'pt']) {
   await page.locator(`[data-action="set-lang"][data-lang="${language}"]`).first().click();
   const footerText = await page.locator('#view .foundation-footer').innerText();
   assert.match(footerText, /© 2026 AiGovOps Foundation/);
-  assert.ok(footerText.includes(language === 'es' ? 'código abierto (MIT)' : 'código aberto (MIT)'), `${language} footer should name the MIT license`);
+  const translatedLicense = language === 'es'
+    ? 'código disponible · uso no comercial (PolyForm NC 1.0.0)'
+    : 'código disponível · uso não comercial (PolyForm NC 1.0.0)';
+  assert.ok(footerText.includes(`© 2026 AiGovOps Foundation · Bob Rapp & Ken Johnston · ${translatedLicense} ·`), `${language} footer should include the PolyForm attribution`);
   assert.equal(await page.locator('#view .foundation-footer a').getAttribute('href'), 'https://www.aigovops-foundation.com');
   await page.locator('.tab[data-tab="today"]').click();
   assert.ok((await page.locator('.needs-you-card').first().innerText()).length, `${language} needs-you card should render`);
