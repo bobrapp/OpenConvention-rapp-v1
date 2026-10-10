@@ -3898,8 +3898,10 @@ window.R4_I18N = {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   }));
+  const withLock = (fn) => navigator.locks?.request ? navigator.locks.request(`${DB_NAME}-write`, fn) : fn();
+  const withKeyLock = (fn) => navigator.locks?.request ? navigator.locks.request(`${DB_NAME}-key`, fn) : fn();
   const keyInfo = () => {
-    if (!keyPromise) keyPromise = (async () => {
+    if (!keyPromise) keyPromise = withKeyLock(async () => {
       const found = await request('keys', 'get', 'signing');
       if (found) return found;
       const device = await request('keys', 'get', 'device');
@@ -3918,7 +3920,7 @@ window.R4_I18N = {
         await request('keys', 'put', record);
         return { ...record, created: true };
       }
-    })();
+    });
     return keyPromise;
   };
   const fingerprint = async (key) => `SHA256:${b64(await crypto.subtle.digest('SHA-256', key.rawPublicKey)).replace(/=+$/, '')}`;
@@ -3970,15 +3972,20 @@ window.R4_I18N = {
     return body;
   }
   const append = (eventType, action, options = {}) => {
-    queue = queue.then(async () => {
+    queue = queue.then(() => withLock(async () => {
       const key = await keyInfo();
       if (key.created && !keyState.logged) {
         keyState.logged = true;
-        try { await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' }); }
+        try {
+          await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
+          window.dispatchEvent(new CustomEvent('r4-receipts-changed'));
+        }
         catch (error) { keyState.logged = false; throw error; }
       }
-      return writeReceipt(key, eventType, action, options);
-    }).catch((error) => { console.warn('Beacon receipt write failed', error); return null; });
+      const receipt = await writeReceipt(key, eventType, action, options);
+      window.dispatchEvent(new CustomEvent('r4-receipts-changed'));
+      return receipt;
+    })).catch((error) => { console.warn('Beacon receipt write failed', error); return null; });
     return queue;
   };
   const record = (eventType, action, prompt, result, options = {}) => Promise.all([
@@ -5222,7 +5229,24 @@ window.R4_I18N = {
     void window.R4Receipts?.record('a2a.message', 'a2a.message', log.at(-1).json, text);
     const el = $('#agent-log'); if (el) el.innerHTML = logHtml();
   }
-  const refreshReceipts = async () => { try { ui.receipts = await Promise.all((await window.R4Receipts.list()).reverse().map(async (r) => ({ ...r, shortHash: (await window.R4Receipts.sha256(r)).slice(0, 12) }))); if (ui.tab === 'agents') render(); } catch {} };
+  const refreshReceipts = async () => {
+    try {
+      ui.receipts = await Promise.all((await window.R4Receipts.list()).reverse().map(async (r) => ({ ...r, shortHash: (await window.R4Receipts.sha256(r)).slice(0, 12) })));
+      if (ui.tab === 'agents') {
+        const list = document.querySelector('.receipt-list');
+        if (list) {
+          const activeSeq = list.contains(document.activeElement) ? document.activeElement.dataset.seq : null;
+          list.innerHTML = receiptRows();
+          if (activeSeq) [...list.querySelectorAll('[data-action="receipt-detail"]')].find((row) => row.dataset.seq === activeSeq)?.focus();
+        }
+      }
+    } catch {}
+  };
+  let receiptRefreshTimer;
+  window.addEventListener('r4-receipts-changed', () => {
+    clearTimeout(receiptRefreshTimer);
+    receiptRefreshTimer = setTimeout(() => { if (ui.tab === 'agents') void refreshReceipts(); }, 100);
+  });
   const receiptRows = () => (ui.receipts || []).map((r) => `<button class="receipt-row" data-action="receipt-detail" data-seq="${r.seq}"><span>${esc(new Date(r.ts_utc).toLocaleString())} · ${esc(r.action)}</span><b>#${r.seq}</b><small>${esc(r.shortHash)}</small></button>`).join('') || `<p class="small muted">${t('no receipts yet')}</p>`;
   function findSlot(taken, after) {
     const d0 = currentDay();
@@ -5553,9 +5577,16 @@ window.R4_I18N = {
     'go-connect': (el) => { ui.connectSeg = el.dataset.seg; go('connect'); },
     'go-recap': () => { ui.reportSeg = 'recap'; ui.recapDay = currentDay(); go('report'); },
     'open-settings': settingsSheet,
-    'set-brand': (el) => { state.me.brand = el.dataset.brand === 'aigovops' ? 'aigovops' : 'slalom'; save(); render(); settingsSheet(); },
+    'set-brand': (el) => {
+      state.me.brand = el.dataset.brand === 'aigovops' ? 'aigovops' : 'slalom';
+      document.documentElement.dataset.brand = state.me.brand;
+      save();
+      document.querySelectorAll('.brand-picker [role="radio"]').forEach((radio) => {
+        radio.setAttribute('aria-checked', String(radio === el));
+      });
+    },
     'receipt-detail': async (el) => { const r = (await window.R4Receipts.list()).find((x) => x.seq === Number(el.dataset.seq)); if (r) openSheet(t('receipt {n}', { n: r.seq }), `<pre class="small" style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(JSON.stringify(r, null, 2))}</pre>`); },
-    'receipts-verify': async () => { const result = await window.R4Receipts.verify(); const status = $('#receipts-status'); if (status) status.textContent = result.ok ? `OK · ${result.count} ${t('receipts')} ${t('verified on this device')}` : `${t('receipt verification')} failed at ${result.seq}: ${result.reason}`; },
+    'receipts-verify': async () => { const result = await window.R4Receipts.verify(); await refreshReceipts(); const status = $('#receipts-status'); if (status) status.textContent = result.ok ? `OK · ${result.count} ${t('receipts')} ${t('verified on this device')}` : `${t('receipt verification')} failed at ${result.seq}: ${result.reason}`; },
     'receipts-export': async () => { const out = await window.R4Receipts.exportData(); download('r4-muse-receipts.ndjson', out.ndjson, 'application/x-ndjson'); download('r4-muse-receipt-key.pem', out.pem, 'application/x-pem-file'); },
     'set-lang': (el) => { state.me.lang = el.dataset.lang; save(); const inSheet = !!el.closest('.sheet'); render(); if (inSheet) settingsSheet(); },
     'close-sheet': closeSheet,
