@@ -77,7 +77,21 @@ try {
       await page.screenshot({ path: path.join(shots, 'receipts.png') });
     }
     if (await page.locator('.receipt-row').count()) {
-      await page.locator('.receipt-row').first().click();
+      const row = page.locator('.receipt-row').first();
+      const rowTitle = await row.locator('b').innerText();
+      const rowMeta = await row.locator('small > span').innerText();
+      const accessibleName = await row.getAttribute('aria-label');
+      assert.equal(accessibleName, `${rowTitle} ${rowMeta}`, 'receipt row accessible name is the title and metadata');
+      assert.equal(await row.locator('.receipt-icon').getAttribute('aria-hidden'), 'true', 'receipt icon is decorative');
+      const fingerprint = page.locator('code[title]').first();
+      const fullFingerprint = await fingerprint.getAttribute('title');
+      assert.match(await fingerprint.innerText(), /^SHA256:.{6}….{6}$/u, 'fingerprint display is abbreviated');
+      assert.equal(await page.locator('[data-action="receipt-copy"]').first().getAttribute('data-value'), fullFingerprint, 'fingerprint copy retains full value');
+      await row.click();
+      assert.equal(await page.locator('#sheet-root .sheet-head h2').innerText(), rowTitle, 'receipt detail title is human-readable');
+      assert.ok(await page.locator('.receipt-detail-header p').count(), 'receipt detail includes localized date and time');
+      assert.ok(await page.locator('.receipt-field dt').filter({ hasText: 'ts_utc' }).count(), 'receipt detail retains raw ISO timestamp');
+      assert.ok(await page.locator('.receipt-nested .receipt-field').count(), 'user and signature are rendered as nested fields');
       await axeCheck(page, `${brand}/${colorScheme}/receipt detail`);
       if (brand === 'slalom' && colorScheme === 'light') {
         await page.waitForTimeout(500);

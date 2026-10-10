@@ -1995,3 +1995,18 @@ Object.assign(window.R4_I18N.pt, {
  "key.created": "chave de assinatura criada", "bundle.exported": "exportação assinada criada",
  "language": "idioma", "primary navigation": "navegação principal"
 });
+
+Object.assign(window.R4_I18N.es, {
+ "agents exchanged a message": "los agentes intercambiaron un mensaje", "charter check passed": "verificación de la carta aprobada",
+ "blocked a prompt injection": "se bloqueó una inyección de instrucciones", "you both said yes": "ambos dijeron que sí",
+ "follow-up drafted": "seguimiento redactado", "charter changed": "carta modificada",
+ "signing key created": "clave de firma creada", "receipts exported": "recibos exportados",
+ "non-extractable browser key": "clave de navegador no extraíble", "software key": "clave de software"
+});
+Object.assign(window.R4_I18N.pt, {
+ "agents exchanged a message": "os agentes trocaram uma mensagem", "charter check passed": "verificação da carta aprovada",
+ "blocked a prompt injection": "uma injeção de prompt foi bloqueada", "you both said yes": "vocês dois disseram sim",
+ "follow-up drafted": "acompanhamento redigido", "charter changed": "carta alterada",
+ "signing key created": "chave de assinatura criada", "receipts exported": "recibos exportados",
+ "non-extractable browser key": "chave de navegador não extraível", "software key": "chave de software"
+});

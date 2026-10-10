@@ -1639,19 +1639,39 @@
       <circle cx="${cx}" cy="${cy}" r="30" class="graph-me"/><text x="${cx}" y="${cy + 4}" class="graph-me-label">${esc(initials(state.me.name))}</text></svg>
       ${list.length ? '' : `<div class="graph-empty">${t('your agent is listening for a useful overlap.')}</div>`}<div class="graph-legend">${[['discover', 'var(--muted)'], ['negotiate', 'var(--sun)'], ['needs you', 'var(--coral)'], ['confirmed', 'var(--blue)']].map(([label, color]) => `<span><i style="--legend-color:${color}"></i>${t(label)}</span>`).join('')}</div></div>`;
   }
+  const RECEIPT_ACTION_TITLES = {
+    'a2a.message': 'agents exchanged a message',
+    'charter.check': 'charter check passed',
+    'charter.injection-blocked': 'blocked a prompt injection',
+    'consent.mutual': 'you both said yes',
+    'followup.drafted': 'follow-up drafted',
+    'charter.updated': 'charter changed',
+    'key.created': 'signing key created',
+    'bundle.exported': 'receipts exported',
+  };
+  const receiptActionTitle = (action) => t(RECEIPT_ACTION_TITLES[action] || action);
   function viewReceipts() {
     const items = ui.receipts || [];
     const status = ui.receiptVerification;
     const groups = items.reduce((all, receipt) => ((all[receipt.ts_utc.slice(0, 10)] ||= []).push(receipt), all), {});
+    const keyFpr = ui.receiptKey?.keyFpr || '';
+    const shortFingerprint = keyFpr.startsWith('SHA256:')
+      ? `SHA256:${keyFpr.slice(7, 13)}…${keyFpr.slice(-6)}`
+      : keyFpr || t('signing key unavailable');
+    const keyKind = ui.receiptKey?.keyKind === 'hardware' ? t('non-extractable browser key')
+      : ui.receiptKey?.keyKind === 'software' ? t('software key') : '';
     return `<h1 class="page-title">${t('agent receipts')}</h1><div class="card">
       <div class="row between"><b><span aria-hidden="true">${status?.ok ? '✓' : '!'}</span> ${status?.ok ? t('chain verified') : t('chain needs attention')}</b><span>${t('{count} signed receipts', { count: status?.count ?? items.length })}</span></div>
-      <p class="small muted"><code>${esc(ui.receiptKey?.keyFpr || t('signing key unavailable'))}</code><button class="btn ghost sm" data-action="receipt-copy" data-value="${esc(ui.receiptKey?.keyFpr || '')}">${t('copy fingerprint')}</button> · ${esc(ui.receiptKey?.keyKind || '')}</p>
+      <p class="small muted"><code title="${esc(keyFpr)}" aria-label="${esc(keyFpr)}">${esc(shortFingerprint)}</code><button class="btn ghost sm" data-action="receipt-copy" data-value="${esc(keyFpr)}">${t('copy fingerprint')}</button>${keyKind ? ` · ${esc(keyKind)}` : ''}</p>
       <div class="row wrap"><button class="btn secondary" data-action="receipt-verify">${t('verify chain')}</button><button class="btn secondary" data-action="receipt-export" data-format="ndjson">${t('export NDJSON')}</button><button class="btn secondary" data-action="receipt-export" data-format="pem">${t('public key PEM')}</button><button class="btn secondary" data-action="receipt-export" data-format="bundle">${t('export bundle')}</button></div>
-      <p class="small">${t('This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger.')}</p></div>
+      <p class="small receipt-explanation">${t('This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger.')}</p></div>
       ${Object.entries(groups).sort(([a], [b]) => b.localeCompare(a)).map(([day, records]) => `<h2 class="section">${esc(day)}</h2>${records.slice().reverse().map((r) => {
         const th = BK().threads.find((x) => x.id === r.thread_id);
-        const person = th && nameVisible(th) ? threadPerson(th)?.name : t('your agent');
-        return `<button class="card receipt-row" data-action="receipt-open" data-id="${r.id}"><span aria-hidden="true">◈</span><b>${esc(t(r.action))}</b><small>${esc(person || t('peer agent'))} · ${esc(r.ts_utc.slice(11, 16))} · #${r.seq}</small></button>`;
+        const peer = th ? threadPerson(th) : null;
+        const person = peer ? (nameVisible(th) ? peer.name : t('peer agent')) : t('your agent');
+        const title = receiptActionTitle(r.action);
+        const meta = `${person} · ${fmtTime(r.ts_utc.slice(11, 16))} · #${r.seq}`;
+        return `<button class="card receipt-row" data-action="receipt-open" data-id="${r.id}" aria-label="${esc(`${title} ${meta}`)}"><span class="receipt-icon" aria-hidden="true"></span><span class="receipt-copy"><b>${esc(title)}</b> <small><code class="receipt-action" aria-hidden="true" data-label="${esc(r.action)}"></code><span>${esc(meta)}</span></small></span></button>`;
       }).join('')}`).join('') || `<div class="card empty">${t('no receipts yet')}</div>`}`;
   }
   async function refreshReceipts() {
@@ -1666,11 +1686,21 @@
   async function openReceiptDetail(id) {
     const receipt = await window.R4Receipts?.get(id);
     if (!receipt) return;
-    openSheet(t('receipt detail'), `<p class="small muted">${esc(receipt.ts_utc)}</p><dl class="receipt-fields">${Object.entries(receipt).map(([key, value]) => {
+    const title = receiptActionTitle(receipt.action);
+    const day = receipt.ts_utc.slice(0, 10);
+    const date = new Date(`${day}T12:00:00`).toLocaleDateString(LANGS[lang()].locale, { year: 'numeric', month: 'long', day: 'numeric' });
+    const time = fmtTime(receipt.ts_utc.slice(11, 16));
+    const field = (key, value, parent = '') => {
+      const fieldName = parent ? `${parent}.${key}` : key;
+      if ((key === 'user' || key === 'signature') && value && typeof value === 'object' && !Array.isArray(value)) {
+        return `<div class="receipt-field"><dt>${esc(fieldName)}</dt><dd><dl class="receipt-nested">${Object.entries(value).map(([childKey, childValue]) => field(childKey, childValue, fieldName)).join('')}</dl></dd></div>`;
+      }
       const display = typeof value === 'string' ? value : JSON.stringify(value);
-      const copyable = /hash|key_fpr|sig_b64/i.test(key) || key === 'signature';
-      return `<dt>${esc(key)}</dt><dd>${copyable ? `<code>${esc(display)}</code><button class="btn ghost sm" data-action="receipt-copy" data-value="${esc(display)}">${t('copy')}</button>` : esc(display)}</dd>`;
-    }).join('')}</dl><button class="btn secondary" data-action="receipt-copy-json" data-id="${receipt.id}">${t('copy json')}</button>${receipt.parent_receipt_id ? `<button class="btn secondary" data-action="receipt-open" data-id="${receipt.parent_receipt_id}">${t('parent receipt')}</button>` : ''}`);
+      const copyable = /hash|key_fpr|sig_b64/i.test(fieldName) || fieldName === 'signature';
+      const copyButton = copyable ? `<button class="btn ghost sm" aria-label="${esc(`${t('copy')} ${fieldName}`)}" data-action="receipt-copy" data-value="${esc(display)}">${t('copy')}</button>` : '';
+      return `<div class="receipt-field"><dt><span>${esc(fieldName)}</span>${copyButton}</dt><dd>${copyable ? `<code>${esc(display)}</code>` : esc(display)}</dd></div>`;
+    };
+    openSheet(title, `<div class="receipt-detail-header"><p class="small muted">${esc(date)} · ${esc(time)}</p></div><dl class="receipt-fields">${Object.entries(receipt).map(([key, value]) => field(key, value)).join('')}</dl><button class="btn secondary" data-action="receipt-copy-json" data-id="${receipt.id}">${t('copy json')}</button>${receipt.parent_receipt_id ? `<button class="btn secondary" data-action="receipt-open" data-id="${receipt.parent_receipt_id}">${t('parent receipt')}</button>` : ''}`);
   }
   function viewBackstage() {
     const active = activeThreads();
