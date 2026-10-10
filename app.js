@@ -1563,7 +1563,8 @@
   }
   const b64e = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const b64d = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
-  const cardLink = () => `${location.origin}${location.pathname}#agent=${b64e(JSON.stringify({ v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName }))}`;
+  const shareBase = () => document.querySelector('meta[name="r4-share-base"]')?.content || `${location.origin}${location.pathname}`;
+  const cardLink = () => `${shareBase()}#agent=${b64e(JSON.stringify({ v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName }))}`;
   function importCard(str) {
     const m = String(str).match(/agent=([\w-]+)/); if (!m) throw new Error('no card');
     const c = JSON.parse(b64d(m[1])); if (!c.n) throw new Error('bad card');
@@ -2311,7 +2312,7 @@
     Object.keys(o).forEach((k) => { if (o[k] === '' || o[k] == null || (Array.isArray(o[k]) && !o[k].length)) delete o[k]; });
     return o;
   }
-  const appBase = () => `${location.origin}${location.pathname}`;
+  const appBase = () => shareBase();
   const myCardLink = () => `${appBase()}#card=${b64e(JSON.stringify(cardData()))}`;
   const podLink = (p) => `${appBase()}#pod=${p.code}`;
   const vEsc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (c) => `\\${c}`);

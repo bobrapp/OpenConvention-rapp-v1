@@ -26,6 +26,14 @@ Devin v2 makes short-term convention connections the visible outcome and simulat
 - Run syntax, localization and browser checks: `node --check app.js i18n.js && node tests/i18n-check.mjs && cd tests && node smoke.mjs`
 - Set `CHROME_PATH` to use a Chrome binary other than the default macOS path.
 
+## Native apps
+
+GitHub Actions builds unsigned installers for Devin, Claude and Muse on every push to Devin-v1: Windows `.exe`/`.msi`, Linux `.deb`/`.AppImage`, macOS `.dmg`, Android debug `.apk`, and iOS Simulator `.app`. Pushes publish a prerelease named `native-<run>`; pull requests upload workflow artifacts only.
+
+App Store and Play Store releases require Bob's Apple Developer and Google Play signing credentials, which can be added later as repository secrets.
+
+To build one app locally, run `node native/prepare.mjs <app> <site>`, then run `npx @tauri-apps/cli build` inside `native/work/<app>`.
+
 ## License
 
 Copyright 2026 AiGovOps Foundation. This project is shared under the MIT License; see [LICENSE](LICENSE).
