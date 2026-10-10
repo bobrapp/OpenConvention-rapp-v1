@@ -165,6 +165,11 @@ h2.section small { font-size: 13px; color: var(--muted); font-weight: 500; }
 .btn.sm { padding: 7px 12px; font-size: 13.5px; }
 .btn.block { width: 100%; }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
+button, input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="switch"], [role="tab"] { min-width: 44px; min-height: 44px; }
+input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+a[href] { min-height: 44px; }
+a[href] { display: inline-flex; min-width: 44px; align-items: center; }
+p a[href] { display: inline; min-width: 0; min-height: 0; }
 .fab {
   position: fixed; bottom: 86px; z-index: 25;
   right: max(16px, calc(50% - 260px + 16px));
@@ -371,6 +376,18 @@ button.chip { cursor: pointer; }
 .lang-switch button { min-width: 44px; min-height: 44px; border: 0; background: #fff; color: var(--navy); font-weight: 600; font-size: 12.5px; padding: 6px 9px; border-radius: 999px; cursor: pointer; }
 .lang-switch button.on { background: var(--navy); color: #fff; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 520px) {
+  .topbar { flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+  .brand { flex: 1 1 100%; flex-wrap: wrap; align-items: center; min-width: 0; }
+  .brand-mark { display: inline-flex; align-items: center; min-height: 44px; line-height: 1.2; }
+  .brand-text { min-width: 0; overflow-wrap: anywhere; }
+  .topbar-right { flex: 1 1 100%; justify-content: space-between; flex-wrap: wrap; min-width: 0; }
+  .lang-switch { max-width: 100%; flex-wrap: wrap; }
+  .field-row { grid-template-columns: minmax(0, 1fr); }
+  .field, .field-row, .field .row { min-width: 0; }
+  .field input, .field select, .field textarea { min-width: 0; max-width: 100%; }
+  .field .row input { flex: 1 1 100px; width: auto; }
+}
 
 /* headliner */
 .headliner {
@@ -2795,6 +2812,10 @@ window.R4_I18N = {
  "signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.": "recibos firmados en este dispositivo; los cambios o registros faltantes se pueden detectar en este dispositivo. no es un registro inmutable del servidor.",
  "verify": "verificar", "export ndjson + pem bundle": "exportar paquete NDJSON + PEM", "no receipts yet": "aún no hay recibos",
  "receipt {n}": "recibo {n}", "receipt verification": "verificación de recibos", "settings saved": "ajustes guardados",
+ "receipt verification failed at sequence {seq}: {reason}": "verificación de recibos fallida en la secuencia {seq}: {reason}",
+ "sequence mismatch": "secuencia no coincidente", "chain mismatch": "cadena no coincidente", "key mismatch": "clave no coincidente",
+ "signature invalid": "firma no válida", "head missing": "falta el encabezado", "truncated": "recibos truncados",
+ "head mismatch": "encabezado no coincidente", "unknown verification error": "error de verificación desconocido",
   "executive sponsor": "patrocinador ejecutivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "un directivo sénior que piensa en resultados, riesgo e inversión",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negocio claros, perspectivas de pares, formas de empezar con poco riesgo",
@@ -3316,6 +3337,10 @@ window.R4_I18N = {
  "signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.": "recibos assinados neste dispositivo; alterações ou registros ausentes podem ser detectados neste dispositivo. não é um registro imutável no servidor.",
  "verify": "verificar", "export ndjson + pem bundle": "exportar pacote NDJSON + PEM", "no receipts yet": "ainda não há recibos",
  "receipt {n}": "recibo {n}", "receipt verification": "verificação de recibos", "settings saved": "configurações salvas",
+ "receipt verification failed at sequence {seq}: {reason}": "verificação de recibos falhou na sequência {seq}: {reason}",
+ "sequence mismatch": "sequência divergente", "chain mismatch": "cadeia divergente", "key mismatch": "chave divergente",
+ "signature invalid": "assinatura inválida", "head missing": "cabeçalho ausente", "truncated": "recibos truncados",
+ "head mismatch": "cabeçalho divergente", "unknown verification error": "erro de verificação desconhecido",
   "executive sponsor": "patrocinador executivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "um executivo sênior que pensa em resultados, risco e investimento",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negócio claros, perspectivas de pares, formas de começar com pouco risco",
@@ -3900,6 +3925,12 @@ window.R4_I18N = {
   }));
   const withLock = (fn) => navigator.locks?.request ? navigator.locks.request(`${DB_NAME}-write`, fn) : fn();
   const withKeyLock = (fn) => navigator.locks?.request ? navigator.locks.request(`${DB_NAME}-key`, fn) : fn();
+  const changeChannel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(`${DB_NAME}-changes`);
+  changeChannel?.addEventListener('message', () => window.dispatchEvent(new CustomEvent('r4-receipts-changed')));
+  const announceChanged = () => {
+    window.dispatchEvent(new CustomEvent('r4-receipts-changed'));
+    changeChannel?.postMessage('changed');
+  };
   const keyInfo = () => {
     if (!keyPromise) keyPromise = withKeyLock(async () => {
       const found = await request('keys', 'get', 'signing');
@@ -3971,19 +4002,25 @@ window.R4_I18N = {
     localStorage.setItem(HEAD_KEY, JSON.stringify({ seq: body.seq, sha256: chainHead }));
     return body;
   }
+  const ensureKey = async () => {
+    const key = await keyInfo();
+    if (key.created && !keyState.logged) {
+      keyState.logged = true;
+      try {
+        await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
+        announceChanged();
+      } catch (error) {
+        keyState.logged = false;
+        throw error;
+      }
+    }
+    return key;
+  };
   const append = (eventType, action, options = {}) => {
     queue = queue.then(() => withLock(async () => {
-      const key = await keyInfo();
-      if (key.created && !keyState.logged) {
-        keyState.logged = true;
-        try {
-          await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' });
-          window.dispatchEvent(new CustomEvent('r4-receipts-changed'));
-        }
-        catch (error) { keyState.logged = false; throw error; }
-      }
+      const key = await ensureKey();
       const receipt = await writeReceipt(key, eventType, action, options);
-      window.dispatchEvent(new CustomEvent('r4-receipts-changed'));
+      announceChanged();
       return receipt;
     })).catch((error) => { console.warn('Beacon receipt write failed', error); return null; });
     return queue;
@@ -3993,8 +4030,8 @@ window.R4_I18N = {
   ]).then(([promptHash, resultHash]) => append(eventType, action, { ...options, promptHash, resultHash }));
   async function verify() {
     await queue;
+    const key = await withLock(ensureKey);
     const entries = await fullReceipts();
-    const key = await keyInfo();
     const keyFpr = await fingerprint(key);
     let firstBadSeq = null, reason = null, previousHash = ZERO;
     const verifierKey = key.keyKind === 'hardware' ? key.publicKey : await crypto.subtle.importKey('raw', key.rawPublicKey, { name: 'Ed25519' }, true, ['verify']).catch(() => null);
@@ -4018,7 +4055,7 @@ window.R4_I18N = {
   }
   async function exportData() {
     await append('bundle.signed', 'bundle.exported', { result: 'signed receipt export' });
-    const entries = await fullReceipts(), key = await keyInfo(), verification = await verify();
+    const entries = await fullReceipts(), key = await withLock(ensureKey), verification = await verify();
     const publicKeyPem = await pem(key);
     return {
       ndjson: entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
@@ -4027,20 +4064,14 @@ window.R4_I18N = {
     };
   }
   window.R4Receipts = {
-    init: async () => {
-      const key = await keyInfo();
-      if (key.created && !keyState.logged) {
-        keyState.logged = true;
-        const receipt = await append('key.rotated', 'key.created', { result: 'first signing key created' });
-        keyState.logged = Boolean(receipt);
-        return receipt;
-      }
-      return null;
-    },
+    init: () => withLock(ensureKey),
     append, record, jcs, sha256: (value) => sha(typeof value === 'string' ? value : jcs(value)),
     verify, list: fullReceipts,
     get: async (id) => (await fullReceipts()).find((item) => item.id === id || item.seq === Number(id)),
-    keyInfo: async () => { const key = await keyInfo(); return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) }; },
+    keyInfo: async () => withLock(async () => {
+      const key = await ensureKey();
+      return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) };
+    }),
     exportData,
   };
 })();
@@ -5229,9 +5260,13 @@ window.R4_I18N = {
     void window.R4Receipts?.record('a2a.message', 'a2a.message', log.at(-1).json, text);
     const el = $('#agent-log'); if (el) el.innerHTML = logHtml();
   }
+  let receiptsRefreshVersion = 0;
   const refreshReceipts = async () => {
+    const version = ++receiptsRefreshVersion;
     try {
-      ui.receipts = await Promise.all((await window.R4Receipts.list()).reverse().map(async (r) => ({ ...r, shortHash: (await window.R4Receipts.sha256(r)).slice(0, 12) })));
+      const receipts = await Promise.all((await window.R4Receipts.list()).reverse().map(async (r) => ({ ...r, shortHash: (await window.R4Receipts.sha256(r)).slice(0, 12) })));
+      if (version !== receiptsRefreshVersion) return;
+      ui.receipts = receipts;
       if (ui.tab === 'agents') {
         const list = document.querySelector('.receipt-list');
         if (list) {
@@ -5586,7 +5621,22 @@ window.R4_I18N = {
       });
     },
     'receipt-detail': async (el) => { const r = (await window.R4Receipts.list()).find((x) => x.seq === Number(el.dataset.seq)); if (r) openSheet(t('receipt {n}', { n: r.seq }), `<pre class="small" style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(JSON.stringify(r, null, 2))}</pre>`); },
-    'receipts-verify': async () => { const result = await window.R4Receipts.verify(); await refreshReceipts(); const status = $('#receipts-status'); if (status) status.textContent = result.ok ? `OK · ${result.count} ${t('receipts')} ${t('verified on this device')}` : `${t('receipt verification')} failed at ${result.seq}: ${result.reason}`; },
+    'receipts-verify': async () => {
+      const result = await window.R4Receipts.verify();
+      await refreshReceipts();
+      const reasons = {
+        'sequence-mismatch': 'sequence mismatch', 'chain-mismatch': 'chain mismatch', 'key-mismatch': 'key mismatch',
+        'signature-invalid': 'signature invalid', 'head-missing': 'head missing', truncated: 'truncated',
+        'head-mismatch': 'head mismatch',
+      };
+      const status = $('#receipts-status');
+      if (status) status.textContent = result.ok
+        ? `OK · ${result.count} ${t('receipts')} ${t('verified on this device')}`
+        : t('receipt verification failed at sequence {seq}: {reason}', {
+          seq: result.firstBadSeq ?? result.seq ?? '?',
+          reason: t(reasons[result.reason] || 'unknown verification error'),
+        });
+    },
     'receipts-export': async () => { const out = await window.R4Receipts.exportData(); download('r4-muse-receipts.ndjson', out.ndjson, 'application/x-ndjson'); download('r4-muse-receipt-key.pem', out.pem, 'application/x-pem-file'); },
     'set-lang': (el) => { state.me.lang = el.dataset.lang; save(); const inSheet = !!el.closest('.sheet'); render(); if (inSheet) settingsSheet(); },
     'close-sheet': closeSheet,
@@ -5849,11 +5899,12 @@ window.R4_I18N = {
     const dialog = $('#sheet-root [role="dialog"]');
     if (e.key === 'Escape') { closeSheet(); $('#alert-root').innerHTML = ''; return; }
     if (e.key !== 'Tab' || !dialog) return;
-    const items = [...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
+    const items = [...dialog.querySelectorAll('button, a[href], input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((item) => !item.matches(':disabled') && !item.closest('[hidden], [inert]') && item.getClientRects().length > 0 && getComputedStyle(item).visibility !== 'hidden');
     if (!items.length) return;
     const first = items[0], last = items.at(-1);
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
   });
 
   function handleAgentHash() {
