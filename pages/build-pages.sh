@@ -35,6 +35,12 @@ for v in "${VERSIONS[@]}"; do
   json+="{\"branch\":\"$branch\",\"maker\":\"$maker\",\"path\":\"$dir/\",\"live\":$live,\"sha\":\"$sha\",\"date\":\"$date\"},"
 done
 echo "${json%,}]" > "$OUT/versions.json"
+fallback_json="${json%,}]"
+V="$fallback_json" perl -0pi -e 's/const FALLBACK = \[.*?\];/const FALLBACK = $ENV{V};/s' "$OUT/index.html"
+if ! grep -Fq "const FALLBACK = $fallback_json;" "$OUT/index.html"; then
+  echo "error: failed to update picker fallback in $OUT/index.html" >&2
+  exit 1
+fi
 # devin-v2/ was the first shared link for the Devin app; keep it serving the same build.
 rm -rf "$OUT/devin-v2"; cp -R "$OUT/devin" "$OUT/devin-v2"
 echo "built $OUT:"; cat "$OUT/versions.json"

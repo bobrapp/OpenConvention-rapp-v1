@@ -97,9 +97,9 @@
   const COLOR = { Devin: '#0c2fa8', Claude: '#c15f3c', Muse: '#7a3cc1' };
   const REPO = 'https://github.com/bobrapp/OpenConvention-rapp-v1';
   const FALLBACK = [
-    { branch: 'Devin-v1', maker: 'Devin', path: 'devin/', live: true },
-    { branch: 'Claude-v1', maker: 'Claude', path: 'claude/', live: true },
-    { branch: 'muse-v1', maker: 'Muse', path: 'muse/', live: true }
+    { branch: 'Devin-v1', maker: 'Devin', path: 'devin/', live: false },
+    { branch: 'Claude-v1', maker: 'Claude', path: 'claude/', live: false },
+    { branch: 'muse-v1', maker: 'Muse', path: 'muse/', live: false }
   ];
   const v2Url = new URL('devin/', location.href).href;
   document.getElementById('v2-url').href = v2Url;
