@@ -1838,7 +1838,7 @@
         <button class="btn danger sm" data-action="delete-session" data-id="${s.id}">${t('delete')}</button></div>`);
     updateCountdowns();
   }
-  const foundationText = () => `© 2026 AiGovOps Foundation · ${t('open source (MIT)')} · <a href="https://www.aigovops-foundation.com" target="_blank" rel="noopener">www.aigovops-foundation.com</a>`;
+  const foundationText = () => `© 2026 AiGovOps Foundation · Bob Rapp & Ken Johnston · ${t('source available · non-commercial (PolyForm NC 1.0.0)')} · <a href="https://www.aigovops-foundation.com" target="_blank" rel="noopener">www.aigovops-foundation.com</a>`;
   const foundationFooter = () => `<footer class="foundation-footer">${foundationText()}</footer>`;
   function settingsSheet() {
     const m = state.me;

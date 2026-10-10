@@ -1924,7 +1924,7 @@ Object.assign(window.R4_I18N.es, {
  "this offer expired. your agent will keep looking.": "esta oferta venció. tu agente seguirá buscando.",
  "missed": "no se realizó",
  "unrated": "sin calificar",
- "open source (MIT)": "código abierto (MIT)",
+ "source available · non-commercial (PolyForm NC 1.0.0)": "código disponible · uso no comercial (PolyForm NC 1.0.0)",
  "about": "acerca de",
  "source repository": "repositorio de código"
 });
@@ -1947,7 +1947,7 @@ Object.assign(window.R4_I18N.pt, {
  "this offer expired. your agent will keep looking.": "esta oferta expirou. seu agente continuará procurando.",
  "missed": "não aconteceu",
  "unrated": "sem avaliação",
- "open source (MIT)": "código aberto (MIT)",
+ "source available · non-commercial (PolyForm NC 1.0.0)": "código disponível · uso não comercial (PolyForm NC 1.0.0)",
  "about": "sobre",
  "source repository": "repositório do código"
 });
