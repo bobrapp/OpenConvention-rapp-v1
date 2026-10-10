@@ -96,11 +96,7 @@
   const EXTRA = { Claude: { href: 'examples/load.html', label: 'open with example data' } };
   const COLOR = { Devin: '#0c2fa8', Claude: '#c15f3c', Muse: '#7a3cc1' };
   const REPO = 'https://github.com/bobrapp/OpenConvention-rapp-v1';
-  const FALLBACK = [
-    { branch: 'Devin-v1', maker: 'Devin', path: 'devin/', live: true },
-    { branch: 'Claude-v1', maker: 'Claude', path: 'claude/', live: true },
-    { branch: 'muse-v1', maker: 'Muse', path: 'muse/', live: true }
-  ];
+  const FALLBACK = [{"branch":"Devin-v1","maker":"Devin","path":"devin/","live":true,"sha":"4d49d96","date":"2026-10-09"},{"branch":"Claude-v1","maker":"Claude","path":"claude/","live":true,"sha":"46db62c","date":"2026-10-06"},{"branch":"muse-v1","maker":"Muse","path":"muse/","live":true,"sha":"451a2ad","date":"2026-10-09"}];
   const v2Url = new URL('devin/', location.href).href;
   document.getElementById('v2-url').href = v2Url;
   document.getElementById('v2-url').textContent = v2Url;
