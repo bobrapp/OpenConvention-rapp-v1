@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <script>try{const s=JSON.parse(localStorage.getItem('r4-networking-v1')||'null');document.documentElement.dataset.brand=s?.me?.brand==='aigovops'?'aigovops':'slalom'}catch{document.documentElement.dataset.brand='slalom'}</script>
   <meta name="theme-color" content="#0c2bd8" />
   <title>r4 networking</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -29,15 +30,33 @@
   --shadow: 0 1px 2px rgba(10, 16, 51, .06), 0 6px 18px rgba(10, 16, 51, .06);
   --font: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+:root[data-brand="slalom"] {
+  --blue:#0C62FB;--blue-bright:#002FAF;--blue-soft:#EAF1FF;--navy:#000A25;--ink:#292929;--muted:#5C5C5C;--line:#E6E6E6;--bg:#F5F5F5;--card:#FFFFFF;--coral:#FF4D5F;--sun:#DEFF4D;--mint:#1BE1F2;--violet:#C7B9FF;--sky:#1BE1F2;--radius:.625rem;
+}
+:root[data-brand="aigovops"] {
+  --blue:#6C3DE6;--blue-bright:#4A1FB8;--blue-soft:#EDE9FF;--navy:#0D0D1A;--ink:#2D2D4E;--muted:#5B6280;--line:#E0DDF5;--bg:#F8F7FF;--card:#FFFFFF;--coral:#B4232A;--sun:#854F0B;--mint:#1D9E75;--violet:#6C3DE6;--sky:#4A1FB8;--radius:12px;
+}
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
   font-family: var(--font);
   color: var(--ink);
-  background: #dfe5f7;
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+button, input:not([type=checkbox]):not([type=radio]), select, textarea, [role=button], [role=radio] { min-height: 44px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--blue-bright); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.brand-picker { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.brand-picker legend { font-weight: 700; padding: 0 6px; }
+.brand-picker [role=radio] { flex: 1; min-width: 120px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); padding: 10px 14px; font-weight: 600; }
+.brand-picker [role=radio][aria-checked=true] { background: var(--blue-soft); border-color: var(--blue); color: var(--navy); }
+.icon-btn { min-width: 44px; min-height: 44px; }
+.receipt-panel { border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
+.receipt-list { display: grid; gap: 8px; }
+.receipt-row { width: 100%; min-height: 56px; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); overflow-wrap: anywhere; }
+.receipt-row small { grid-column: 1 / -1; color: var(--muted); }
 .app {
   max-width: 520px;
   margin: 0 auto;
@@ -138,7 +157,7 @@ h2.section small { font-size: 13px; color: var(--muted); font-weight: 500; }
 }
 .btn:hover { background: var(--blue-bright); }
 .btn:active { transform: scale(.98); }
-.btn.secondary { background: var(--blue-soft); color: var(--blue); }
+.btn.secondary { background: var(--blue-soft); color: var(--navy); }
 .btn.secondary:hover { background: #dbe4ff; }
 .btn.ghost { background: transparent; color: var(--blue); padding: 8px 10px; }
 .btn.danger { background: #ffe8e6; color: #c0281d; }
@@ -159,10 +178,10 @@ h2.section small { font-size: 13px; color: var(--muted); font-weight: 500; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
   display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px;
-  background: var(--blue-soft); color: var(--blue); font-size: 12.5px; font-weight: 500; border: 0;
+  background: var(--blue-soft); color: var(--navy); font-size: 12.5px; font-weight: 500; border: 0;
 }
 button.chip { cursor: pointer; }
-.chip.on { background: var(--blue); color: #fff; }
+.chip.on { background: var(--navy); color: #fff; }
 .chip.warn { background: #fff1d6; color: #9a6200; }
 .chip.bad { background: #ffe8e6; color: #c0281d; }
 .chip.good { background: #dcf7ef; color: #0b7d61; }
@@ -174,7 +193,7 @@ button.chip { cursor: pointer; }
   flex: 1; border: 0; background: none; padding: 8px 10px; border-radius: 999px; cursor: pointer;
   font-weight: 600; color: var(--muted); white-space: nowrap; font-size: 14px;
 }
-.seg button.on { background: #fff; color: var(--blue); box-shadow: var(--shadow); }
+.seg button.on { background: #fff; color: var(--navy); box-shadow: var(--shadow); }
 .scroller { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; }
 .scroller::-webkit-scrollbar { display: none; }
 .scroller .chip { white-space: nowrap; flex: none; }
@@ -192,6 +211,9 @@ button.chip { cursor: pointer; }
   background: var(--pc, var(--blue)); color: #fff; display: grid; place-items: center;
   font-weight: 700; font-size: 16px;
 }
+.avatar.p-peer { color: var(--navy); }
+.avatar.p-client, .avatar.p-partner { color: #000; }
+:root[data-brand="aigovops"] .avatar.p-client, :root[data-brand="aigovops"] .avatar.p-partner { color: #fff; }
 .avatar.lg { width: 64px; height: 64px; font-size: 24px; }
 .persona-tag {
   display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
@@ -346,8 +368,8 @@ button.chip { cursor: pointer; }
 
 /* language switch */
 .lang-switch { display: flex; background: rgba(255,255,255,.14); border-radius: 999px; padding: 3px; gap: 2px; }
-.lang-switch button { border: 0; background: none; color: #fff; font-weight: 600; font-size: 12.5px; padding: 6px 9px; border-radius: 999px; cursor: pointer; opacity: .75; }
-.lang-switch button.on { background: #fff; color: var(--blue); opacity: 1; }
+.lang-switch button { min-width: 44px; min-height: 44px; border: 0; background: #fff; color: var(--navy); font-weight: 600; font-size: 12.5px; padding: 6px 9px; border-radius: 999px; cursor: pointer; }
+.lang-switch button.on { background: var(--navy); color: #fff; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
 /* headliner */
@@ -421,7 +443,7 @@ button.chip { cursor: pointer; }
 .prep-hero .muted, .prep-hero .small.muted { color: rgba(255,255,255,.75); }
 .prep-ring svg { width: 64px; height: 64px; }
 .badge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-.badge { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 4px; font-size: 24px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: inherit; font-family: inherit; opacity: .45; filter: grayscale(1); }
+.badge { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 4px; font-size: 24px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: inherit; font-family: inherit; filter: grayscale(1); }
 .badge.on { opacity: 1; filter: none; border-color: var(--blue); box-shadow: var(--shadow); }
 .badge span { font-size: 10.5px; font-weight: 600; }
 .badge small { font-size: 9.5px; color: var(--muted); font-weight: 400; line-height: 1.25; }
@@ -452,7 +474,7 @@ button.chip { cursor: pointer; }
       <div class="topbar-right">
       <div class="lang-switch" id="lang-switch"></div>
       <button class="icon-btn" data-action="open-settings" aria-label="settings">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
       </button>
       </div>
     </header>
@@ -990,7 +1012,7 @@ var qrcode = function() {
       rect = 'l' + cellSize + ',0 0,' + cellSize +
         ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
 
-      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += '<svg aria-hidden="true" version="1.1" xmlns="http://www.w3.org/2000/svg"';
       qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
       qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
       qrSvg += ' preserveAspectRatio="xMinYMin meet"';
@@ -2768,6 +2790,11 @@ var qrcode = function() {
 // spanish + portuguese strings; english keys are the source text in app.js
 window.R4_I18N = {
  "es": {
+ "design": "diseño", "Slalom": "Slalom", "AiGovOps": "AiGovOps", "receipts": "recibos",
+ "agent receipts": "recibos de agentes", "verified on this device": "verificados en este dispositivo",
+ "signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.": "recibos firmados en este dispositivo; los cambios o registros faltantes se pueden detectar en este dispositivo. no es un registro inmutable del servidor.",
+ "verify": "verificar", "export ndjson + pem bundle": "exportar paquete NDJSON + PEM", "no receipts yet": "aún no hay recibos",
+ "receipt {n}": "recibo {n}", "receipt verification": "verificación de recibos", "settings saved": "ajustes guardados",
   "executive sponsor": "patrocinador ejecutivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "un directivo sénior que piensa en resultados, riesgo e inversión",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negocio claros, perspectivas de pares, formas de empezar con poco riesgo",
@@ -3131,6 +3158,8 @@ window.R4_I18N = {
   "event name": "nombre del evento",
   "first day": "primer día",
   "day hours": "horario del día",
+  "day start": "inicio del día",
+  "day end": "fin del día",
   "your data": "tus datos",
   "everything stays on this device (browser storage). back it up or move it to another device with export / import.": "todo se queda en este dispositivo (almacenamiento del navegador). haz una copia o muévelo a otro dispositivo con exportar / importar.",
   "export": "exportar",
@@ -3282,6 +3311,11 @@ window.R4_I18N = {
   "that agent link did not work": "ese enlace de agente no funcionó"
  },
  "pt": {
+ "design": "design", "Slalom": "Slalom", "AiGovOps": "AiGovOps", "receipts": "recibos",
+ "agent receipts": "recibos dos agentes", "verified on this device": "verificados neste dispositivo",
+ "signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.": "recibos assinados neste dispositivo; alterações ou registros ausentes podem ser detectados neste dispositivo. não é um registro imutável no servidor.",
+ "verify": "verificar", "export ndjson + pem bundle": "exportar pacote NDJSON + PEM", "no receipts yet": "ainda não há recibos",
+ "receipt {n}": "recibo {n}", "receipt verification": "verificação de recibos", "settings saved": "configurações salvas",
   "executive sponsor": "patrocinador executivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "um executivo sênior que pensa em resultados, risco e investimento",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negócio claros, perspectivas de pares, formas de começar com pouco risco",
@@ -3645,6 +3679,8 @@ window.R4_I18N = {
   "event name": "nome do evento",
   "first day": "primeiro dia",
   "day hours": "horário do dia",
+  "day start": "início do dia",
+  "day end": "fim do dia",
   "your data": "seus dados",
   "everything stays on this device (browser storage). back it up or move it to another device with export / import.": "tudo fica neste dispositivo (armazenamento do navegador). faça backup ou leve para outro dispositivo com exportar / importar.",
   "export": "exportar",
@@ -3797,6 +3833,218 @@ window.R4_I18N = {
  }
 };
 
+</script>
+
+<script>
+'use strict';
+(() => {
+  const DB_NAME = 'r4-beacon-muse';
+  const HEAD_KEY = 'r4-beacon-head-muse';
+  const APP = 'muse';
+  const ZERO = '0'.repeat(64);
+  const encoder = new TextEncoder();
+  let dbPromise;
+  let keyPromise;
+  let queue = Promise.resolve();
+  const keyState = { logged: false };
+
+  const jcs = (value) => {
+    if (value === null || typeof value === 'boolean' || typeof value === 'string') return JSON.stringify(value);
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) throw new TypeError('non-finite JCS number');
+      return JSON.stringify(value);
+    }
+    if (Array.isArray(value)) return `[${value.map(jcs).join(',')}]`;
+    if (typeof value === 'object') return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${jcs(value[key])}`).join(',')}}`;
+    throw new TypeError('unsupported JCS value');
+  };
+  const hex = (bytes) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const sha = async (value) => {
+    const bytes = value instanceof ArrayBuffer || ArrayBuffer.isView(value)
+      ? value
+      : encoder.encode(typeof value === 'string' ? value : jcs(value));
+    return hex(await crypto.subtle.digest('SHA-256', bytes));
+  };
+  const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+  const fromB64 = (value) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
+  const ulid = () => {
+    let value = BigInt(Date.now()) << 80n;
+    const random = crypto.getRandomValues(new Uint8Array(10));
+    let randomValue = 0n;
+    random.forEach((b) => { randomValue = (randomValue << 8n) | BigInt(b); });
+    value |= randomValue;
+    let out = '';
+    const chars = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    for (let i = 0; i < 26; i++) { out = chars[Number(value & 31n)] + out; value >>= 5n; }
+    return out;
+  };
+  const openDb = () => {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('keys')) db.createObjectStore('keys', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('receipts')) db.createObjectStore('receipts', { keyPath: 'seq' });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  };
+  const request = (store, method, value) => openDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, method === 'getAll' ? 'readonly' : 'readwrite');
+    const req = value === undefined ? tx.objectStore(store)[method]() : tx.objectStore(store)[method](value);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  }));
+  const keyInfo = () => {
+    if (!keyPromise) keyPromise = (async () => {
+      const found = await request('keys', 'get', 'signing');
+      if (found) return found;
+      const device = await request('keys', 'get', 'device');
+      const deviceId = device?.value || ulid().toLowerCase();
+      if (!device) await request('keys', 'put', { id: 'device', value: deviceId });
+      try {
+        const pair = await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign', 'verify']);
+        const rawPublicKey = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
+        const record = { id: 'signing', keyKind: 'hardware', privateKey: pair.privateKey, publicKey: pair.publicKey, rawPublicKey };
+        await request('keys', 'put', record);
+        return { ...record, created: true };
+      } catch (error) {
+        if (!window.nacl?.sign?.keyPair) throw error;
+        const pair = window.nacl.sign.keyPair();
+        const record = { id: 'signing', keyKind: 'software', secretKey: pair.secretKey, rawPublicKey: pair.publicKey };
+        await request('keys', 'put', record);
+        return { ...record, created: true };
+      }
+    })();
+    return keyPromise;
+  };
+  const fingerprint = async (key) => `SHA256:${b64(await crypto.subtle.digest('SHA-256', key.rawPublicKey)).replace(/=+$/, '')}`;
+  const sign = async (key, bytes) => key.keyKind === 'hardware'
+    ? new Uint8Array(await crypto.subtle.sign({ name: 'Ed25519' }, key.privateKey, bytes))
+    : window.nacl.sign.detached(bytes, key.secretKey);
+  const verifySignature = async (key, bytes, signature) => {
+    if (key.keyKind === 'hardware') return crypto.subtle.verify({ name: 'Ed25519' }, key.publicKey, signature, bytes);
+    return window.nacl.sign.detached.verify(bytes, signature, key.rawPublicKey);
+  };
+  const pem = async (key) => {
+    let der;
+    if (key.keyKind === 'hardware') der = new Uint8Array(await crypto.subtle.exportKey('spki', key.publicKey));
+    else {
+      const prefix = Uint8Array.from([0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00]);
+      der = new Uint8Array(prefix.length + key.rawPublicKey.length); der.set(prefix); der.set(key.rawPublicKey, prefix.length);
+    }
+    const encoded = b64(der).match(/.{1,64}/g).join('\n');
+    return `-----BEGIN PUBLIC KEY-----\n${encoded}\n-----END PUBLIC KEY-----`;
+  };
+  const fullReceipts = () => request('receipts', 'getAll').then((all) => all.sort((a, b) => a.seq - b.seq));
+  async function writeReceipt(key, eventType, action, options = {}) {
+    const entries = await fullReceipts();
+    const previous = entries.at(-1);
+    const head = JSON.parse(localStorage.getItem(HEAD_KEY) || 'null');
+    const previousHash = previous ? await sha(jcs(previous)) : ZERO;
+    if ((head && (head.seq !== entries.length || head.sha256 !== previousHash)) || (!head && entries.length)) {
+      throw new Error('Beacon receipt chain head does not match stored receipts');
+    }
+    const body = {
+      id: ulid(), ts_utc: new Date().toISOString(),
+      user: { sub: `device:${(await request('keys', 'get', 'device')).value}`, email: null, oidc_issuer: 'local-device' },
+      vendor: 'in-house', model: 'r4-backstage-agent', version: 'r4-backstage-agent-2026.10.1',
+      prompt: null, prompt_hash: `sha256:${options.promptHash || await sha(options.prompt ?? null)}`,
+      result: null, result_hash: `sha256:${options.resultHash || await sha(options.result ?? null)}`,
+      event_type: eventType, environment: 'edge',
+      profile: 'aigovops-beacon.v1', schema_version: 'r4-beacon-receipt.v1', app: APP,
+      seq: entries.length + 1, prev_receipt_sha256: previousHash,
+      action,
+    };
+    if (options.latencyMs != null) body.latency_ms = options.latencyMs;
+    if (options.parentReceiptId) body.parent_receipt_id = options.parentReceiptId;
+    if (options.threadId) body.thread_id = options.threadId;
+    const sig = await sign(key, encoder.encode(jcs(body)));
+    body.signature = { alg: 'Ed25519', key_fpr: await fingerprint(key), sig_b64: b64(sig), canonical_form: 'json/c14n-rfc8785' };
+    await request('receipts', 'put', body);
+    const chainHead = await sha(jcs(body));
+    localStorage.setItem(HEAD_KEY, JSON.stringify({ seq: body.seq, sha256: chainHead }));
+    return body;
+  }
+  const append = (eventType, action, options = {}) => {
+    queue = queue.then(async () => {
+      const key = await keyInfo();
+      if (key.created && !keyState.logged) {
+        keyState.logged = true;
+        try { await writeReceipt(key, 'key.rotated', 'key.created', { result: 'first signing key created' }); }
+        catch (error) { keyState.logged = false; throw error; }
+      }
+      return writeReceipt(key, eventType, action, options);
+    }).catch((error) => { console.warn('Beacon receipt write failed', error); return null; });
+    return queue;
+  };
+  const record = (eventType, action, prompt, result, options = {}) => Promise.all([
+    sha(jcs(prompt ?? null)), sha(typeof result === 'string' ? result : jcs(result ?? null)),
+  ]).then(([promptHash, resultHash]) => append(eventType, action, { ...options, promptHash, resultHash }));
+  async function verify() {
+    await queue;
+    const entries = await fullReceipts();
+    const key = await keyInfo();
+    const keyFpr = await fingerprint(key);
+    let firstBadSeq = null, reason = null, previousHash = ZERO;
+    const verifierKey = key.keyKind === 'hardware' ? key.publicKey : await crypto.subtle.importKey('raw', key.rawPublicKey, { name: 'Ed25519' }, true, ['verify']).catch(() => null);
+    for (let i = 0; i < entries.length; i++) {
+      const receipt = entries[i];
+      const { signature, ...body } = receipt;
+      const signatureOk = verifierKey
+        ? await crypto.subtle.verify({ name: 'Ed25519' }, verifierKey, fromB64(signature.sig_b64), encoder.encode(jcs(body))).catch(() => false)
+        : window.nacl?.sign?.detached?.verify(encoder.encode(jcs(body)), fromB64(signature.sig_b64), key.rawPublicKey);
+      if (receipt.seq !== i + 1) { firstBadSeq = receipt.seq; reason = 'sequence-mismatch'; break; }
+      if (receipt.prev_receipt_sha256 !== previousHash) { firstBadSeq = receipt.seq; reason = 'chain-mismatch'; break; }
+      if (signature.key_fpr !== keyFpr) { firstBadSeq = receipt.seq; reason = 'key-mismatch'; break; }
+      if (!signatureOk) { firstBadSeq = receipt.seq; reason = 'signature-invalid'; break; }
+      previousHash = await sha(jcs(receipt));
+    }
+    const head = JSON.parse(localStorage.getItem(HEAD_KEY) || 'null');
+    if (firstBadSeq == null && !head && entries.length) { firstBadSeq = entries.length; reason = 'head-missing'; }
+    else if (firstBadSeq == null && head && head.seq > entries.length) { firstBadSeq = entries.length + 1; reason = 'truncated'; }
+    else if (firstBadSeq == null && head && (head.seq !== entries.length || head.sha256 !== previousHash)) { firstBadSeq = Math.max(1, entries.length); reason = 'head-mismatch'; }
+    return { ok: firstBadSeq == null, count: entries.length, keyFpr, keyKind: key.keyKind, firstBadSeq, reason };
+  }
+  async function exportData() {
+    await append('bundle.signed', 'bundle.exported', { result: 'signed receipt export' });
+    const entries = await fullReceipts(), key = await keyInfo(), verification = await verify();
+    const publicKeyPem = await pem(key);
+    return {
+      ndjson: entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
+      pem: publicKeyPem,
+      bundle: JSON.stringify({ manifest: { format: 'r4-beacon-bundle.v1', app: APP, created: new Date().toISOString(), count: entries.length, head_sha256: verification.ok ? JSON.parse(localStorage.getItem(HEAD_KEY) || '{}').sha256 : '', public_key_pem: publicKeyPem, key_fpr: verification.keyFpr }, receipts: entries }, null, 2),
+    };
+  }
+  window.R4Receipts = {
+    init: async () => {
+      const key = await keyInfo();
+      if (key.created && !keyState.logged) {
+        keyState.logged = true;
+        const receipt = await append('key.rotated', 'key.created', { result: 'first signing key created' });
+        keyState.logged = Boolean(receipt);
+        return receipt;
+      }
+      return null;
+    },
+    append, record, jcs, sha256: (value) => sha(typeof value === 'string' ? value : jcs(value)),
+    verify, list: fullReceipts,
+    get: async (id) => (await fullReceipts()).find((item) => item.id === id || item.seq === Number(id)),
+    keyInfo: async () => { const key = await keyInfo(); return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) }; },
+    exportData,
+  };
+})();
+
+</script>
+<script>
+/*! tweetnacl@1.0.3 nacl-fast.min.js
+ * This is free and unencumbered software released into the public domain.
+ * See https://unlicense.org
+ */
+!function(i){"use strict";var v=function(r){var t,n=new Float64Array(16);if(r)for(t=0;t<r.length;t++)n[t]=r[t];return n},h=function(){throw new Error("no PRNG")},o=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var s=v(),u=v([1]),p=v([56129,1]),c=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),y=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),e=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),a=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),l=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function f(r,t,n,e){r[t]=n>>24&255,r[t+1]=n>>16&255,r[t+2]=n>>8&255,r[t+3]=255&n,r[t+4]=e>>24&255,r[t+5]=e>>16&255,r[t+6]=e>>8&255,r[t+7]=255&e}function w(r,t,n,e,o){var i,h=0;for(i=0;i<o;i++)h|=r[t+i]^n[e+i];return(1&h-1>>>8)-1}function b(r,t,n,e){return w(r,t,n,e,16)}function g(r,t,n,e){return w(r,t,n,e,32)}function A(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=i,d=h,E=a,x=f,M=s,m=u,B=c,S=y,k=l,K=w,Y=v,L=p,T=b,z=g,R=A,P=_,N=0;N<20;N+=2)U^=(o=(T^=(o=(k^=(o=(M^=(o=U+T|0)<<7|o>>>25)+U|0)<<9|o>>>23)+M|0)<<13|o>>>19)+k|0)<<18|o>>>14,m^=(o=(d^=(o=(z^=(o=(K^=(o=m+d|0)<<7|o>>>25)+m|0)<<9|o>>>23)+K|0)<<13|o>>>19)+z|0)<<18|o>>>14,Y^=(o=(B^=(o=(E^=(o=(R^=(o=Y+B|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+R|0)<<13|o>>>19)+E|0)<<18|o>>>14,P^=(o=(L^=(o=(S^=(o=(x^=(o=P+L|0)<<7|o>>>25)+P|0)<<9|o>>>23)+x|0)<<13|o>>>19)+S|0)<<18|o>>>14,U^=(o=(x^=(o=(E^=(o=(d^=(o=U+x|0)<<7|o>>>25)+U|0)<<9|o>>>23)+d|0)<<13|o>>>19)+E|0)<<18|o>>>14,m^=(o=(M^=(o=(S^=(o=(B^=(o=m+M|0)<<7|o>>>25)+m|0)<<9|o>>>23)+B|0)<<13|o>>>19)+S|0)<<18|o>>>14,Y^=(o=(K^=(o=(k^=(o=(L^=(o=Y+K|0)<<7|o>>>25)+Y|0)<<9|o>>>23)+L|0)<<13|o>>>19)+k|0)<<18|o>>>14,P^=(o=(R^=(o=(z^=(o=(T^=(o=P+R|0)<<7|o>>>25)+P|0)<<9|o>>>23)+T|0)<<13|o>>>19)+z|0)<<18|o>>>14;U=U+i|0,d=d+h|0,E=E+a|0,x=x+f|0,M=M+s|0,m=m+u|0,B=B+c|0,S=S+y|0,k=k+l|0,K=K+w|0,Y=Y+v|0,L=L+p|0,T=T+b|0,z=z+g|0,R=R+A|0,P=P+_|0,r[0]=U>>>0&255,r[1]=U>>>8&255,r[2]=U>>>16&255,r[3]=U>>>24&255,r[4]=d>>>0&255,r[5]=d>>>8&255,r[6]=d>>>16&255,r[7]=d>>>24&255,r[8]=E>>>0&255,r[9]=E>>>8&255,r[10]=E>>>16&255,r[11]=E>>>24&255,r[12]=x>>>0&255,r[13]=x>>>8&255,r[14]=x>>>16&255,r[15]=x>>>24&255,r[16]=M>>>0&255,r[17]=M>>>8&255,r[18]=M>>>16&255,r[19]=M>>>24&255,r[20]=m>>>0&255,r[21]=m>>>8&255,r[22]=m>>>16&255,r[23]=m>>>24&255,r[24]=B>>>0&255,r[25]=B>>>8&255,r[26]=B>>>16&255,r[27]=B>>>24&255,r[28]=S>>>0&255,r[29]=S>>>8&255,r[30]=S>>>16&255,r[31]=S>>>24&255,r[32]=k>>>0&255,r[33]=k>>>8&255,r[34]=k>>>16&255,r[35]=k>>>24&255,r[36]=K>>>0&255,r[37]=K>>>8&255,r[38]=K>>>16&255,r[39]=K>>>24&255,r[40]=Y>>>0&255,r[41]=Y>>>8&255,r[42]=Y>>>16&255,r[43]=Y>>>24&255,r[44]=L>>>0&255,r[45]=L>>>8&255,r[46]=L>>>16&255,r[47]=L>>>24&255,r[48]=T>>>0&255,r[49]=T>>>8&255,r[50]=T>>>16&255,r[51]=T>>>24&255,r[52]=z>>>0&255,r[53]=z>>>8&255,r[54]=z>>>16&255,r[55]=z>>>24&255,r[56]=R>>>0&255,r[57]=R>>>8&255,r[58]=R>>>16&255,r[59]=R>>>24&255,r[60]=P>>>0&255,r[61]=P>>>8&255,r[62]=P>>>16&255,r[63]=P>>>24&255}(r,t,n,e)}function _(r,t,n,e){!function(r,t,n,e){for(var o,i=255&e[0]|(255&e[1])<<8|(255&e[2])<<16|(255&e[3])<<24,h=255&n[0]|(255&n[1])<<8|(255&n[2])<<16|(255&n[3])<<24,a=255&n[4]|(255&n[5])<<8|(255&n[6])<<16|(255&n[7])<<24,f=255&n[8]|(255&n[9])<<8|(255&n[10])<<16|(255&n[11])<<24,s=255&n[12]|(255&n[13])<<8|(255&n[14])<<16|(255&n[15])<<24,u=255&e[4]|(255&e[5])<<8|(255&e[6])<<16|(255&e[7])<<24,c=255&t[0]|(255&t[1])<<8|(255&t[2])<<16|(255&t[3])<<24,y=255&t[4]|(255&t[5])<<8|(255&t[6])<<16|(255&t[7])<<24,l=255&t[8]|(255&t[9])<<8|(255&t[10])<<16|(255&t[11])<<24,w=255&t[12]|(255&t[13])<<8|(255&t[14])<<16|(255&t[15])<<24,v=255&e[8]|(255&e[9])<<8|(255&e[10])<<16|(255&e[11])<<24,p=255&n[16]|(255&n[17])<<8|(255&n[18])<<16|(255&n[19])<<24,b=255&n[20]|(255&n[21])<<8|(255&n[22])<<16|(255&n[23])<<24,g=255&n[24]|(255&n[25])<<8|(255&n[26])<<16|(255&n[27])<<24,A=255&n[28]|(255&n[29])<<8|(255&n[30])<<16|(255&n[31])<<24,_=255&e[12]|(255&e[13])<<8|(255&e[14])<<16|(255&e[15])<<24,U=0;U<20;U+=2)i^=(o=(b^=(o=(l^=(o=(s^=(o=i+b|0)<<7|o>>>25)+i|0)<<9|o>>>23)+s|0)<<13|o>>>19)+l|0)<<18|o>>>14,u^=(o=(h^=(o=(g^=(o=(w^=(o=u+h|0)<<7|o>>>25)+u|0)<<9|o>>>23)+w|0)<<13|o>>>19)+g|0)<<18|o>>>14,v^=(o=(c^=(o=(a^=(o=(A^=(o=v+c|0)<<7|o>>>25)+v|0)<<9|o>>>23)+A|0)<<13|o>>>19)+a|0)<<18|o>>>14,_^=(o=(p^=(o=(y^=(o=(f^=(o=_+p|0)<<7|o>>>25)+_|0)<<9|o>>>23)+f|0)<<13|o>>>19)+y|0)<<18|o>>>14,i^=(o=(f^=(o=(a^=(o=(h^=(o=i+f|0)<<7|o>>>25)+i|0)<<9|o>>>23)+h|0)<<13|o>>>19)+a|0)<<18|o>>>14,u^=(o=(s^=(o=(y^=(o=(c^=(o=u+s|0)<<7|o>>>25)+u|0)<<9|o>>>23)+c|0)<<13|o>>>19)+y|0)<<18|o>>>14,v^=(o=(w^=(o=(l^=(o=(p^=(o=v+w|0)<<7|o>>>25)+v|0)<<9|o>>>23)+p|0)<<13|o>>>19)+l|0)<<18|o>>>14,_^=(o=(A^=(o=(g^=(o=(b^=(o=_+A|0)<<7|o>>>25)+_|0)<<9|o>>>23)+b|0)<<13|o>>>19)+g|0)<<18|o>>>14;r[0]=i>>>0&255,r[1]=i>>>8&255,r[2]=i>>>16&255,r[3]=i>>>24&255,r[4]=u>>>0&255,r[5]=u>>>8&255,r[6]=u>>>16&255,r[7]=u>>>24&255,r[8]=v>>>0&255,r[9]=v>>>8&255,r[10]=v>>>16&255,r[11]=v>>>24&255,r[12]=_>>>0&255,r[13]=_>>>8&255,r[14]=_>>>16&255,r[15]=_>>>24&255,r[16]=c>>>0&255,r[17]=c>>>8&255,r[18]=c>>>16&255,r[19]=c>>>24&255,r[20]=y>>>0&255,r[21]=y>>>8&255,r[22]=y>>>16&255,r[23]=y>>>24&255,r[24]=l>>>0&255,r[25]=l>>>8&255,r[26]=l>>>16&255,r[27]=l>>>24&255,r[28]=w>>>0&255,r[29]=w>>>8&255,r[30]=w>>>16&255,r[31]=w>>>24&255}(r,t,n,e)}var U=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function d(r,t,n,e,o,i,h){var a,f,s=new Uint8Array(16),u=new Uint8Array(64);for(f=0;f<16;f++)s[f]=0;for(f=0;f<8;f++)s[f]=i[f];for(;64<=o;){for(A(u,s,h,U),f=0;f<64;f++)r[t+f]=n[e+f]^u[f];for(a=1,f=8;f<16;f++)a=a+(255&s[f])|0,s[f]=255&a,a>>>=8;o-=64,t+=64,e+=64}if(0<o)for(A(u,s,h,U),f=0;f<o;f++)r[t+f]=n[e+f]^u[f];return 0}function E(r,t,n,e,o){var i,h,a=new Uint8Array(16),f=new Uint8Array(64);for(h=0;h<16;h++)a[h]=0;for(h=0;h<8;h++)a[h]=e[h];for(;64<=n;){for(A(f,a,o,U),h=0;h<64;h++)r[t+h]=f[h];for(i=1,h=8;h<16;h++)i=i+(255&a[h])|0,a[h]=255&i,i>>>=8;n-=64,t+=64}if(0<n)for(A(f,a,o,U),h=0;h<n;h++)r[t+h]=f[h];return 0}function x(r,t,n,e,o){var i=new Uint8Array(32);_(i,e,o,U);for(var h=new Uint8Array(8),a=0;a<8;a++)h[a]=e[a+16];return E(r,t,n,h,i)}function M(r,t,n,e,o,i,h){var a=new Uint8Array(32);_(a,i,h,U);for(var f=new Uint8Array(8),s=0;s<8;s++)f[s]=i[s+16];return d(r,t,n,e,o,f,a)}var m=function(r){var t,n,e,o,i,h,a,f;this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,t=255&r[this.fin=0]|(255&r[1])<<8,this.r[0]=8191&t,n=255&r[2]|(255&r[3])<<8,this.r[1]=8191&(t>>>13|n<<3),e=255&r[4]|(255&r[5])<<8,this.r[2]=7939&(n>>>10|e<<6),o=255&r[6]|(255&r[7])<<8,this.r[3]=8191&(e>>>7|o<<9),i=255&r[8]|(255&r[9])<<8,this.r[4]=255&(o>>>4|i<<12),this.r[5]=i>>>1&8190,h=255&r[10]|(255&r[11])<<8,this.r[6]=8191&(i>>>14|h<<2),a=255&r[12]|(255&r[13])<<8,this.r[7]=8065&(h>>>11|a<<5),f=255&r[14]|(255&r[15])<<8,this.r[8]=8191&(a>>>8|f<<8),this.r[9]=f>>>5&127,this.pad[0]=255&r[16]|(255&r[17])<<8,this.pad[1]=255&r[18]|(255&r[19])<<8,this.pad[2]=255&r[20]|(255&r[21])<<8,this.pad[3]=255&r[22]|(255&r[23])<<8,this.pad[4]=255&r[24]|(255&r[25])<<8,this.pad[5]=255&r[26]|(255&r[27])<<8,this.pad[6]=255&r[28]|(255&r[29])<<8,this.pad[7]=255&r[30]|(255&r[31])<<8};function B(r,t,n,e,o,i){var h=new m(i);return h.update(n,e,o),h.finish(r,t),0}function S(r,t,n,e,o,i){var h=new Uint8Array(16);return B(h,0,n,e,o,i),b(r,t,h,0)}function k(r,t,n,e,o){var i;if(n<32)return-1;for(M(r,0,t,0,n,e,o),B(r,16,r,32,n-32,r),i=0;i<16;i++)r[i]=0;return 0}function K(r,t,n,e,o){var i,h=new Uint8Array(32);if(n<32)return-1;if(x(h,0,32,e,o),0!==S(t,16,t,32,n-32,h))return-1;for(M(r,0,t,0,n,e,o),i=0;i<32;i++)r[i]=0;return 0}function Y(r,t){var n;for(n=0;n<16;n++)r[n]=0|t[n]}function L(r){var t,n,e=1;for(t=0;t<16;t++)n=r[t]+e+65535,e=Math.floor(n/65536),r[t]=n-65536*e;r[0]+=e-1+37*(e-1)}function T(r,t,n){for(var e,o=~(n-1),i=0;i<16;i++)e=o&(r[i]^t[i]),r[i]^=e,t[i]^=e}function z(r,t){var n,e,o,i=v(),h=v();for(n=0;n<16;n++)h[n]=t[n];for(L(h),L(h),L(h),e=0;e<2;e++){for(i[0]=h[0]-65517,n=1;n<15;n++)i[n]=h[n]-65535-(i[n-1]>>16&1),i[n-1]&=65535;i[15]=h[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,T(h,i,1-o)}for(n=0;n<16;n++)r[2*n]=255&h[n],r[2*n+1]=h[n]>>8}function R(r,t){var n=new Uint8Array(32),e=new Uint8Array(32);return z(n,r),z(e,t),g(n,0,e,0)}function P(r){var t=new Uint8Array(32);return z(t,r),1&t[0]}function N(r,t){var n;for(n=0;n<16;n++)r[n]=t[2*n]+(t[2*n+1]<<8);r[15]&=32767}function O(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]+n[e]}function C(r,t,n){for(var e=0;e<16;e++)r[e]=t[e]-n[e]}function F(r,t,n){var e,o,i=0,h=0,a=0,f=0,s=0,u=0,c=0,y=0,l=0,w=0,v=0,p=0,b=0,g=0,A=0,_=0,U=0,d=0,E=0,x=0,M=0,m=0,B=0,S=0,k=0,K=0,Y=0,L=0,T=0,z=0,R=0,P=n[0],N=n[1],O=n[2],C=n[3],F=n[4],I=n[5],Z=n[6],G=n[7],q=n[8],D=n[9],V=n[10],X=n[11],j=n[12],H=n[13],J=n[14],Q=n[15];i+=(e=t[0])*P,h+=e*N,a+=e*O,f+=e*C,s+=e*F,u+=e*I,c+=e*Z,y+=e*G,l+=e*q,w+=e*D,v+=e*V,p+=e*X,b+=e*j,g+=e*H,A+=e*J,_+=e*Q,h+=(e=t[1])*P,a+=e*N,f+=e*O,s+=e*C,u+=e*F,c+=e*I,y+=e*Z,l+=e*G,w+=e*q,v+=e*D,p+=e*V,b+=e*X,g+=e*j,A+=e*H,_+=e*J,U+=e*Q,a+=(e=t[2])*P,f+=e*N,s+=e*O,u+=e*C,c+=e*F,y+=e*I,l+=e*Z,w+=e*G,v+=e*q,p+=e*D,b+=e*V,g+=e*X,A+=e*j,_+=e*H,U+=e*J,d+=e*Q,f+=(e=t[3])*P,s+=e*N,u+=e*O,c+=e*C,y+=e*F,l+=e*I,w+=e*Z,v+=e*G,p+=e*q,b+=e*D,g+=e*V,A+=e*X,_+=e*j,U+=e*H,d+=e*J,E+=e*Q,s+=(e=t[4])*P,u+=e*N,c+=e*O,y+=e*C,l+=e*F,w+=e*I,v+=e*Z,p+=e*G,b+=e*q,g+=e*D,A+=e*V,_+=e*X,U+=e*j,d+=e*H,E+=e*J,x+=e*Q,u+=(e=t[5])*P,c+=e*N,y+=e*O,l+=e*C,w+=e*F,v+=e*I,p+=e*Z,b+=e*G,g+=e*q,A+=e*D,_+=e*V,U+=e*X,d+=e*j,E+=e*H,x+=e*J,M+=e*Q,c+=(e=t[6])*P,y+=e*N,l+=e*O,w+=e*C,v+=e*F,p+=e*I,b+=e*Z,g+=e*G,A+=e*q,_+=e*D,U+=e*V,d+=e*X,E+=e*j,x+=e*H,M+=e*J,m+=e*Q,y+=(e=t[7])*P,l+=e*N,w+=e*O,v+=e*C,p+=e*F,b+=e*I,g+=e*Z,A+=e*G,_+=e*q,U+=e*D,d+=e*V,E+=e*X,x+=e*j,M+=e*H,m+=e*J,B+=e*Q,l+=(e=t[8])*P,w+=e*N,v+=e*O,p+=e*C,b+=e*F,g+=e*I,A+=e*Z,_+=e*G,U+=e*q,d+=e*D,E+=e*V,x+=e*X,M+=e*j,m+=e*H,B+=e*J,S+=e*Q,w+=(e=t[9])*P,v+=e*N,p+=e*O,b+=e*C,g+=e*F,A+=e*I,_+=e*Z,U+=e*G,d+=e*q,E+=e*D,x+=e*V,M+=e*X,m+=e*j,B+=e*H,S+=e*J,k+=e*Q,v+=(e=t[10])*P,p+=e*N,b+=e*O,g+=e*C,A+=e*F,_+=e*I,U+=e*Z,d+=e*G,E+=e*q,x+=e*D,M+=e*V,m+=e*X,B+=e*j,S+=e*H,k+=e*J,K+=e*Q,p+=(e=t[11])*P,b+=e*N,g+=e*O,A+=e*C,_+=e*F,U+=e*I,d+=e*Z,E+=e*G,x+=e*q,M+=e*D,m+=e*V,B+=e*X,S+=e*j,k+=e*H,K+=e*J,Y+=e*Q,b+=(e=t[12])*P,g+=e*N,A+=e*O,_+=e*C,U+=e*F,d+=e*I,E+=e*Z,x+=e*G,M+=e*q,m+=e*D,B+=e*V,S+=e*X,k+=e*j,K+=e*H,Y+=e*J,L+=e*Q,g+=(e=t[13])*P,A+=e*N,_+=e*O,U+=e*C,d+=e*F,E+=e*I,x+=e*Z,M+=e*G,m+=e*q,B+=e*D,S+=e*V,k+=e*X,K+=e*j,Y+=e*H,L+=e*J,T+=e*Q,A+=(e=t[14])*P,_+=e*N,U+=e*O,d+=e*C,E+=e*F,x+=e*I,M+=e*Z,m+=e*G,B+=e*q,S+=e*D,k+=e*V,K+=e*X,Y+=e*j,L+=e*H,T+=e*J,z+=e*Q,_+=(e=t[15])*P,h+=38*(d+=e*O),a+=38*(E+=e*C),f+=38*(x+=e*F),s+=38*(M+=e*I),u+=38*(m+=e*Z),c+=38*(B+=e*G),y+=38*(S+=e*q),l+=38*(k+=e*D),w+=38*(K+=e*V),v+=38*(Y+=e*X),p+=38*(L+=e*j),b+=38*(T+=e*H),g+=38*(z+=e*J),A+=38*(R+=e*Q),i=(e=(i+=38*(U+=e*N))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i=(e=(i+=o-1+37*(o-1))+(o=1)+65535)-65536*(o=Math.floor(e/65536)),h=(e=h+o+65535)-65536*(o=Math.floor(e/65536)),a=(e=a+o+65535)-65536*(o=Math.floor(e/65536)),f=(e=f+o+65535)-65536*(o=Math.floor(e/65536)),s=(e=s+o+65535)-65536*(o=Math.floor(e/65536)),u=(e=u+o+65535)-65536*(o=Math.floor(e/65536)),c=(e=c+o+65535)-65536*(o=Math.floor(e/65536)),y=(e=y+o+65535)-65536*(o=Math.floor(e/65536)),l=(e=l+o+65535)-65536*(o=Math.floor(e/65536)),w=(e=w+o+65535)-65536*(o=Math.floor(e/65536)),v=(e=v+o+65535)-65536*(o=Math.floor(e/65536)),p=(e=p+o+65535)-65536*(o=Math.floor(e/65536)),b=(e=b+o+65535)-65536*(o=Math.floor(e/65536)),g=(e=g+o+65535)-65536*(o=Math.floor(e/65536)),A=(e=A+o+65535)-65536*(o=Math.floor(e/65536)),_=(e=_+o+65535)-65536*(o=Math.floor(e/65536)),i+=o-1+37*(o-1),r[0]=i,r[1]=h,r[2]=a,r[3]=f,r[4]=s,r[5]=u,r[6]=c,r[7]=y,r[8]=l,r[9]=w,r[10]=v,r[11]=p,r[12]=b,r[13]=g,r[14]=A,r[15]=_}function I(r,t){F(r,t,t)}function Z(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=253;0<=n;n--)I(e,e),2!==n&&4!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function G(r,t){var n,e=v();for(n=0;n<16;n++)e[n]=t[n];for(n=250;0<=n;n--)I(e,e),1!==n&&F(e,e,t);for(n=0;n<16;n++)r[n]=e[n]}function q(r,t,n){var e,o,i=new Uint8Array(32),h=new Float64Array(80),a=v(),f=v(),s=v(),u=v(),c=v(),y=v();for(o=0;o<31;o++)i[o]=t[o];for(i[31]=127&t[31]|64,i[0]&=248,N(h,n),o=0;o<16;o++)f[o]=h[o],u[o]=a[o]=s[o]=0;for(a[0]=u[0]=1,o=254;0<=o;--o)T(a,f,e=i[o>>>3]>>>(7&o)&1),T(s,u,e),O(c,a,s),C(a,a,s),O(s,f,u),C(f,f,u),I(u,c),I(y,a),F(a,s,a),F(s,f,c),O(c,a,s),C(a,a,s),I(f,a),C(s,u,y),F(a,s,p),O(a,a,u),F(s,s,a),F(a,u,y),F(u,f,h),I(f,c),T(a,f,e),T(s,u,e);for(o=0;o<16;o++)h[o+16]=a[o],h[o+32]=s[o],h[o+48]=f[o],h[o+64]=u[o];var l=h.subarray(32),w=h.subarray(16);return Z(l,l),F(w,w,l),z(r,w),0}function D(r,t){return q(r,t,n)}function V(r,t){return h(t,32),D(r,t)}function X(r,t,n){var e=new Uint8Array(32);return q(e,n,t),_(r,o,e,U)}m.prototype.blocks=function(r,t,n){for(var e,o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d=this.fin?0:2048,E=this.h[0],x=this.h[1],M=this.h[2],m=this.h[3],B=this.h[4],S=this.h[5],k=this.h[6],K=this.h[7],Y=this.h[8],L=this.h[9],T=this.r[0],z=this.r[1],R=this.r[2],P=this.r[3],N=this.r[4],O=this.r[5],C=this.r[6],F=this.r[7],I=this.r[8],Z=this.r[9];16<=n;)y=c=0,y+=(E+=8191&(e=255&r[t+0]|(255&r[t+1])<<8))*T,y+=(x+=8191&(e>>>13|(o=255&r[t+2]|(255&r[t+3])<<8)<<3))*(5*Z),y+=(M+=8191&(o>>>10|(i=255&r[t+4]|(255&r[t+5])<<8)<<6))*(5*I),y+=(m+=8191&(i>>>7|(h=255&r[t+6]|(255&r[t+7])<<8)<<9))*(5*F),c=(y+=(B+=8191&(h>>>4|(a=255&r[t+8]|(255&r[t+9])<<8)<<12))*(5*C))>>>13,y&=8191,y+=(S+=a>>>1&8191)*(5*O),y+=(k+=8191&(a>>>14|(f=255&r[t+10]|(255&r[t+11])<<8)<<2))*(5*N),y+=(K+=8191&(f>>>11|(s=255&r[t+12]|(255&r[t+13])<<8)<<5))*(5*P),y+=(Y+=8191&(s>>>8|(u=255&r[t+14]|(255&r[t+15])<<8)<<8))*(5*R),l=c+=(y+=(L+=u>>>5|d)*(5*z))>>>13,l+=E*z,l+=x*T,l+=M*(5*Z),l+=m*(5*I),c=(l+=B*(5*F))>>>13,l&=8191,l+=S*(5*C),l+=k*(5*O),l+=K*(5*N),l+=Y*(5*P),c+=(l+=L*(5*R))>>>13,l&=8191,w=c,w+=E*R,w+=x*z,w+=M*T,w+=m*(5*Z),c=(w+=B*(5*I))>>>13,w&=8191,w+=S*(5*F),w+=k*(5*C),w+=K*(5*O),w+=Y*(5*N),v=c+=(w+=L*(5*P))>>>13,v+=E*P,v+=x*R,v+=M*z,v+=m*T,c=(v+=B*(5*Z))>>>13,v&=8191,v+=S*(5*I),v+=k*(5*F),v+=K*(5*C),v+=Y*(5*O),p=c+=(v+=L*(5*N))>>>13,p+=E*N,p+=x*P,p+=M*R,p+=m*z,c=(p+=B*T)>>>13,p&=8191,p+=S*(5*Z),p+=k*(5*I),p+=K*(5*F),p+=Y*(5*C),b=c+=(p+=L*(5*O))>>>13,b+=E*O,b+=x*N,b+=M*P,b+=m*R,c=(b+=B*z)>>>13,b&=8191,b+=S*T,b+=k*(5*Z),b+=K*(5*I),b+=Y*(5*F),g=c+=(b+=L*(5*C))>>>13,g+=E*C,g+=x*O,g+=M*N,g+=m*P,c=(g+=B*R)>>>13,g&=8191,g+=S*z,g+=k*T,g+=K*(5*Z),g+=Y*(5*I),A=c+=(g+=L*(5*F))>>>13,A+=E*F,A+=x*C,A+=M*O,A+=m*N,c=(A+=B*P)>>>13,A&=8191,A+=S*R,A+=k*z,A+=K*T,A+=Y*(5*Z),_=c+=(A+=L*(5*I))>>>13,_+=E*I,_+=x*F,_+=M*C,_+=m*O,c=(_+=B*N)>>>13,_&=8191,_+=S*P,_+=k*R,_+=K*z,_+=Y*T,U=c+=(_+=L*(5*Z))>>>13,U+=E*Z,U+=x*I,U+=M*F,U+=m*C,c=(U+=B*O)>>>13,U&=8191,U+=S*N,U+=k*P,U+=K*R,U+=Y*z,E=y=8191&(c=(c=((c+=(U+=L*T)>>>13)<<2)+c|0)+(y&=8191)|0),x=l+=c>>>=13,M=w&=8191,m=v&=8191,B=p&=8191,S=b&=8191,k=g&=8191,K=A&=8191,Y=_&=8191,L=U&=8191,t+=16,n-=16;this.h[0]=E,this.h[1]=x,this.h[2]=M,this.h[3]=m,this.h[4]=B,this.h[5]=S,this.h[6]=k,this.h[7]=K,this.h[8]=Y,this.h[9]=L},m.prototype.finish=function(r,t){var n,e,o,i,h=new Uint16Array(10);if(this.leftover){for(i=this.leftover,this.buffer[i++]=1;i<16;i++)this.buffer[i]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(n=this.h[1]>>>13,this.h[1]&=8191,i=2;i<10;i++)this.h[i]+=n,n=this.h[i]>>>13,this.h[i]&=8191;for(this.h[0]+=5*n,n=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=n,n=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=n,h[0]=this.h[0]+5,n=h[0]>>>13,h[0]&=8191,i=1;i<10;i++)h[i]=this.h[i]+n,n=h[i]>>>13,h[i]&=8191;for(h[9]-=8192,e=(1^n)-1,i=0;i<10;i++)h[i]&=e;for(e=~e,i=0;i<10;i++)this.h[i]=this.h[i]&e|h[i];for(this.h[0]=65535&(this.h[0]|this.h[1]<<13),this.h[1]=65535&(this.h[1]>>>3|this.h[2]<<10),this.h[2]=65535&(this.h[2]>>>6|this.h[3]<<7),this.h[3]=65535&(this.h[3]>>>9|this.h[4]<<4),this.h[4]=65535&(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14),this.h[5]=65535&(this.h[6]>>>2|this.h[7]<<11),this.h[6]=65535&(this.h[7]>>>5|this.h[8]<<8),this.h[7]=65535&(this.h[8]>>>8|this.h[9]<<5),o=this.h[0]+this.pad[0],this.h[0]=65535&o,i=1;i<8;i++)o=(this.h[i]+this.pad[i]|0)+(o>>>16)|0,this.h[i]=65535&o;r[t+0]=this.h[0]>>>0&255,r[t+1]=this.h[0]>>>8&255,r[t+2]=this.h[1]>>>0&255,r[t+3]=this.h[1]>>>8&255,r[t+4]=this.h[2]>>>0&255,r[t+5]=this.h[2]>>>8&255,r[t+6]=this.h[3]>>>0&255,r[t+7]=this.h[3]>>>8&255,r[t+8]=this.h[4]>>>0&255,r[t+9]=this.h[4]>>>8&255,r[t+10]=this.h[5]>>>0&255,r[t+11]=this.h[5]>>>8&255,r[t+12]=this.h[6]>>>0&255,r[t+13]=this.h[6]>>>8&255,r[t+14]=this.h[7]>>>0&255,r[t+15]=this.h[7]>>>8&255},m.prototype.update=function(r,t,n){var e,o;if(this.leftover){for(n<(o=16-this.leftover)&&(o=n),e=0;e<o;e++)this.buffer[this.leftover+e]=r[t+e];if(n-=o,t+=o,this.leftover+=o,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(16<=n&&(o=n-n%16,this.blocks(r,t,o),t+=o,n-=o),n){for(e=0;e<n;e++)this.buffer[this.leftover+e]=r[t+e];this.leftover+=n}};var j=k,H=K;var J=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function Q(r,t,n,e){for(var o,i,h,a,f,s,u,c,y,l,w,v,p,b,g,A,_,U,d,E,x,M,m,B,S=new Int32Array(16),k=new Int32Array(16),K=r[0],Y=r[1],L=r[2],T=r[3],z=r[4],R=r[5],P=r[6],N=r[7],O=t[0],C=t[1],F=t[2],I=t[3],Z=t[4],G=t[5],q=t[6],D=t[7],V=0;128<=e;){for(_=0;_<16;_++)U=8*_+V,S[_]=n[U+0]<<24|n[U+1]<<16|n[U+2]<<8|n[U+3],k[_]=n[U+4]<<24|n[U+5]<<16|n[U+6]<<8|n[U+7];for(_=0;_<80;_++)if(o=Y,i=L,h=T,c=C,y=F,l=I,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,x+=65535&(E=((w=Z)>>>14|(a=z)<<18)^(Z>>>18|z<<14)^(z>>>9|Z<<23)),M+=E>>>16,m+=65535&(d=(z>>>14|Z<<18)^(z>>>18|Z<<14)^(Z>>>9|z<<23)),B+=d>>>16,x+=65535&(E=Z&(v=G)^~Z&(p=q)),M+=E>>>16,m+=65535&(d=z&(f=R)^~z&(s=P)),B+=d>>>16,d=J[2*_],x+=65535&(E=J[2*_+1]),M+=E>>>16,m+=65535&d,B+=d>>>16,d=S[_%16],M+=(E=k[_%16])>>>16,m+=65535&d,B+=d>>>16,m+=(M+=(x+=65535&E)>>>16)>>>16,x=65535&(E=A=65535&x|M<<16),M=E>>>16,m=65535&(d=g=65535&m|(B+=m>>>16)<<16),B=d>>>16,x+=65535&(E=(O>>>28|K<<4)^(K>>>2|O<<30)^(K>>>7|O<<25)),M+=E>>>16,m+=65535&(d=(K>>>28|O<<4)^(O>>>2|K<<30)^(O>>>7|K<<25)),B+=d>>>16,M+=(E=O&C^O&F^C&F)>>>16,m+=65535&(d=K&Y^K&L^Y&L),B+=d>>>16,u=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,b=65535&x|M<<16,x=65535&(E=l),M=E>>>16,m=65535&(d=h),B=d>>>16,M+=(E=A)>>>16,m+=65535&(d=g),B+=d>>>16,Y=K,L=o,T=i,z=h=65535&(m+=(M+=(x+=65535&E)>>>16)>>>16)|(B+=m>>>16)<<16,R=a,P=f,N=s,K=u,C=O,F=c,I=y,Z=l=65535&x|M<<16,G=w,q=v,D=p,O=b,_%16==15)for(U=0;U<16;U++)d=S[U],x=65535&(E=k[U]),M=E>>>16,m=65535&d,B=d>>>16,d=S[(U+9)%16],x+=65535&(E=k[(U+9)%16]),M+=E>>>16,m+=65535&d,B+=d>>>16,g=S[(U+1)%16],x+=65535&(E=((A=k[(U+1)%16])>>>1|g<<31)^(A>>>8|g<<24)^(A>>>7|g<<25)),M+=E>>>16,m+=65535&(d=(g>>>1|A<<31)^(g>>>8|A<<24)^g>>>7),B+=d>>>16,g=S[(U+14)%16],M+=(E=((A=k[(U+14)%16])>>>19|g<<13)^(g>>>29|A<<3)^(A>>>6|g<<26))>>>16,m+=65535&(d=(g>>>19|A<<13)^(A>>>29|g<<3)^g>>>6),B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,S[U]=65535&m|B<<16,k[U]=65535&x|M<<16;x=65535&(E=O),M=E>>>16,m=65535&(d=K),B=d>>>16,d=r[0],M+=(E=t[0])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[0]=K=65535&m|B<<16,t[0]=O=65535&x|M<<16,x=65535&(E=C),M=E>>>16,m=65535&(d=Y),B=d>>>16,d=r[1],M+=(E=t[1])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[1]=Y=65535&m|B<<16,t[1]=C=65535&x|M<<16,x=65535&(E=F),M=E>>>16,m=65535&(d=L),B=d>>>16,d=r[2],M+=(E=t[2])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[2]=L=65535&m|B<<16,t[2]=F=65535&x|M<<16,x=65535&(E=I),M=E>>>16,m=65535&(d=T),B=d>>>16,d=r[3],M+=(E=t[3])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[3]=T=65535&m|B<<16,t[3]=I=65535&x|M<<16,x=65535&(E=Z),M=E>>>16,m=65535&(d=z),B=d>>>16,d=r[4],M+=(E=t[4])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[4]=z=65535&m|B<<16,t[4]=Z=65535&x|M<<16,x=65535&(E=G),M=E>>>16,m=65535&(d=R),B=d>>>16,d=r[5],M+=(E=t[5])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[5]=R=65535&m|B<<16,t[5]=G=65535&x|M<<16,x=65535&(E=q),M=E>>>16,m=65535&(d=P),B=d>>>16,d=r[6],M+=(E=t[6])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[6]=P=65535&m|B<<16,t[6]=q=65535&x|M<<16,x=65535&(E=D),M=E>>>16,m=65535&(d=N),B=d>>>16,d=r[7],M+=(E=t[7])>>>16,m+=65535&d,B+=d>>>16,B+=(m+=(M+=(x+=65535&E)>>>16)>>>16)>>>16,r[7]=N=65535&m|B<<16,t[7]=D=65535&x|M<<16,V+=128,e-=128}return e}function W(r,t,n){var e,o=new Int32Array(8),i=new Int32Array(8),h=new Uint8Array(256),a=n;for(o[0]=1779033703,o[1]=3144134277,o[2]=1013904242,o[3]=2773480762,o[4]=1359893119,o[5]=2600822924,o[6]=528734635,o[7]=1541459225,i[0]=4089235720,i[1]=2227873595,i[2]=4271175723,i[3]=1595750129,i[4]=2917565137,i[5]=725511199,i[6]=4215389547,i[7]=327033209,Q(o,i,t,n),n%=128,e=0;e<n;e++)h[e]=t[a-n+e];for(h[n]=128,h[(n=256-128*(n<112?1:0))-9]=0,f(h,n-8,a/536870912|0,a<<3),Q(o,i,h,n),e=0;e<8;e++)f(r,8*e,o[e],i[e]);return 0}function $(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v(),s=v(),u=v();C(n,r[1],r[0]),C(u,t[1],t[0]),F(n,n,u),O(e,r[0],r[1]),O(u,t[0],t[1]),F(e,e,u),F(o,r[3],t[3]),F(o,o,y),F(i,r[2],t[2]),O(i,i,i),C(h,e,n),C(a,i,o),O(f,i,o),O(s,e,n),F(r[0],h,a),F(r[1],s,f),F(r[2],f,a),F(r[3],h,s)}function rr(r,t,n){var e;for(e=0;e<4;e++)T(r[e],t[e],n)}function tr(r,t){var n=v(),e=v(),o=v();Z(o,t[2]),F(n,t[0],o),F(e,t[1],o),z(r,e),r[31]^=P(n)<<7}function nr(r,t,n){var e,o;for(Y(r[0],s),Y(r[1],u),Y(r[2],u),Y(r[3],s),o=255;0<=o;--o)rr(r,t,e=n[o/8|0]>>(7&o)&1),$(t,r),$(r,r),rr(r,t,e)}function er(r,t){var n=[v(),v(),v(),v()];Y(n[0],e),Y(n[1],a),Y(n[2],u),F(n[3],e,a),nr(r,n,t)}function or(r,t,n){var e,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(n||h(t,32),W(o,t,32),o[0]&=248,o[31]&=127,o[31]|=64,er(i,o),tr(r,i),e=0;e<32;e++)t[e+32]=r[e];return 0}var ir=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function hr(r,t){var n,e,o,i;for(e=63;32<=e;--e){for(n=0,o=e-32,i=e-12;o<i;++o)t[o]+=n-16*t[e]*ir[o-(e-32)],n=Math.floor((t[o]+128)/256),t[o]-=256*n;t[o]+=n,t[e]=0}for(o=n=0;o<32;o++)t[o]+=n-(t[31]>>4)*ir[o],n=t[o]>>8,t[o]&=255;for(o=0;o<32;o++)t[o]-=n*ir[o];for(e=0;e<32;e++)t[e+1]+=t[e]>>8,r[e]=255&t[e]}function ar(r){var t,n=new Float64Array(64);for(t=0;t<64;t++)n[t]=r[t];for(t=0;t<64;t++)r[t]=0;hr(r,n)}function fr(r,t,n,e){var o,i,h=new Uint8Array(64),a=new Uint8Array(64),f=new Uint8Array(64),s=new Float64Array(64),u=[v(),v(),v(),v()];W(h,e,32),h[0]&=248,h[31]&=127,h[31]|=64;var c=n+64;for(o=0;o<n;o++)r[64+o]=t[o];for(o=0;o<32;o++)r[32+o]=h[32+o];for(W(f,r.subarray(32),n+32),ar(f),er(u,f),tr(r,u),o=32;o<64;o++)r[o]=e[o];for(W(a,r,n+64),ar(a),o=0;o<64;o++)s[o]=0;for(o=0;o<32;o++)s[o]=f[o];for(o=0;o<32;o++)for(i=0;i<32;i++)s[o+i]+=a[o]*h[i];return hr(r.subarray(32),s),c}function sr(r,t,n,e){var o,i=new Uint8Array(32),h=new Uint8Array(64),a=[v(),v(),v(),v()],f=[v(),v(),v(),v()];if(n<64)return-1;if(function(r,t){var n=v(),e=v(),o=v(),i=v(),h=v(),a=v(),f=v();if(Y(r[2],u),N(r[1],t),I(o,r[1]),F(i,o,c),C(o,o,r[2]),O(i,r[2],i),I(h,i),I(a,h),F(f,a,h),F(n,f,o),F(n,n,i),G(n,n),F(n,n,o),F(n,n,i),F(n,n,i),F(r[0],n,i),I(e,r[0]),F(e,e,i),R(e,o)&&F(r[0],r[0],l),I(e,r[0]),F(e,e,i),R(e,o))return 1;P(r[0])===t[31]>>7&&C(r[0],s,r[0]),F(r[3],r[0],r[1])}(f,e))return-1;for(o=0;o<n;o++)r[o]=t[o];for(o=0;o<32;o++)r[o+32]=e[o];if(W(h,r,n),ar(h),nr(a,f,h),er(f,t.subarray(32)),$(a,f),tr(i,a),n-=64,g(t,0,i,0)){for(o=0;o<n;o++)r[o]=0;return-1}for(o=0;o<n;o++)r[o]=t[o+64];return n}function ur(r,t){if(32!==r.length)throw new Error("bad key size");if(24!==t.length)throw new Error("bad nonce size")}function cr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function yr(r){for(var t=0;t<r.length;t++)r[t]=0}i.lowlevel={crypto_core_hsalsa20:_,crypto_stream_xor:M,crypto_stream:x,crypto_stream_salsa20_xor:d,crypto_stream_salsa20:E,crypto_onetimeauth:B,crypto_onetimeauth_verify:S,crypto_verify_16:b,crypto_verify_32:g,crypto_secretbox:k,crypto_secretbox_open:K,crypto_scalarmult:q,crypto_scalarmult_base:D,crypto_box_beforenm:X,crypto_box_afternm:j,crypto_box:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),j(r,t,n,e,h)},crypto_box_open:function(r,t,n,e,o,i){var h=new Uint8Array(32);return X(h,o,i),H(r,t,n,e,h)},crypto_box_keypair:V,crypto_hash:W,crypto_sign:fr,crypto_sign_keypair:or,crypto_sign_open:sr,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:c,L:ir,pack25519:z,unpack25519:N,M:F,A:O,S:I,Z:C,pow2523:G,add:$,set25519:Y,modL:hr,scalarmult:nr,scalarbase:er},i.randomBytes=function(r){var t=new Uint8Array(r);return h(t,r),t},i.secretbox=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(32+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+32]=r[i];return k(o,e,e.length,t,n),o.subarray(16)},i.secretbox.open=function(r,t,n){cr(r,t,n),ur(n,t);for(var e=new Uint8Array(16+r.length),o=new Uint8Array(e.length),i=0;i<r.length;i++)e[i+16]=r[i];return e.length<32||0!==K(o,e,e.length,t,n)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,t){if(cr(r,t),32!==r.length)throw new Error("bad n size");if(32!==t.length)throw new Error("bad p size");var n=new Uint8Array(32);return q(n,r,t),n},i.scalarMult.base=function(r){if(cr(r),32!==r.length)throw new Error("bad n size");var t=new Uint8Array(32);return D(t,r),t},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox(r,t,o)},i.box.before=function(r,t){cr(r,t),function(r,t){if(32!==r.length)throw new Error("bad public key size");if(32!==t.length)throw new Error("bad secret key size")}(r,t);var n=new Uint8Array(32);return X(n,r,t),n},i.box.after=i.secretbox,i.box.open=function(r,t,n,e){var o=i.box.before(n,e);return i.secretbox.open(r,t,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(32);return V(r,t),{publicKey:r,secretKey:t}},i.box.keyPair.fromSecretKey=function(r){if(cr(r),32!==r.length)throw new Error("bad secret key size");var t=new Uint8Array(32);return D(t,r),{publicKey:t,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,t){if(cr(r,t),64!==t.length)throw new Error("bad secret key size");var n=new Uint8Array(64+r.length);return fr(n,r,r.length,t),n},i.sign.open=function(r,t){if(cr(r,t),32!==t.length)throw new Error("bad public key size");var n=new Uint8Array(r.length),e=sr(n,r,r.length,t);if(e<0)return null;for(var o=new Uint8Array(e),i=0;i<o.length;i++)o[i]=n[i];return o},i.sign.detached=function(r,t){for(var n=i.sign(r,t),e=new Uint8Array(64),o=0;o<e.length;o++)e[o]=n[o];return e},i.sign.detached.verify=function(r,t,n){if(cr(r,t,n),64!==t.length)throw new Error("bad signature size");if(32!==n.length)throw new Error("bad public key size");var e,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(e=0;e<64;e++)o[e]=t[e];for(e=0;e<r.length;e++)o[e+64]=r[e];return 0<=sr(i,o,o.length,n)},i.sign.keyPair=function(){var r=new Uint8Array(32),t=new Uint8Array(64);return or(r,t),{publicKey:r,secretKey:t}},i.sign.keyPair.fromSecretKey=function(r){if(cr(r),64!==r.length)throw new Error("bad secret key size");for(var t=new Uint8Array(32),n=0;n<t.length;n++)t[n]=r[32+n];return{publicKey:t,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(cr(r),32!==r.length)throw new Error("bad seed size");for(var t=new Uint8Array(32),n=new Uint8Array(64),e=0;e<32;e++)n[e]=r[e];return or(t,n,!0),{publicKey:t,secretKey:n}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){cr(r);var t=new Uint8Array(64);return W(t,r,r.length),t},i.hash.hashLength=64,i.verify=function(r,t){return cr(r,t),0!==r.length&&0!==t.length&&(r.length===t.length&&0===w(r,0,t,0,r.length))},i.setPRNG=function(r){h=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,t){var n,e=new Uint8Array(t);for(n=0;n<t;n+=65536)o.getRandomValues(e.subarray(n,n+Math.min(t-n,65536)));for(n=0;n<t;n++)r[n]=e[n];yr(e)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,t){var n,e=o.randomBytes(t);for(n=0;n<t;n++)r[n]=e[n];yr(e)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
 </script>
   <script>
 'use strict';
@@ -4064,6 +4312,7 @@ window.R4_I18N = {
   function migrate() {
     state.fired = state.fired || {}; state.prep = state.prep || {};
     if (!state.me.lang) state.me.lang = 'en';
+    if (!state.me.brand) state.me.brand = 'slalom';
     if (!state.headlinerSeeded) {
       const day = Math.min(currentDay() + 1, state.me.days - 1);
       const old = state.sessions.find((s) => s.title === 'keynote: the people side of change');
@@ -4477,26 +4726,29 @@ window.R4_I18N = {
   }
 
   // ---------- toast / sheet ----------
-  let toastT;
+  let toastT, sheetOpener = null;
   function toast(msg) { const x = $('#toast'); x.textContent = msg; x.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => x.classList.remove('show'), 2600); }
   function openSheet(title, body) {
-    $('#sheet-root').innerHTML = `<div class="sheet-backdrop" data-action="close-sheet-bg"><div class="sheet" role="dialog" aria-label="${esc(title)}">
-      <div class="sheet-handle"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="btn ghost" data-action="close-sheet">${t('close')}</button></div>${body}</div></div>`;
-    const f = $('#sheet-root [data-autofocus]'); if (f) f.focus();
+    if (!document.activeElement.closest?.('#sheet-root [role="dialog"]')) sheetOpener = document.activeElement;
+    $('.app').setAttribute('aria-hidden', 'true');
+    $('#sheet-root').innerHTML = `<div class="sheet-backdrop" data-action="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-handle" aria-hidden="true"></div><div class="sheet-head"><h2 id="sheet-title">${esc(title)}</h2><button class="btn ghost" data-action="close-sheet">${t('close')}</button></div>${body}</div></div>`;
+    const f = $('#sheet-root [data-autofocus], #sheet-root input:not([type=hidden]), #sheet-root textarea, #sheet-root button');
+    if (f) f.focus();
   }
-  const closeSheet = () => { $('#sheet-root').innerHTML = ''; };
+  const closeSheet = () => { const opener = sheetOpener; sheetOpener = null; $('#sheet-root').innerHTML = ''; $('.app').removeAttribute('aria-hidden'); if (opener?.isConnected) opener.focus(); };
 
   // ---------- icons ----------
   const I = {
-    today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
-    people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16.5 14.6c2.8.2 5 1.9 5 4.9"/></svg>',
-    agenda: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-    connect: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M6.5 6.5l3.7 3.7M17.5 6.5l-3.7 3.7M6.5 17.5l3.7-3.7M17.5 17.5l-3.7-3.7"/></svg>',
-    pitch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
-    report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>',
-    prep: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>',
-    agents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 3v4M9 12h.01M15 12h.01M9.5 15.5h5"/></svg>',
-    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    today: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+    people: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16.5 14.6c2.8.2 5 1.9 5 4.9"/></svg>',
+    agenda: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    connect: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M6.5 6.5l3.7 3.7M17.5 6.5l-3.7 3.7M6.5 17.5l3.7-3.7M17.5 17.5l-3.7-3.7"/></svg>',
+    pitch: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
+    report: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>',
+    prep: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>',
+    agents: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 3v4M9 12h.01M15 12h.01M9.5 15.5h5"/></svg>',
+    plus: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   };
   const TABS = [['prep', _('prep')], ['today', _('today')], ['people', _('people')], ['agenda', _('agenda')], ['connect', _('connect')], ['agents', _('agents')], ['pitch', _('pitch fest')], ['report', _('report')]];
 
@@ -4635,7 +4887,7 @@ window.R4_I18N = {
     const shortlist = state.sessions.filter((s) => s.status === 'going' && s.type !== 'work').sort((a, b) => a.day - b.day || toMin(a.start) - toMin(b.start));
     return `<h1 class="page-title">${t('prep')}</h1><p class="page-sub">${t('arrive ready: know who to find, what to say, and why you are going.')}</p>
       <div class="card prep-hero"><div class="row between"><div><b style="font-size:24px">${score}%</b><div class="small muted">${t('ready')}</div></div>
-        <div class="prep-ring"><svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="24" fill="none" stroke="rgba(12,43,216,.12)" stroke-width="7"/><circle cx="30" cy="30" r="24" fill="none" stroke="#0c2bd8" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - score / 100)).toFixed(1)}" transform="rotate(-90 30 30)"/></svg></div></div>
+        <div class="prep-ring"><svg aria-hidden="true" viewBox="0 0 60 60"><circle cx="30" cy="30" r="24" fill="none" stroke="rgba(12,43,216,.12)" stroke-width="7"/><circle cx="30" cy="30" r="24" fill="none" stroke="#0c2bd8" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - score / 100)).toFixed(1)}" transform="rotate(-90 30 30)"/></svg></div></div>
         <div class="small muted" style="margin-top:8px">${t('set goals, list who to meet, draft your pitch, review the agenda, turn on alerts.')}</div>
         <div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn sm" data-action="edit-goals">${t('set goals')}</button><button class="btn secondary sm" data-action="go" data-tab="today">${t('headliner checklist')}</button></div></div>
       <h2 class="section">${t('who to find')} <small>${targets.length}</small></h2>
@@ -4758,7 +5010,7 @@ window.R4_I18N = {
     const f = ui.webFocus; const lit = new Set();
     if (f) { lit.add(f); links.forEach(([pi, ti]) => { const a = nodes[pi].id, b = nodes[ti].id; if (a === f || b === f) { lit.add(a); lit.add(b); } }); }
     const dim = (id) => (f && !lit.has(id) ? 'web-dim' : '');
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('connection web')}">
+    return `<svg aria-hidden="true" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('connection web')}">
       ${links.map(([pi, ti]) => { const a = nodes[pi], b = nodes[ti]; const on = f && (a.id === f || b.id === f); return `<line class="web-edge ${on ? 'hl' : f ? 'web-dim' : ''}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"/>`; }).join('')}
       ${nodes.map((n) => (n.kind === 't'
         ? `<g class="web-node web-node-topic ${dim(n.id)}" data-action="web-focus" data-id="${esc(n.id)}"><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r.toFixed(1)}" ${f === n.id ? 'stroke="#ffc23d" stroke-width="3"' : ''}/>${n.label.split(' ').length > 1 ? n.label.split(' ').map((w, k, arr) => `<text x="${n.x.toFixed(1)}" y="${(n.y + (k - (arr.length - 1) / 2) * 12 + 4).toFixed(1)}" text-anchor="middle" style="font-size:${n.fs}px">${esc(w)}</text>`).join('') : `<text x="${n.x.toFixed(1)}" y="${(n.y + 4).toFixed(1)}" text-anchor="middle" style="font-size:${n.fs}px">${esc(n.label)}</text>`}</g>`
@@ -4852,7 +5104,7 @@ window.R4_I18N = {
         <div class="pitch-now">${cur ? t('now pitching') : t('queue empty')}</div>
         <div class="pitch-name">${cur ? esc(cur.name) : t('add a pitcher below')}</div>
         <div class="pitch-idea">${cur ? esc(cur.idea) : '&nbsp;'}</div>
-        <div class="ring"><svg viewBox="0 0 230 230"><circle cx="115" cy="115" r="100" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="14"/>
+        <div class="ring"><svg aria-hidden="true" viewBox="0 0 230 230"><circle cx="115" cy="115" r="100" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="14"/>
           <circle id="ring-fg" cx="115" cy="115" r="100" fill="none" stroke="#ff5a4e" stroke-width="14" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg>
           <div class="clock" id="clock">2:00</div></div>
         <div class="pitch-controls">
@@ -4967,8 +5219,11 @@ window.R4_I18N = {
     log.push({ id: uid(), ts: Date.now(), fromKind, from, to, text, json: envelope(from, to, text, data) });
     if (log.length > 200) log.splice(0, log.length - 200);
     save();
+    void window.R4Receipts?.record('a2a.message', 'a2a.message', log.at(-1).json, text);
     const el = $('#agent-log'); if (el) el.innerHTML = logHtml();
   }
+  const refreshReceipts = async () => { try { ui.receipts = await Promise.all((await window.R4Receipts.list()).reverse().map(async (r) => ({ ...r, shortHash: (await window.R4Receipts.sha256(r)).slice(0, 12) }))); if (ui.tab === 'agents') render(); } catch {} };
+  const receiptRows = () => (ui.receipts || []).map((r) => `<button class="receipt-row" data-action="receipt-detail" data-seq="${r.seq}"><span>${esc(new Date(r.ts_utc).toLocaleString())} · ${esc(r.action)}</span><b>#${r.seq}</b><small>${esc(r.shortHash)}</small></button>`).join('') || `<p class="small muted">${t('no receipts yet')}</p>`;
   function findSlot(taken, after) {
     const d0 = currentDay();
     for (let day = d0; day < state.me.days; day++) {
@@ -4988,11 +5243,13 @@ window.R4_I18N = {
   function bookProposal(pr) {
     const p = personById(pr.personId); if (!p) return;
     const s = { id: uid(), type: 'meeting', title: t('1:1 with {name}', { name: p.name }), day: pr.day, start: pr.start, end: pr.end, location: pr.location, notes: [pr.brief, t('booked by your agents')].filter(Boolean).join('\n'), takeaways: '', topic: '', attendees: [p.id], status: 'going', agentBooked: true };
-    state.sessions.push(s); pr.status = 'booked'; pr.sessionId = s.id;
+    const previousStatus = pr.status; state.sessions.push(s); pr.status = 'booked'; pr.sessionId = s.id;
+    void window.R4Receipts?.record('proposal.status.changed', 'proposal.status.changed', { id: pr.id, from: previousStatus }, { status: pr.status });
+    void window.R4Receipts?.record('meeting.status.changed', 'meeting.status.changed', { id: s.id, from: null }, { status: s.status });
     const cos = myAgentName('cos');
     say('mine', cos, peerAgentName(p), t('confirmed: {me} will see {name} {slot} at the {loc}. calendar invite attached.', { me: state.me.name, name: first(p.name), slot: slotText(pr), loc: pr.location }), { status: 'confirmed', event: { day: pr.day, start: pr.start, end: pr.end, location: pr.location } });
     if (AG().on.writer) {
-      if (!p.followUp?.action) p.followUp = { ...(p.followUp || {}), action: t('send the follow-up your agent drafted'), due: Math.min(pr.day + 1, state.me.days + 2), done: false };
+      if (!p.followUp?.action) { p.followUp = { ...(p.followUp || {}), action: t('send the follow-up your agent drafted'), due: Math.min(pr.day + 1, state.me.days + 2), done: false }; void window.R4Receipts?.record('followup.drafted', 'followup.drafted', { personId: p.id }, p.followUp); }
       say('mine', myAgentName('writer'), cos, t('follow-up for {name} drafted and added to your queue.', { name: first(p.name) }), { draft: summary(p).followup });
     }
     save();
@@ -5030,7 +5287,8 @@ window.R4_I18N = {
       const picky = p.persona === 'exec' ? 0.35 : p.persona === 'cos' ? 0.05 : 0.15;
       if (r < picky) {
         say('peer', pa, cos, t('thanks. {name} is fully booked with client meetings at {event}. happy to swap agent cards and follow up after.', { name: first(p.name), event: state.me.eventName }), { status: 'declined' });
-        ag.proposals.push({ id: uid(), personId: p.id, status: 'declined', day: slot.day, start: slot.start, end: slot.end, location: loc, brief, inbound: false });
+        const declined = { id: uid(), personId: p.id, status: 'declined', day: slot.day, start: slot.start, end: slot.end, location: loc, brief, inbound: false }; ag.proposals.push(declined);
+        void window.R4Receipts?.record('proposal.status.changed', 'proposal.status.changed', { id: declined.id, from: null }, { status: declined.status });
       } else {
         const alt = r < picky + 0.3 ? findSlot(taken, slot) : null;
         if (alt) {
@@ -5043,7 +5301,7 @@ window.R4_I18N = {
         } else say('peer', pa, cos, t('{name} would love to meet. holding {slot} at the {loc}.', { name: first(p.name), slot: slotText(slot), loc }), { status: 'accepted' });
         taken.add(slot.key);
         const pr = { id: uid(), personId: p.id, status: 'pending', day: slot.day, start: slot.start, end: slot.end, location: loc, brief, inbound: false };
-        ag.proposals.push(pr);
+        ag.proposals.push(pr); void window.R4Receipts?.record('proposal.status.changed', 'proposal.status.changed', { id: pr.id, from: null }, { status: pr.status });
         if (ag.autoBook) bookProposal(pr);
       }
       save(); await sleep(pace);
@@ -5057,7 +5315,7 @@ window.R4_I18N = {
       say('mine', sch, cos, t('{alt} is free on your agenda.', { alt: slotText(inSlot) }));
       say('mine', cos, pa, t('checking with {me}. i will confirm shortly.', { me: state.me.name }), { status: 'pending-owner' });
       const pr = { id: uid(), personId: asker.id, status: 'pending', day: inSlot.day, start: inSlot.start, end: inSlot.end, location: loc, brief: ag.on.researcher ? briefOf(asker, scorePerson(asker)) : '', inbound: true };
-      ag.proposals.push(pr); taken.add(inSlot.key);
+      ag.proposals.push(pr); void window.R4Receipts?.record('proposal.status.changed', 'proposal.status.changed', { id: pr.id, from: null }, { status: pr.status }); taken.add(inSlot.key);
       if (ag.autoBook) bookProposal(pr);
       await sleep(pace);
     }
@@ -5074,7 +5332,8 @@ window.R4_I18N = {
   }
   const b64e = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const b64d = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
-  const cardLink = () => `${location.origin}${location.pathname}#agent=${b64e(JSON.stringify({ v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName }))}`;
+  const shareBase = () => document.querySelector('meta[name="r4-share-base"]')?.content || `${location.origin}${location.pathname}`;
+  const cardLink = () => `${shareBase()}#agent=${b64e(JSON.stringify({ v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName }))}`;
   function importCard(str) {
     const m = String(str).match(/agent=([\w-]+)/); if (!m) throw new Error('no card');
     const c = JSON.parse(b64d(m[1])); if (!c.n) throw new Error('bad card');
@@ -5121,7 +5380,10 @@ window.R4_I18N = {
       <div class="card"><p class="small muted">${t('real attendees can scan this or open the link to add your agent card to their copy of the app.')}</p>
         <div class="qr">${qrSvg(cardLink())}</div>
         <div class="row wrap" style="gap:8px"><button class="btn sm" data-action="agent-copy-link">${t('copy link')}</button><button class="btn secondary sm" data-action="agent-card-download">${t('download agent card (json)')}</button></div>
-        <form data-form="agent-import" class="row" style="margin-top:12px"><input class="search" style="margin:0" name="link" placeholder="${t('paste an agent link from someone else')}" required /><button class="btn sm">${t('add')}</button></form></div>
+      <form data-form="agent-import" class="row" style="margin-top:12px"><input class="search" style="margin:0" name="link" placeholder="${t('paste an agent link from someone else')}" required /><button class="btn sm">${t('add')}</button></form></div>
+      <h2 class="section">${t('agent receipts')}</h2><section class="receipt-panel"><p class="small muted">${t('signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.')}</p>
+      <div class="row wrap"><button class="btn sm" data-action="receipts-verify">${t('verify')}</button><button class="btn secondary sm" data-action="receipts-export">${t('export ndjson + pem bundle')}</button></div>
+      <p id="receipts-status" role="status" aria-live="polite"></p><div class="receipt-list">${receiptRows()}</div></section>
       <h2 class="section">${t('chiefs of staff at {event}', { event: esc(state.me.eventName) })} <small>${cosPeople.length}</small></h2>
       ${cosPeople.map((p) => personRow(p)).join('')}
       <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="cos-filter">${t('see them in people')}</button><button class="btn secondary sm" data-action="cos-bof">${t('chiefs of staff circle')}</button></div>`;
@@ -5244,12 +5506,13 @@ window.R4_I18N = {
   function settingsSheet() {
     const m = state.me;
     openSheet(t('me & event'), `
+      <fieldset class="brand-picker"><legend>${t('design')}</legend>${[['slalom','Slalom'],['aigovops','AiGovOps']].map(([key,label]) => `<button type="button" role="radio" aria-checked="${m.brand === key}" data-action="set-brand" data-brand="${key}">${label}</button>`).join('')}</fieldset>
       <div class="field"><label>${t('language')}</label><div class="seg">${Object.entries({ en: 'english', es: 'español', pt: 'português' }).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}">${l}</button>`).join('')}</div></div>
       <form data-form="settings">
-        <div class="field-row"><div class="field"><label>${t('my name')}</label><input name="name" value="${esc(m.name)}" /></div><div class="field"><label>${t('my team (for reports)')}</label><input name="team" value="${esc(m.team)}" /></div></div>
-        <div class="field"><label>${t('my interests (drives matching)')}</label><input name="interests" value="${esc(m.interests.join(', '))}" /></div>
-        <div class="field-row"><div class="field"><label>${t('event name')}</label><input name="eventName" value="${esc(m.eventName)}" /></div><div class="field"><label>${t('first day')}</label><input type="date" name="eventStart" value="${m.eventStart}" /></div></div>
-        <div class="field-row"><div class="field"><label>${t('days')}</label><input type="number" min="1" max="7" name="days" value="${m.days}" /></div><div class="field"><label>${t('day hours')}</label><div class="row"><input type="time" name="dayStart" value="${m.dayStart}" /><input type="time" name="dayEnd" value="${m.dayEnd}" /></div></div></div>
+        <div class="field-row"><div class="field"><label for="settings-name">${t('my name')}</label><input id="settings-name" name="name" value="${esc(m.name)}" /></div><div class="field"><label for="settings-team">${t('my team (for reports)')}</label><input id="settings-team" name="team" value="${esc(m.team)}" /></div></div>
+        <div class="field"><label for="settings-interests">${t('my interests (drives matching)')}</label><input id="settings-interests" name="interests" value="${esc(m.interests.join(', '))}" /></div>
+        <div class="field-row"><div class="field"><label for="settings-event">${t('event name')}</label><input id="settings-event" name="eventName" value="${esc(m.eventName)}" /></div><div class="field"><label for="settings-event-start">${t('first day')}</label><input id="settings-event-start" type="date" name="eventStart" value="${m.eventStart}" /></div></div>
+        <div class="field-row"><div class="field"><label for="settings-days">${t('days')}</label><input id="settings-days" type="number" min="1" max="7" name="days" value="${m.days}" /></div><div class="field"><label>${t('day hours')}</label><div class="row"><input type="time" name="dayStart" aria-label="${t('day start')}" value="${m.dayStart}" /><input type="time" name="dayEnd" aria-label="${t('day end')}" value="${m.dayEnd}" /></div></div></div>
         <button class="btn block">${t('save')}</button></form>
       <div class="card" style="margin-top:14px"><h3>${t('your data')}</h3><p class="small muted" style="margin-bottom:10px">${t('everything stays on this device (browser storage). back it up or move it to another device with export / import.')}</p>
         <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
@@ -5269,7 +5532,8 @@ window.R4_I18N = {
     document.title = `${state.me.eventName} ${t('networking')}`;
     $('#brand-text').textContent = t('networking');
     $('#lang-switch').innerHTML = Object.entries(LANGS).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}" aria-label="${k}">${l.label}</button>`).join('');
-    $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}"><span class="tab-ico">${I[k]}</span>${t(l)}</button>`).join('');
+    document.documentElement.dataset.brand = state.me.brand === 'aigovops' ? 'aigovops' : 'slalom';
+    $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}" ${ui.tab === k ? 'aria-current="page"' : ''}><span class="tab-ico" aria-hidden="true">${I[k]}</span>${t(l)}</button>`).join('');
     const hl = headliner();
     $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${hl.id}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
     const views = { prep: viewPrep, today: viewToday, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewAgents, pitch: viewPitch, report: viewReport };
@@ -5278,7 +5542,7 @@ window.R4_I18N = {
     updateCountdowns();
     checkBadges();
   }
-  const go = (tab) => { if (iceIv) { clearInterval(iceIv); iceIv = null; ui.iceLeft = 0; } ui.tab = tab; render(); window.scrollTo(0, 0); };
+  const go = (tab) => { if (iceIv) { clearInterval(iceIv); iceIv = null; ui.iceLeft = 0; } ui.tab = tab; render(); if (tab === 'agents') void refreshReceipts(); window.scrollTo(0, 0); };
 
   // ---------- actions ----------
   const A = {
@@ -5289,6 +5553,10 @@ window.R4_I18N = {
     'go-connect': (el) => { ui.connectSeg = el.dataset.seg; go('connect'); },
     'go-recap': () => { ui.reportSeg = 'recap'; ui.recapDay = currentDay(); go('report'); },
     'open-settings': settingsSheet,
+    'set-brand': (el) => { state.me.brand = el.dataset.brand === 'aigovops' ? 'aigovops' : 'slalom'; save(); render(); settingsSheet(); },
+    'receipt-detail': async (el) => { const r = (await window.R4Receipts.list()).find((x) => x.seq === Number(el.dataset.seq)); if (r) openSheet(t('receipt {n}', { n: r.seq }), `<pre class="small" style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(JSON.stringify(r, null, 2))}</pre>`); },
+    'receipts-verify': async () => { const result = await window.R4Receipts.verify(); const status = $('#receipts-status'); if (status) status.textContent = result.ok ? `OK · ${result.count} ${t('receipts')} ${t('verified on this device')}` : `${t('receipt verification')} failed at ${result.seq}: ${result.reason}`; },
+    'receipts-export': async () => { const out = await window.R4Receipts.exportData(); download('r4-muse-receipts.ndjson', out.ndjson, 'application/x-ndjson'); download('r4-muse-receipt-key.pem', out.pem, 'application/x-pem-file'); },
     'set-lang': (el) => { state.me.lang = el.dataset.lang; save(); const inSheet = !!el.closest('.sheet'); render(); if (inSheet) settingsSheet(); },
     'close-sheet': closeSheet,
     'close-sheet-bg': (el, e) => { if (e.target === el) closeSheet(); },
@@ -5302,7 +5570,7 @@ window.R4_I18N = {
     'agent-autobook': () => { AG().autoBook = !AG().autoBook; save(); render(); },
     'agent-approve': (el) => { const pr = AG().proposals.find((x) => x.id === el.dataset.id); bookProposal(pr); render(); toast(t('booked. it is on your agenda.')); },
     'agent-decline': (el) => {
-      const pr = AG().proposals.find((x) => x.id === el.dataset.id); pr.status = 'declined'; const p = personById(pr.personId);
+      const pr = AG().proposals.find((x) => x.id === el.dataset.id); const previous = pr.status; pr.status = 'declined'; void window.R4Receipts?.record('proposal.status.changed', 'proposal.status.changed', { id: pr.id, from: previous }, { status: pr.status }); const p = personById(pr.personId);
       if (p) say('mine', myAgentName('cos'), peerAgentName(p), t('sorry, {me} cannot make it. let us swap cards and follow up after {event}.', { me: state.me.name, event: state.me.eventName }), { status: 'declined' });
       save(); render();
     },
@@ -5344,7 +5612,7 @@ window.R4_I18N = {
     'add-session': (el) => sessionForm(null, { day: el.dataset.day !== undefined ? Number(el.dataset.day) : ui.day, start: el.dataset.start, end: el.dataset.end, type: el.dataset.type }),
     'edit-session': (el) => sessionForm(sessionById(el.dataset.id)),
     'delete-session': (el) => { if (!confirm(t('delete this item?'))) return; state.sessions = state.sessions.filter((s) => s.id !== el.dataset.id); save(); closeSheet(); render(); toast(t('deleted')); },
-    'toggle-going': (el) => { const s = sessionById(el.dataset.id); s.status = s.status === 'going' ? 'maybe' : 'going'; save(); sessionDetail(s.id); render(); },
+    'toggle-going': (el) => { const s = sessionById(el.dataset.id); const previous = s.status; s.status = s.status === 'going' ? 'maybe' : 'going'; void window.R4Receipts?.record('meeting.status.changed', 'meeting.status.changed', { id: s.id, from: previous }, { status: s.status }); save(); sessionDetail(s.id); render(); },
     link: (el) => { const v = $('#link-person').value; if (!v) return; const s = sessionById(el.dataset.sid); s.attendees.push(v); save(); sessionDetail(s.id); render(); },
     unlink: (el) => { const s = sessionById(el.dataset.sid); s.attendees = s.attendees.filter((x) => x !== el.dataset.pid); save(); sessionDetail(s.id); render(); },
     'export-one': (el) => { const s = sessionById(el.dataset.id); download(`${s.title.replace(/[^\p{L}0-9]+/gu, '-')}.ics`, ics([s]), 'text/calendar'); if (s.featured) { state.prep.cal = true; save(); } toast(t('calendar file downloaded')); },
@@ -5491,7 +5759,7 @@ window.R4_I18N = {
       Object.assign(state.me, { name: fd.get('name').trim() || 'me', team: fd.get('team').trim() || 'my team', interests: parseTopics(fd.get('interests')), eventName: fd.get('eventName').trim() || 'r4', eventStart: fd.get('eventStart') || state.me.eventStart, days, dayStart: fd.get('dayStart') || '08:00', dayEnd: fd.get('dayEnd') || '18:00' });
       state.sessions.forEach((s) => { if (s.day >= days) s.day = days - 1; });
       ui.day = null; ui.recapDay = null;
-      save(); closeSheet(); render(); toast(t('saved'));
+      save(); void window.R4Receipts?.record('settings.saved', 'settings.saved', null, { brand: state.me.brand, language: state.me.lang }); closeSheet(); render(); toast(t('saved'));
     },
     goals: (fd) => {
       state.goals.forEach((g) => { const v = fd.get(`text-${g.id}`).trim(); if (v && v !== goalText(g)) g.text = v; g.target = Math.max(1, Number(fd.get(`target-${g.id}`)) || g.target); });
@@ -5546,7 +5814,16 @@ window.R4_I18N = {
       x.value = '';
     }
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSheet(); $('#alert-root').innerHTML = ''; } });
+  document.addEventListener('keydown', (e) => {
+    const dialog = $('#sheet-root [role="dialog"]');
+    if (e.key === 'Escape') { closeSheet(); $('#alert-root').innerHTML = ''; return; }
+    if (e.key !== 'Tab' || !dialog) return;
+    const items = [...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
+    if (!items.length) return;
+    const first = items[0], last = items.at(-1);
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   function handleAgentHash() {
     if (!/^#agent=/.test(location.hash)) return;
@@ -5558,6 +5835,7 @@ window.R4_I18N = {
     render();
   }
   window.addEventListener('hashchange', handleAgentHash);
+  void window.R4Receipts?.init().then(refreshReceipts);
   render();
   handleAgentHash();
   setInterval(() => { updateCountdowns(); checkAlerts(); }, 1000);
