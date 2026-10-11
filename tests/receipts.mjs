@@ -185,5 +185,35 @@ for (let iteration = 0; iteration < 5; iteration++) {
   assert.equal(firstLaunch.verification.ok, true);
   await freshContext.close();
 }
+const recoveryContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const recoveryPage = await recoveryContext.newPage();
+await recoveryPage.goto(base);
+await recoveryPage.waitForFunction(() => window.R4Receipts);
+await recoveryPage.evaluate(async () => {
+  await R4Receipts.init();
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open('r4-beacon-muse');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('receipts', 'readwrite');
+    tx.objectStore('receipts').clear();
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+  localStorage.removeItem('r4-beacon-head-muse');
+});
+await recoveryPage.reload();
+await recoveryPage.waitForFunction(async () => {
+  const rows = await R4Receipts.list();
+  return rows.length === 1 && rows[0].seq === 1 && rows[0].action === 'key.created';
+});
+const recoveryAction = await recoveryPage.evaluate(() => R4Receipts.record('test.recovery', 'muse.recovered-action', {}, { ok: true }));
+assert.equal(recoveryAction.seq, 2);
+assert.equal((await recoveryPage.evaluate(() => R4Receipts.verify())).ok, true);
+await recoveryContext.close();
+console.log('interrupted first launch recovery ok: key.created seq 1; action seq 2; verify ok');
 await browser.close();
 console.log(`Muse receipts ok: ${result.rows.length} signed records; tamper seq ${tampered.firstBadSeq}; truncation seq ${truncated.firstBadSeq}; storage isolated`);
