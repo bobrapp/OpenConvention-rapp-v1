@@ -2,8 +2,8 @@
 
 ## Why this app
 
-- **More real connections, less social cost.** Agents do the searching, asking, rejecting and scheduling backstage. People only see short (7/15/25 min) moments that both said yes to. First-timers get a dinner crew, sellers get qualified conversations, researchers get interviews.
-- **Respects the agenda.** Keynotes/headliners are protected, there are quiet hours and hourly caps, so networking doesn't pull people out of the sessions the sponsor paid for.
+- **More real connections, less social cost.** Agents do the searching, asking, rejecting and scheduling backstage. They propose 30-minute meetings that fit free agenda windows. First-timers get a dinner crew, sellers get qualified conversations, researchers get interviews.
+- **Respects the agenda.** Scheduling uses the attendee's calendar window, treats existing agenda items as busy, and skips the 12:00–13:00 lunch period. There is no separate hourly cap, quiet-hours rule or headliner charter; the keynote remains unavailable because it is on the agenda.
 - **Follow-through.** Follow-up drafts, a recap and a report turn hallway conversations into outcomes the attendee (and their team) can act on.
 - **Privacy by default.** Data stays on the device. Names are revealed only after mutual consent. Agents share topics, not contact details. There's no attendee tracking dashboard.
 - **Muse: prep-to-recap with an agent network.** Prep tab for before the event, today view, agents that message each other to propose meetings, pitch fest, report. EN/ES/PT. Signed receipts for every agent message, proposal and meeting change.
@@ -34,11 +34,11 @@ The exact stories, settings, and seed specifications are in [docs/personas.md](d
 | feature | persona | tour step |
 |---|---|---|
 | Prep checklist and session preparation | Priya | Prepare and capture a useful question |
-| Profile, goals and attendee charter | Maya | Prepare around a personal goal |
+| Profile and persona-specific goals | Maya | Prepare around a personal goal |
 | Today view, priorities and backstage entry | Maya | Today view and the backstage agent |
 | People, priorities, status filters and follow-ups | Diego | Qualified client and partner priorities |
 | Person details, notes, promises and meeting booking | Maya | People, mutual connection and follow-up |
-| Agenda, headliner protection and session details | Priya | Focus blocks and headliner protection |
+| Agenda, keynote and session details | Priya | Focus blocks and the keynote on her agenda |
 | Session notes and takeaways | Priya | Session notes and takeaways |
 | Connect web and topic relationships | Priya | Connection web by topic |
 | Matching, groups and birds-of-a-feather | Maya | Connection web and community groups |
@@ -69,7 +69,7 @@ Open `?demo=maya`, `?demo=diego`, or `?demo=priya`; demo state, receipt database
 
 ### Dr. Priya Natarajan
 
-1. Inspect the research agenda and the protected keynote. Screenshot: [Priya agenda](docs/demo/muse/priya-01.png).
+1. Inspect the research agenda and the keynote on her calendar. Screenshot: [Priya agenda](docs/demo/muse/priya-01.png).
 2. Verify and export signed receipts for her methods trail. Screenshot: [Priya receipts](docs/demo/muse/priya-02.png).
 
 source available under PolyForm Noncommercial 1.0.0. © AiGovOps Foundation, Bob Rapp, Ken Johnston.

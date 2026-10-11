@@ -3333,6 +3333,7 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "lo siento, {me} no puede. intercambiemos tarjetas y hagamos seguimiento después de {event}.",
   "link copied": "enlace copiado",
   "that is your own agent card": "esa es tu propia tarjeta de agente",
+  "this is a demo card — open it from a demo": "esta es una tarjeta de demo; ábrela desde una demo",
   "{name}'s agent card added": "tarjeta de agente de {name} añadida",
   "that agent link did not work": "ese enlace de agente no funcionó"
  },
@@ -3859,6 +3860,7 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "desculpe, {me} não consegue. vamos trocar cartões e fazer follow-up depois do {event}.",
   "link copied": "link copiado",
   "that is your own agent card": "esse é o seu próprio cartão de agente",
+  "this is a demo card — open it from a demo": "este é um cartão de demonstração — abra-o a partir de uma demonstração",
   "{name}'s agent card added": "cartão de agente de {name} adicionado",
   "that agent link did not work": "esse link de agente não funcionou"
  }
@@ -4468,6 +4470,34 @@ window.R4_I18N = {
       id: uid(), type, title, day, start, end, location, topic, notes: '', takeaways: '', attendees: [],
       status: 'going', featured: title.includes('oprah'),
     }));
+    state.goals = ({
+      maya: [
+        { id: uid(), text: 'Find a dinner crew tonight', target: 1, auto: '', count: 0 },
+        { id: uid(), text: 'Join one birds-of-a-feather', target: 1, auto: 'bof', count: 0 },
+        { id: uid(), text: 'Attend the Oprah keynote', target: 1, auto: '', count: 0 },
+      ],
+      diego: [
+        { id: uid(), text: 'Five client conversations', target: 5, auto: 'execclient', count: 2 },
+        { id: uid(), text: 'Two partner co-sells', target: 2, auto: '', count: 1 },
+      ],
+      priya: [
+        { id: uid(), text: 'Complete practitioner interviews', target: 4, auto: '', count: 1 },
+        { id: uid(), text: 'Complete a writing block', target: 2, auto: '', count: 1 },
+        { id: uid(), text: 'Capture research trend notes', target: 3, auto: '', count: 1 },
+      ],
+    })[DEMO_ID];
+    state.pitches = [{
+      id: uid(), name: state.me.name,
+      idea: DEMO_ID === 'maya' ? 'A welcoming dinner crew for first-time attendees'
+        : DEMO_ID === 'diego' ? 'Client transformation through core-banking modernization'
+          : 'Three emerging themes in agent governance practice',
+      done: false, sparked: [],
+    }];
+    state.pitchDraft = DEMO_ID === 'maya'
+      ? 'I want to help first-time attendees find a welcoming dinner crew and a community.'
+      : DEMO_ID === 'diego'
+        ? 'I help financial services clients turn core-banking modernization into measurable transformation.'
+        : 'I study how organizations govern AI agents and want to capture the trends practitioners are seeing.';
     state.headlinerSeeded = true; state.cosSeeded = true;
     state.agents = {
       ...freshAgents(),
@@ -4477,25 +4507,20 @@ window.R4_I18N = {
         { id: uid(), from: 'my agent', to: 'untrusted peer', text: 'Blocked an instruction that attempted to override the attendee charter.', ts: Date.now() - 2000, json: { status: 'blocked-injection' } },
       ],
       proposals: [
-        { id: uid(), personId: state.people[0].id, status: 'pending', day: 0, start: '12:00', end: '12:15', location: 'lobby', brief: 'A promising conversation', createdAt: Date.now() },
-        { id: uid(), personId: state.people[1].id, status: 'booked', day: 0, start: '15:00', end: '15:15', location: 'garden room', brief: 'Confirmed after mutual agreement', createdAt: Date.now() },
+        { id: uid(), personId: state.people[0].id, status: 'pending', day: 0, start: '14:00', end: '14:30', location: 'lobby', brief: 'A promising conversation', createdAt: Date.now() },
+        { id: uid(), personId: state.people[1].id, status: 'booked', day: 0, start: '16:00', end: '16:30', location: 'garden room', brief: 'Confirmed after mutual agreement', createdAt: Date.now() },
       ],
       autoBook: DEMO_ID === 'maya',
     };
+    state.agents.proposals.filter((proposal) => proposal.status === 'booked').forEach(createSessionForProposal);
     state.backstage = state.backstage || {};
     state.backstage.live = true; state.backstage.onboarded = true;
     state.backstage.autonomy = DEMO_ID === 'maya' ? 'act' : DEMO_ID === 'diego' ? 'ask' : 'suggest';
     state.backstage.beacon = {
       ...(state.backstage.beacon || {}),
       mode: DEMO_PERSONA.mode,
-      lengths: DEMO_ID === 'maya' ? [7, 15] : DEMO_ID === 'diego' ? [15, 25] : [15],
       give: DEMO_ID === 'maya' ? 'design-thinking warmups and the best coffee near the venue' : DEMO_ID === 'diego' ? 'core-banking modernisation case studies and partner introductions' : 'early findings from 40 AI-governance interviews',
       ask: DEMO_ID === 'maya' ? 'a dinner crew for tonight' : DEMO_ID === 'diego' ? 'CIOs and COOs modernising core banking' : 'practitioners running agents in production for 15-minute interviews',
-    };
-    state.backstage.charter = {
-      ...(state.backstage.charter || {}), hideNameUntilYes: DEMO_ID !== 'maya',
-      shareTopicsOnly: DEMO_ID === 'priya', maxPerHour: DEMO_ID === 'maya' ? 3 : DEMO_ID === 'diego' ? 2 : 1,
-      protectHeadliner: true, quietAfter: DEMO_ID === 'priya' ? '19:00' : DEMO_ID === 'diego' ? '21:00' : '22:00',
     };
     state.demo = { id: DEMO_ID, tour: {} };
     localStorage.setItem(KEY, JSON.stringify(state));
@@ -5460,10 +5485,20 @@ window.R4_I18N = {
     return null;
   }
   const briefOf = (p, x) => [plabel(p), [p.role, p.company].filter(Boolean).join(', '), p.lookingFor && `${t('looking for')} ${p.lookingFor}`, x.reasons.slice(0, 2).join(', ')].filter(Boolean).join(' · ');
+  function createSessionForProposal(pr) {
+    const p = state.people.find((person) => person.id === pr?.personId);
+    if (!p) return null;
+    const session = { id: uid(), type: 'meeting', title: t('1:1 with {name}', { name: p.name }), day: pr.day, start: pr.start, end: pr.end, location: pr.location, notes: [pr.brief, t('booked by your agents')].filter(Boolean).join('\n'), takeaways: '', topic: '', attendees: [p.id], status: 'going', agentBooked: true };
+    state.sessions.push(session);
+    pr.status = 'booked';
+    pr.sessionId = session.id;
+    return session;
+  }
   function bookProposal(pr) {
-    const p = personById(pr.personId); if (!p) return;
-    const s = { id: uid(), type: 'meeting', title: t('1:1 with {name}', { name: p.name }), day: pr.day, start: pr.start, end: pr.end, location: pr.location, notes: [pr.brief, t('booked by your agents')].filter(Boolean).join('\n'), takeaways: '', topic: '', attendees: [p.id], status: 'going', agentBooked: true };
-    const previousStatus = pr.status; state.sessions.push(s); pr.status = 'booked'; pr.sessionId = s.id;
+    const previousStatus = pr.status;
+    const s = createSessionForProposal(pr);
+    if (!s) return;
+    const p = personById(pr.personId);
     void window.R4Receipts?.record('proposal.status.changed', 'proposal.status.changed', { id: pr.id, from: previousStatus }, { status: pr.status });
     void window.R4Receipts?.record('meeting.status.changed', 'meeting.status.changed', { id: s.id, from: null }, { status: s.status });
     const cos = myAgentName('cos');
@@ -5553,10 +5588,16 @@ window.R4_I18N = {
   const b64e = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const b64d = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
   const shareBase = () => document.querySelector('meta[name="r4-share-base"]')?.content || `${location.origin}${location.pathname}`;
-  const cardLink = () => `${shareBase()}#agent=${b64e(JSON.stringify({ v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName }))}`;
+  const cardLink = () => {
+    const url = new URL(shareBase(), location.href);
+    if (DEMO_PERSONA) url.searchParams.set('demo', DEMO_ID);
+    url.hash = `agent=${b64e(JSON.stringify({ v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName, demo: !!DEMO_PERSONA }))}`;
+    return url.toString();
+  };
   function importCard(str) {
     const m = String(str).match(/agent=([\w-]+)/); if (!m) throw new Error('no card');
     const c = JSON.parse(b64d(m[1])); if (!c.n) throw new Error('bad card');
+    if (c.demo === true && !DEMO_PERSONA) { toast(t('this is a demo card — open it from a demo')); return null; }
     let p = state.people.find((x) => x.imported && x.name === c.n);
     if (!p) {
       p = { id: uid(), name: String(c.n), role: String(c.r || ''), company: String(c.c || ''), persona: 'peer', topics: (c.i || []).map((x) => String(x).toLowerCase()), status: 'want', priority: 'warm', lookingFor: '', canOffer: '', notes: t('added from their agent card'), metAt: '', day: currentDay(), followUp: { action: '', due: currentDay() + 1, done: false }, createdAt: Date.now(), imported: true };
@@ -6000,7 +6041,7 @@ window.R4_I18N = {
     'propose-bof': (fd) => { state.bofTopics.push({ id: uid(), title: fd.get('title').trim().toLowerCase(), by: state.me.name, votes: 1, voted: true }); save(); render(); toast(t('topic proposed')); },
     'agent-import': (fd) => {
       if (String(fd.get('link')).includes(cardLink().split('#agent=')[1])) { toast(t('that is your own agent card')); return; }
-      try { const p = importCard(fd.get('link')); render(); toast(t('{name}\'s agent card added', { name: first(p.name) })); } catch { toast(t('that agent link did not work')); }
+      try { const p = importCard(fd.get('link')); if (!p) return; render(); toast(t('{name}\'s agent card added', { name: first(p.name) })); } catch { toast(t('that agent link did not work')); }
     },
     'add-pitch': (fd) => { state.pitches.push({ id: uid(), name: fd.get('name').trim(), idea: fd.get('idea').trim(), done: false, sparked: [] }); save(); render(); toast(t('added to queue')); },
     'pitch-draft': (fd) => {
@@ -6095,7 +6136,7 @@ window.R4_I18N = {
     if (!/^#agent=/.test(location.hash)) return;
     try {
       if (location.hash.includes(cardLink().split('#agent=')[1])) toast(t('that is your own agent card'));
-      else { const p = importCard(location.hash); ui.tab = 'agents'; setTimeout(() => toast(t('{name}\'s agent card added', { name: first(p.name) })), 300); }
+      else { const p = importCard(location.hash); if (p) { ui.tab = 'agents'; setTimeout(() => toast(t('{name}\'s agent card added', { name: first(p.name) })), 300); } }
     } catch { toast(t('that agent link did not work')); }
     history.replaceState(null, '', location.pathname + location.search);
     render();

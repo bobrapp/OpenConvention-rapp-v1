@@ -8,7 +8,7 @@
         ['Prepare around a personal goal', 'prep', '#sheet-root .sheet', 'goals'],
         ['Today view and the backstage agent', 'today', '.agent-today'],
         ['People, mutual connection and follow-up', 'people', '#sheet-root .sheet', 'person'],
-        ['Agenda and Oprah headliner protection', 'agenda', '.t-card.featured'],
+        ['Agenda and the Oprah keynote', 'agenda', '.t-card.featured'],
         ['Agents and a needs-you proposal', 'agents', '[data-action="agent-approve"]'],
         ['Connection web and community groups', 'connect', '.web-wrap'],
         ['Pitch fest and the live timer', 'pitch', '#pitch-stage'],
@@ -30,14 +30,14 @@
         ['Follow-up drafts and sequences', 'people-follow', '[data-action="copy-followup"]'],
         ['Report by persona and export', 'report-team', '[data-action="report-copy"]'],
         ['Verify and export signed receipts', 'receipts', '.receipt-list .receipt-row'],
-        ['Sales charter and working hours', 'settings', '[data-form="settings"]'],
+        ['Sales profile and goals', 'settings', '[data-form="settings"]'],
       ],
     },
     priya: {
       name: 'Dr. Priya Natarajan', descriptor: 'academic researcher',
       quote: 'Four practitioner interviews without wrecking my focus.',
       steps: [
-        ['Focus blocks and headliner protection', 'agenda', '.t-card.featured'],
+        ['Focus blocks and the keynote on her agenda', 'agenda', '.t-card.featured'],
         ['Session notes and takeaways', 'agenda', '#sheet-root .sheet', 'session'],
         ['Heads-down agent proposals and blocked instructions', 'agents', '#agent-log .msg'],
         ['Practitioner people and research interests', 'people', '#sheet-root .sheet', 'person'],
@@ -82,6 +82,7 @@
     [data-demo-tour] li { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
     [data-demo-tour] button { max-width: 100%; min-width: 44px; min-height: 44px; padding: 8px 14px; white-space: normal; overflow-wrap: anywhere; }
     .demo-feature-highlight { outline: 4px solid #ffc23d !important; outline-offset: 3px !important; border-radius: 12px; }
+    .demo-tour-active #alert-root{display:none!important}
     @media (max-width: 480px) { [data-demo-tour] { padding: 0; } [data-demo-tour] .demo-sheet { max-height: 92vh; border-radius: 22px 22px 0 0; } }
   `;
   document.head.append(style);
@@ -167,6 +168,7 @@
       markDone(index);
       dialog.remove();
       updateProgress(banner);
+      document.body.classList.add('demo-tour-active');
       await routeStep(persona.steps[index], index);
     }));
     const close = () => dialog.remove();
