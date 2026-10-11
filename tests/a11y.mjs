@@ -23,10 +23,13 @@ const axeCheck = async (page, label) => {
   const violations = await page.evaluate(async () => (await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } })).violations);
   const serious = violations.filter((item) => ['serious', 'critical'].includes(item.impact));
   if (serious.length) targetErrors.push(`${label}: ${serious.map((x) => `${x.id}: ${x.nodes.map((n) => `${n.target.join(' ')} (${n.failureSummary?.replace(/\s+/g, ' ').trim()})`).join(', ')}`).join('; ')}`);
-  const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="switch"], [role="tab"], [data-action]')]
-    .filter((el) => el.offsetParent && !el.closest('svg') && !(el.matches('a[href]') && el.closest('p')))
-    .map((el) => { const r = el.getBoundingClientRect(); return { name: el.getAttribute('aria-label') || el.textContent.trim().slice(0, 30) || el.tagName, width: r.width, height: r.height }; })
-    .filter((el) => el.width < 43.9 || el.height < 43.9));
+  const small = await page.evaluate(() => {
+    document.querySelectorAll('#alert-root .alert-card').forEach((element) => element.getAnimations().forEach((animation) => animation.finish()));
+    return [...document.querySelectorAll('button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="switch"], [role="tab"], [data-action]')]
+      .filter((el) => el.offsetParent && !el.closest('svg') && !(el.matches('a[href]') && el.closest('p')))
+      .map((el) => { const r = el.getBoundingClientRect(); return { name: el.getAttribute('aria-label') || el.textContent.trim().slice(0, 30) || el.tagName, width: r.width, height: r.height }; })
+      .filter((el) => el.width < 43.9 || el.height < 43.9);
+  });
   if (small.length) targetErrors.push(`${label}: sub-44 targets ${JSON.stringify(small.slice(0, 12))}`);
 };
 const setBrand = async (page, brand) => {
