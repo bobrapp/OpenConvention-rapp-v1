@@ -25,8 +25,18 @@ for (const scheme of ['light', 'dark']) {
   for (const t of ['today', 'people', 'agenda', 'web', 'pitch', 'report']) {
     await p.click(`.tab[data-tab="${t}"]`); await p.waitForTimeout(80);
     note((await overflow()) <= 0, `${scheme}: ${t} tab fits a phone width`);
+    if (t === 'today') {
+      const count = await p.locator('#view section').filter({ hasText: 'follow-ups due' }).locator('[data-act="copyFu"]').count();
+      note(count >= 2, `${scheme}: Today shows at least two follow-ups`);
+      note(await p.locator('#view .fu-draft').count() === 0, `${scheme}: Today follow-ups stay compact`);
+    }
   }
   if (scheme === 'dark') { await ctx.close(); continue; }
+
+  await p.click('.tab[data-tab="people"]');
+  await p.click('[data-act="mode"][data-mode="followups"]');
+  note(await p.locator('#view .fu-draft').count() > 0, 'follow-ups view shows message drafts');
+  await p.click('[data-act="mode"][data-mode="people"]');
 
   await p.click('.tab[data-tab="people"]'); await p.click('[data-act="quickAdd"]'); await p.click('#sheet-body [data-act="addPerson"]');
   await p.fill('#f-name', 'Quinn Test'); await p.fill('#f-newtopics', 'ai governance, testing'); await p.fill('#f-fu', 'send notes');
