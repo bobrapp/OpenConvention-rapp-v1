@@ -107,6 +107,46 @@
     return (value || '').replace(/\{(\w+)\}/g, (_match, name) => vars[name] || '');
   };
   const stepTitle = (index) => tr(`step.${id}.${index}`);
+  const updateControlLabels = (banner) => {
+    for (const [selector, key] of [['[data-demo-tour-button]', 'tour'], ['[data-demo-exit]', 'exit']]) {
+      const control = banner.querySelector(selector);
+      if (!control) continue;
+      const shortLabel = tr(`${key}Short`);
+      const fullLabel = tr(key);
+      control.title = fullLabel;
+      control.querySelector('[data-demo-control-label]').textContent = shortLabel;
+      if (shortLabel === fullLabel) {
+        control.removeAttribute('aria-label');
+      } else {
+        const accessibleName = fullLabel.toLowerCase().startsWith(shortLabel.toLowerCase()) ? fullLabel : `${shortLabel} · ${fullLabel}`;
+        control.setAttribute('aria-label', accessibleName);
+      }
+    }
+  };
+  const updateDemoStack = (banner) => {
+    const copy = banner.querySelector('[data-demo-copy]');
+    if (copy.dataset.demoWrap === 'true') {
+      delete banner.dataset.demoStack;
+      return;
+    }
+    const name = copy.querySelector('[data-demo-name]');
+    const count = copy.querySelector('[data-demo-count]');
+    const controls = banner.querySelector('[data-demo-controls]');
+    const bannerStyle = getComputedStyle(banner);
+    const controlsStyle = getComputedStyle(controls);
+    const copyStyle = getComputedStyle(copy);
+    const controlsGap = Number.parseFloat(controlsStyle.columnGap) || 0;
+    const controlsWidth = [...controls.children].reduce((width, control) => width + control.getBoundingClientRect().width, 0) +
+      Math.max(0, controls.children.length - 1) * controlsGap;
+    const twoColumnCopyWidth = banner.clientWidth -
+      (Number.parseFloat(bannerStyle.paddingLeft) || 0) -
+      (Number.parseFloat(bannerStyle.paddingRight) || 0) -
+      (Number.parseFloat(bannerStyle.columnGap) || 0) -
+      controlsWidth;
+    const requiredCopyWidth = name.scrollWidth + count.scrollWidth + (Number.parseFloat(copyStyle.columnGap) || 0);
+    if (requiredCopyWidth > twoColumnCopyWidth) banner.dataset.demoStack = 'true';
+    else delete banner.dataset.demoStack;
+  };
 
   const stateKey = `r4-networking-v1-demo-${id}`;
   const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -118,6 +158,8 @@
     [data-demo-descriptor] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     [data-demo-banner][data-demo-wrap="true"] { grid-template-columns: minmax(0, 1fr); }
     [data-demo-banner][data-demo-wrap="true"] [data-demo-controls] { flex-wrap: wrap; }
+    [data-demo-banner][data-demo-stack="true"] { grid-template-columns: minmax(0, 1fr); }
+    [data-demo-banner][data-demo-stack="true"] [data-demo-controls] { flex-wrap: wrap; }
     [data-demo-copy][data-demo-wrap="true"] { flex-wrap: wrap; overflow: visible; overflow-wrap: anywhere; }
     [data-demo-copy][data-demo-wrap="true"] > span { flex: 1 1 auto; min-width: 0; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
     .demo-text-wrap .row.between > * { min-width: 0; }
@@ -125,8 +167,8 @@
     .demo-text-wrap .row.between > .chip { max-width: 35%; white-space: normal; overflow-wrap: anywhere; }
     [data-demo-controls] { min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
     [data-demo-banner] a, [data-demo-banner] button { box-sizing: border-box; flex: 0 0 auto; min-width: 44px; min-height: 44px; color: inherit; }
-    [data-demo-banner] button { border: 0; border-radius: 24px; background: white; color: #0c2bd8; padding: 8px 4px; font: inherit; font-size: 12px; font-weight: 700; }
-    [data-demo-banner] a { display: inline-flex; align-items: center; justify-content: center; padding: 8px 4px; font-size: 12px; }
+    [data-demo-banner] button { border: 0; border-radius: 24px; background: white; color: #0c2bd8; padding: 8px 4px; font: inherit; font-size: 13px; font-weight: 700; }
+    [data-demo-banner] a { display: inline-flex; align-items: center; justify-content: center; padding: 8px 4px; font-size: 13px; }
     [data-demo-tour] { position: fixed; inset: 0; z-index: 100; display: grid; place-items: end center; background: rgb(8 16 40 / 55%); padding: 12px; }
     [data-demo-tour] .demo-sheet { width: 100%; max-width: 100vw; box-sizing: border-box; max-height: min(90vh, 780px); overflow: auto; background: var(--bg, #fff); color: var(--ink, #171a22); border-radius: 22px; padding: 20px; box-shadow: 0 18px 60px #0004; }
     [data-demo-tour] h2 { margin: 0 0 8px; font-size: 1.35rem; }
@@ -199,6 +241,7 @@
     copy.querySelector('[data-demo-count]').textContent = `· ${tr('tour')} ${done}/${persona.steps.length}`;
     copy.title = text;
     copy.setAttribute('aria-label', text);
+    updateDemoStack(banner);
   };
   const markDone = (index) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || '{}');
@@ -257,7 +300,8 @@
     banner.setAttribute('aria-label', 'demo mode');
     const exitUrl = new URL(location.href);
     exitUrl.searchParams.delete('demo');
-    banner.innerHTML = `<div data-demo-copy><span data-demo-name></span><span data-demo-descriptor></span><span data-demo-count></span></div><div data-demo-controls><button type="button" data-demo-tour-button aria-label="${tr('tour')}" title="${tr('tour')}"><span data-demo-control-label>${tr('tourShort')}</span></button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit aria-label="${tr('exit')}" title="${tr('exit')}"><span data-demo-control-label>${tr('exitShort')}</span></a></div>`;
+    banner.innerHTML = `<div data-demo-copy><span data-demo-name></span><span data-demo-descriptor></span><span data-demo-count></span></div><div data-demo-controls><button type="button" data-demo-tour-button title="${tr('tour')}"><span data-demo-control-label>${tr('tourShort')}</span></button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit title="${tr('exit')}"><span data-demo-control-label>${tr('exitShort')}</span></a></div>`;
+    updateControlLabels(banner);
     document.body.prepend(banner);
     updateProgress(banner);
     const copy = banner.querySelector('[data-demo-copy]');
@@ -265,6 +309,7 @@
       copy.dataset.demoWrap = Number.parseFloat(getComputedStyle(copy).fontSize) > 16 ? 'true' : 'false';
       banner.dataset.demoWrap = copy.dataset.demoWrap;
       document.body.classList.toggle('demo-text-wrap', copy.dataset.demoWrap === 'true');
+      updateDemoStack(banner);
     };
     updateCopyWrap();
     new ResizeObserver(updateCopyWrap).observe(copy);
@@ -277,18 +322,7 @@
   new MutationObserver(() => {
     const banner = document.querySelector('[data-demo-banner]');
     if (!banner) return;
-    const exit = banner.querySelector('[data-demo-exit]');
-    if (exit) {
-      exit.setAttribute('aria-label', tr('exit'));
-      exit.title = tr('exit');
-      exit.querySelector('[data-demo-control-label]').textContent = tr('exitShort');
-    }
-    const tour = banner.querySelector('[data-demo-tour-button]');
-    if (tour) {
-      tour.setAttribute('aria-label', tr('tour'));
-      tour.title = tr('tour');
-      tour.querySelector('[data-demo-control-label]').textContent = tr('tourShort');
-    }
+    updateControlLabels(banner);
     updateProgress(banner);
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 })();

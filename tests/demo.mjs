@@ -68,7 +68,14 @@ for (const persona of personas) {
       };
       const controls = [...banner.querySelectorAll('[data-demo-controls] button,[data-demo-controls] a')].map((element) => {
         const rect = element.getBoundingClientRect();
-        return { width: rect.width, height: rect.height };
+        const visibleLabel = element.querySelector('[data-demo-control-label]').textContent.trim();
+        return {
+          width: rect.width,
+          height: rect.height,
+          fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+          visibleLabel,
+          accessibleName: element.getAttribute('aria-label') || visibleLabel,
+        };
       });
       return {
         height: bannerRect.height,
@@ -85,6 +92,9 @@ for (const persona of personas) {
         text: copy.textContent,
         title: copy.title,
         ariaLabel: copy.getAttribute('aria-label'),
+        stacked: banner.dataset.demoStack === 'true',
+        columns: getComputedStyle(banner).gridTemplateColumns.trim().split(/\s+/).length,
+        controlsWrap: getComputedStyle(banner.querySelector('[data-demo-controls]')).flexWrap,
       };
     });
     assert.ok(metrics.height <= 56, `${persona.id}: ${language} banner exceeds 56px at 390px`);
@@ -96,10 +106,50 @@ for (const persona of personas) {
     assert.ok(metrics.copyBeforeControls, `${persona.id}: ${language} copy overlaps the controls`);
     assert.equal(metrics.controls.length, 2, `${persona.id}: ${language} expected both banner controls`);
     assert.ok(metrics.controls.every((target) => target.width >= 44 && target.height >= 44), `${persona.id}: ${language} banner controls are below 44px`);
+    assert.ok(metrics.controls.every((target) => target.fontSize >= 13), `${persona.id}: ${language} banner control text is below 13px`);
+    assert.ok(metrics.controls.every((target) => target.accessibleName.toLowerCase().includes(target.visibleLabel.toLowerCase())), `${persona.id}: ${language} accessible control names omit visible labels`);
     assert.match(metrics.count, /\d+\/\d+$/, `${persona.id}: ${language} count does not end in N/N`);
     assert.ok(metrics.text.endsWith(metrics.count), `${persona.id}: ${language} banner text does not end with the count`);
     assert.equal(metrics.title, metrics.ariaLabel, `${persona.id}: ${language} title and aria-label differ`);
     assert.ok(metrics.title.includes(persona.name) && metrics.title.includes(descriptor), `${persona.id}: ${language} title omits the full name or descriptor`);
+    assert.equal(metrics.stacked, false, `${persona.id}: ${language} banner stacks at 390px`);
+    assert.equal(metrics.columns, 2, `${persona.id}: ${language} banner is not one row at 390px`);
+    assert.equal(metrics.controlsWrap, 'nowrap', `${persona.id}: ${language} controls wrap at 390px`);
+  };
+  const assertBannerAt360 = async (language) => {
+    await page.setViewportSize({ width: 360, height: 844 });
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const metrics = await page.evaluate(() => {
+      const banner = document.querySelector('[data-demo-banner]');
+      const copy = banner.querySelector('[data-demo-copy]');
+      const name = copy.querySelector('[data-demo-name]');
+      const count = copy.querySelector('[data-demo-count]');
+      const bannerRect = banner.getBoundingClientRect();
+      const insideBanner = (element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.left >= bannerRect.left - 1 && rect.top >= bannerRect.top - 1 && rect.right <= bannerRect.right + 1 && rect.bottom <= bannerRect.bottom + 1;
+      };
+      const controls = [...banner.querySelectorAll('[data-demo-controls] button,[data-demo-controls] a')].map((element) => element.getBoundingClientRect());
+      return {
+        width: innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        nameUnclipped: name.scrollWidth <= name.clientWidth + 1,
+        nameInside: insideBanner(name),
+        countUnclipped: count.scrollWidth <= count.clientWidth + 1,
+        countInside: insideBanner(count),
+        controls: controls.map((rect) => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom })),
+      };
+    });
+    assert.equal(metrics.width, 360);
+    assert.ok(metrics.nameUnclipped && metrics.nameInside, `${persona.id}: ${language} name is clipped at 360px`);
+    assert.ok(metrics.countUnclipped && metrics.countInside, `${persona.id}: ${language} count is clipped at 360px`);
+    assert.equal(metrics.controls.length, 2, `${persona.id}: ${language} expected both controls at 360px`);
+    assert.ok(metrics.controls.every((rect) => rect.left >= 0 && rect.right <= 361 && rect.top >= 0 && rect.bottom <= 845), `${persona.id}: ${language} controls leave the viewport at 360px`);
+    assert.ok(metrics.scrollWidth <= 360, `${persona.id}: ${language} document overflows at 360px`);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForFunction(() => document.documentElement.clientWidth === 390);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await assertBannerLayout(language);
   };
   const assertResponsiveAt200 = async (language, width) => {
     await page.setViewportSize({ width, height: 844 });
@@ -163,6 +213,7 @@ for (const persona of personas) {
     await page.waitForFunction(() => document.querySelector('[data-demo-copy]')?.dataset.demoWrap === 'false');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForFunction(() => document.documentElement.clientWidth === 390);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await assertBannerLayout(language);
   };
   await assertBannerLayout('en');
@@ -170,6 +221,7 @@ for (const persona of personas) {
     const fontSize = Number.parseFloat(getComputedStyle(document.querySelector('[data-demo-copy]')).fontSize);
     return fontSize >= 14 && fontSize <= 15;
   }), `${persona.id} demo banner is not 14–15px at 390px normal text`);
+  await assertBannerAt360('en');
   await assertResponsiveAt200('en', 390);
   await assertResponsiveAt200('en', 320);
   const stateKey = `r4-networking-v1-demo-${persona.id}`;
@@ -230,6 +282,7 @@ for (const persona of personas) {
     await page.getByRole('region', { name: 'demo mode' }).waitFor();
     await page.getByRole('dialog').waitFor();
     await assertBannerLayout(language);
+    await assertBannerAt360(language);
     await assertResponsiveAt200(language, 390);
     await assertResponsiveAt200(language, 320);
     const banner = await page.locator('[data-demo-copy]').textContent();
