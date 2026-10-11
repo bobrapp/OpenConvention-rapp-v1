@@ -52,9 +52,9 @@
   const persona = personas[id];
   if (!persona) return;
   const strings = {
-    en: { tour: 'tour', exit: 'exit demo', show: 'show me', reset: 'reset this demo', close: 'exit tour', why: 'Why this matters for {name}: it makes the event valuable on your terms.', confirm: 'Reset this persona demo?', done: '✓ done' },
-    es: { tour: 'recorrido', exit: 'salir de demo', show: 'ver', reset: 'reiniciar esta demo', close: 'salir del recorrido', why: 'Por qué importa para {name}: hace que el evento sea valioso en sus propios términos.', confirm: '¿Reiniciar la demo de esta persona?', done: '✓ hecho' },
-    pt: { tour: 'tour', exit: 'sair da demo', show: 'ver', reset: 'redefinir esta demo', close: 'sair do tour', why: 'Por que isso importa para {name}: torna o evento valioso nos termos de cada pessoa.', confirm: 'Redefinir esta demo?', done: '✓ concluído' },
+    en: { tour: 'tour', tourShort: 'tour', exit: 'exit demo', exitShort: 'exit', show: 'show me', reset: 'reset this demo', close: 'exit tour', why: 'Why this matters for {name}: it makes the event valuable on your terms.', confirm: 'Reset this persona demo?', done: '✓ done' },
+    es: { tour: 'recorrido', tourShort: 'tour', exit: 'salir de demo', exitShort: 'salir', show: 'ver', reset: 'reiniciar esta demo', close: 'salir del recorrido', why: 'Por qué importa para {name}: hace que el evento sea valioso en sus propios términos.', confirm: '¿Reiniciar la demo de esta persona?', done: '✓ hecho' },
+    pt: { tour: 'tour', tourShort: 'tour', exit: 'sair da demo', exitShort: 'sair', show: 'ver', reset: 'redefinir esta demo', close: 'sair do tour', why: 'Por que isso importa para {name}: torna o evento valioso nos termos de cada pessoa.', confirm: 'Redefinir esta demo?', done: '✓ concluído' },
   };
   const personaTranslations = {
     es: {
@@ -107,28 +107,79 @@
     return (value || '').replace(/\{(\w+)\}/g, (_match, name) => vars[name] || '');
   };
   const stepTitle = (index) => tr(`step.${id}.${index}`);
+  const updateControlLabels = (banner) => {
+    for (const [selector, key] of [['[data-demo-tour-button]', 'tour'], ['[data-demo-exit]', 'exit']]) {
+      const control = banner.querySelector(selector);
+      if (!control) continue;
+      const shortLabel = tr(`${key}Short`);
+      const fullLabel = tr(key);
+      control.title = fullLabel;
+      control.querySelector('[data-demo-control-label]').textContent = shortLabel;
+      if (shortLabel === fullLabel) {
+        control.removeAttribute('aria-label');
+      } else {
+        const accessibleName = fullLabel.toLowerCase().startsWith(shortLabel.toLowerCase()) ? fullLabel : `${shortLabel} · ${fullLabel}`;
+        control.setAttribute('aria-label', accessibleName);
+      }
+    }
+  };
+  const updateDemoStack = (banner) => {
+    const copy = banner.querySelector('[data-demo-copy]');
+    if (copy.dataset.demoWrap === 'true') {
+      delete banner.dataset.demoStack;
+      return;
+    }
+    const name = copy.querySelector('[data-demo-name]');
+    const count = copy.querySelector('[data-demo-count]');
+    const controls = banner.querySelector('[data-demo-controls]');
+    const bannerStyle = getComputedStyle(banner);
+    const controlsStyle = getComputedStyle(controls);
+    const copyStyle = getComputedStyle(copy);
+    const controlsGap = Number.parseFloat(controlsStyle.columnGap) || 0;
+    const controlsWidth = [...controls.children].reduce((width, control) => width + control.getBoundingClientRect().width, 0) +
+      Math.max(0, controls.children.length - 1) * controlsGap;
+    const twoColumnCopyWidth = banner.clientWidth -
+      (Number.parseFloat(bannerStyle.paddingLeft) || 0) -
+      (Number.parseFloat(bannerStyle.paddingRight) || 0) -
+      (Number.parseFloat(bannerStyle.columnGap) || 0) -
+      controlsWidth;
+    const requiredCopyWidth = name.scrollWidth + count.scrollWidth + (Number.parseFloat(copyStyle.columnGap) || 0);
+    if (requiredCopyWidth > twoColumnCopyWidth) banner.dataset.demoStack = 'true';
+    else delete banner.dataset.demoStack;
+  };
 
   const stateKey = `r4-networking-v1-demo-${id}`;
   const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
   const style = document.createElement('style');
   style.textContent = `
-    [data-demo-banner] { position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 12px; background: var(--blue, #0c62fb); color: white; }
-    [data-demo-copy] { min-width: 0; max-width: 100%; font-size: 14px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    [data-demo-copy][data-demo-wrap="true"] { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+    [data-demo-banner] { position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px; background: var(--blue, #0c62fb); color: white; }
+    [data-demo-copy] { display: flex; gap: 4px; min-width: 0; max-width: 100%; font-size: 14px; line-height: 1.25; overflow: hidden; }
+    [data-demo-name], [data-demo-count] { flex: 0 0 auto; white-space: nowrap; }
+    [data-demo-descriptor] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    [data-demo-banner][data-demo-wrap="true"] { grid-template-columns: minmax(0, 1fr); }
+    [data-demo-banner][data-demo-wrap="true"] [data-demo-controls] { flex-wrap: wrap; }
+    [data-demo-banner][data-demo-stack="true"] { grid-template-columns: minmax(0, 1fr); }
+    [data-demo-banner][data-demo-stack="true"] [data-demo-controls] { flex-wrap: wrap; }
+    [data-demo-copy][data-demo-wrap="true"] { flex-wrap: wrap; overflow: visible; overflow-wrap: anywhere; }
+    [data-demo-copy][data-demo-wrap="true"] > span { flex: 1 1 auto; min-width: 0; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+    .demo-text-wrap .row.between > * { min-width: 0; }
+    .demo-text-wrap .row.between > :first-child { overflow-wrap: anywhere; }
+    .demo-text-wrap .row.between > .chip { max-width: 35%; white-space: normal; overflow-wrap: anywhere; }
     [data-demo-controls] { min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
     [data-demo-banner] a, [data-demo-banner] button { box-sizing: border-box; flex: 0 0 auto; min-width: 44px; min-height: 44px; color: inherit; }
-    [data-demo-banner] button { border: 0; border-radius: 24px; background: white; color: #0c2bd8; padding: 8px 16px; font: inherit; font-weight: 700; }
-    [data-demo-banner] a { display: inline-flex; align-items: center; justify-content: center; padding: 8px 10px; }
+    [data-demo-banner] button { border: 0; border-radius: 24px; background: white; color: #0c2bd8; padding: 8px 4px; font: inherit; font-size: 13px; font-weight: 700; }
+    [data-demo-banner] a { display: inline-flex; align-items: center; justify-content: center; padding: 8px 4px; font-size: 13px; }
     [data-demo-tour] { position: fixed; inset: 0; z-index: 100; display: grid; place-items: end center; background: rgb(8 16 40 / 55%); padding: 12px; }
     [data-demo-tour] .demo-sheet { width: 100%; max-width: 100vw; box-sizing: border-box; max-height: min(90vh, 780px); overflow: auto; background: var(--bg, #fff); color: var(--ink, #171a22); border-radius: 22px; padding: 20px; box-shadow: 0 18px 60px #0004; }
     [data-demo-tour] h2 { margin: 0 0 8px; font-size: 1.35rem; }
     [data-demo-tour] p { margin: 4px 0 10px; }
     [data-demo-tour] ol { min-width: 0; padding-left: 24px; overflow-wrap: anywhere; }
-    [data-demo-tour] li, [data-demo-tour] p, [data-demo-tour] b { min-width: 0; overflow-wrap: anywhere; }
+    [data-demo-tour] h2, [data-demo-tour] li, [data-demo-tour] p, [data-demo-tour] b { min-width: 0; overflow-wrap: anywhere; }
     [data-demo-tour] li { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
     [data-demo-tour] button { max-width: 100%; min-width: 44px; min-height: 44px; padding: 8px 14px; white-space: normal; overflow-wrap: anywhere; }
     .demo-feature-highlight { outline: 4px solid #ffc23d !important; outline-offset: 3px !important; border-radius: 12px; }
     .demo-tour-active #alert-root{display:none!important}
+    @media (max-width: 359px) { [data-demo-banner] { grid-template-columns: minmax(0, 1fr); } [data-demo-controls] { flex-wrap: wrap; } }
     @media (max-width: 480px) { [data-demo-tour] { padding: 0; } [data-demo-tour] .demo-sheet { max-height: 92vh; border-radius: 22px 22px 0 0; } }
   `;
   document.head.append(style);
@@ -183,10 +234,14 @@
     const state = JSON.parse(localStorage.getItem(stateKey) || '{}');
     const done = Object.values(state.demo?.tour || {}).filter(Boolean).length;
     const copy = banner.querySelector('[data-demo-copy]');
-    const text = `demo · ${persona.name}, ${tr(`descriptor.${id}`)} · ${tr('tour')} ${done}/${persona.steps.length}`;
-    copy.textContent = text;
+    const descriptor = tr(`descriptor.${id}`);
+    const text = `demo · ${persona.name}, ${descriptor} · ${tr('tour')} ${done}/${persona.steps.length}`;
+    copy.querySelector('[data-demo-name]').textContent = `demo · ${persona.name},`;
+    copy.querySelector('[data-demo-descriptor]').textContent = descriptor;
+    copy.querySelector('[data-demo-count]').textContent = `· ${tr('tour')} ${done}/${persona.steps.length}`;
     copy.title = text;
     copy.setAttribute('aria-label', text);
+    updateDemoStack(banner);
   };
   const markDone = (index) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || '{}');
@@ -245,12 +300,16 @@
     banner.setAttribute('aria-label', 'demo mode');
     const exitUrl = new URL(location.href);
     exitUrl.searchParams.delete('demo');
-    banner.innerHTML = `<div data-demo-copy></div><div data-demo-controls><button type="button" data-demo-tour-button>${tr('tour')}</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>${tr('exit')}</a></div>`;
+    banner.innerHTML = `<div data-demo-copy><span data-demo-name></span><span data-demo-descriptor></span><span data-demo-count></span></div><div data-demo-controls><button type="button" data-demo-tour-button title="${tr('tour')}"><span data-demo-control-label>${tr('tourShort')}</span></button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit title="${tr('exit')}"><span data-demo-control-label>${tr('exitShort')}</span></a></div>`;
+    updateControlLabels(banner);
     document.body.prepend(banner);
     updateProgress(banner);
     const copy = banner.querySelector('[data-demo-copy]');
     const updateCopyWrap = () => {
       copy.dataset.demoWrap = Number.parseFloat(getComputedStyle(copy).fontSize) > 16 ? 'true' : 'false';
+      banner.dataset.demoWrap = copy.dataset.demoWrap;
+      document.body.classList.toggle('demo-text-wrap', copy.dataset.demoWrap === 'true');
+      updateDemoStack(banner);
     };
     updateCopyWrap();
     new ResizeObserver(updateCopyWrap).observe(copy);
@@ -263,10 +322,7 @@
   new MutationObserver(() => {
     const banner = document.querySelector('[data-demo-banner]');
     if (!banner) return;
-    const exit = banner.querySelector('[data-demo-exit]');
-    if (exit) exit.textContent = tr('exit');
-    const tour = banner.querySelector('[data-demo-tour-button]');
-    if (tour) tour.textContent = tr('tour');
+    updateControlLabels(banner);
     updateProgress(banner);
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 })();
