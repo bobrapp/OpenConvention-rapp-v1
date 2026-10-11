@@ -1,6 +1,6 @@
 <title>r4 Networking Companion</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Lexend+Deca:wght@400;500;600&display=swap">
-<script>try{const s=JSON.parse(localStorage.getItem('r4companion.v1')||'null');document.documentElement.dataset.brand=s?.settings?.brand==='aigovops'?'aigovops':'slalom'}catch{document.documentElement.dataset.brand='slalom'}</script>
+<script>try{const s=JSON.parse(localStorage.getItem('r4companion.v1' + (new URLSearchParams(location.search).get('demo') ? '-demo-' + new URLSearchParams(location.search).get('demo') : ''))||'null');document.documentElement.dataset.brand=s?.settings?.brand==='aigovops'?'aigovops':'slalom'}catch{document.documentElement.dataset.brand='slalom'}</script>
 <style>
 /* layout: one phone-width column, sticky day header, fixed six-tab bar; filled blue only for the one thing to do next */
 :root{
@@ -2604,8 +2604,8 @@ var qrcode = function() {
 <script>
 'use strict';
 (() => {
-  const DB_NAME = 'r4-beacon-claude';
-  const HEAD_KEY = 'r4-beacon-head-claude';
+  const DB_NAME = 'r4-beacon-claude' + (['maya','diego','priya'].includes(new URLSearchParams(location.search).get('demo')) ? '-demo-' + new URLSearchParams(location.search).get('demo') : '');
+  const HEAD_KEY = 'r4-beacon-head-claude' + (['maya','diego','priya'].includes(new URLSearchParams(location.search).get('demo')) ? '-demo-' + new URLSearchParams(location.search).get('demo') : '');
   const APP = 'claude';
   const ZERO = '0'.repeat(64);
   const encoder = new TextEncoder();
@@ -2942,7 +2942,8 @@ const hasExamples = () => cfg().example || ['people','sessions','blocks','goals'
 const hasData = () => ['people','sessions','blocks','goals','pitches'].some(k => S[k].length);
 
 /* ---------- storage: account store when available, this device otherwise ---------- */
-const LS = 'r4companion.v1';
+const DEMO_ID = new URLSearchParams(location.search).get('demo');
+const LS = 'r4companion.v1' + (['maya','diego','priya'].includes(DEMO_ID) ? '-demo-' + DEMO_ID : '');
 const dirty = {}, timers = {}, chains = {};
 function cacheWrite(){ try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
 function cacheRead(){ try { const j = JSON.parse(localStorage.getItem(LS) || 'null'); if (!j) return false;
@@ -3809,7 +3810,7 @@ const acts = {
       '<div class="grid2">' + field('Your name', 'f-me', input('f-me', 'me', c.me)) + field('Team the report is for', 'f-team', input('f-team', 'team', c.team)) + '</div>' +
       field('Your subjects, separated by commas', 'f-topics', '<textarea id="f-topics" name="topics" rows="2" placeholder="what you want to talk about">' + esc(c.topics.join(', ')) + '</textarea>') +
       '<p class="small muted">Your subjects drive who the app suggests you meet.</p>' +
-      '<section class="receipt-card"><h3>Receipts</h3><p class="small muted">Receipts are signed on this device. Changes are detectable on this device. It is not a server-side immutable ledger.</p>' +
+      '<section class="receipt-card"><h3>Receipts</h3><p class="small muted">Receipts are signed on this device. Changes are detectable on this device. It is not a server-side immutable ledger.</p><p class="small muted">Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline. <a href="https://www.aigovops-foundation.com/overt.html">OVERT</a></p>' +
       '<div class="row"><button type="button" class="btn small" data-act="verifyReceipts">Verify</button><button type="button" class="btn small" data-act="exportReceipts">Export NDJSON + PEM bundle</button></div>' +
       '<p id="receipt-status" role="status" aria-live="polite"></p><div id="receipt-list" class="receipt-list"></div></section>',
       onSave(fd){ S.settings = {...S.settings, event:String(fd.get('event') || '').trim() || 'r4', start:fd.get('start') || todayISO(), days:Math.min(5, Math.max(1, +fd.get('days') || 2)),
@@ -3827,7 +3828,7 @@ const acts = {
   async verifyReceipts(){
     const result = await R4Receipts.verify();
     const status = $('#receipt-status');
-    if (status) status.textContent = result.ok ? 'OK · ' + result.count + ' receipts verified on this device.' : 'Verification failed at sequence ' + result.firstBadSeq + ' (' + result.reason + ').';
+      if (status) status.innerHTML = result.ok ? 'OK · ' + result.count + ' receipts verified on this device.' : 'Verification failed at sequence ' + result.firstBadSeq + ' (' + result.reason + ').';
     await refreshReceiptPanel();
   },
   async exportReceipts(){
@@ -4044,3 +4045,4 @@ async function boot(){
 boot();
 })();
 </script>
+<script src="demo-runtime.js"></script>
