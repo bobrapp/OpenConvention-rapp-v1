@@ -4573,7 +4573,14 @@ window.R4_I18N = {
     if (DEMO_PERSONA) {
       try {
         const current = JSON.parse(localStorage.getItem(KEY) || '{}').demo || {};
-        state.demo = { ...current, ...(state.demo || {}), tour: { ...(current.tour || {}), ...(state.demo?.tour || {}) } };
+        const demo = state.demo || {};
+        state.demo = {
+          ...current,
+          ...demo,
+          tourMode: current.tourMode || demo.tourMode || 'quick',
+          tourOpened: current.tourOpened ?? demo.tourOpened,
+          tour: { ...(current.tour || {}), ...(demo.tour || {}) },
+        };
       } catch {}
     }
     localStorage.setItem(KEY, JSON.stringify(state));
