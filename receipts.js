@@ -1,6 +1,7 @@
 'use strict';
 (() => {
   const DB_NAME = 'r4-beacon';
+  const HEAD_KEY = 'r4-beacon-head';
   const ZERO = '0'.repeat(64);
   const encoder = new TextEncoder();
   let dbPromise;
@@ -108,10 +109,38 @@
     return `-----BEGIN PUBLIC KEY-----\n${encoded}\n-----END PUBLIC KEY-----`;
   };
   const fullReceipts = () => request('receipts', 'getAll').then((all) => all.sort((a, b) => a.seq - b.seq));
+  const readHead = async (entries) => {
+    const record = await request('keys', 'get', 'head');
+    const idb = record?.value || null;
+    const ls = JSON.parse(localStorage.getItem(HEAD_KEY) || 'null');
+    if (!idb) return ls;
+    if (ls && ls.seq === idb.seq && ls.sha256 === idb.sha256) return idb;
+    if (!ls || ls.seq === idb.seq - 1) {
+      const receipts = entries || await fullReceipts();
+      const last = receipts.at(-1);
+      if (last && idb.seq === receipts.length && idb.sha256 === await sha(jcs(last))) {
+        localStorage.setItem(HEAD_KEY, JSON.stringify(idb));
+        return idb;
+      }
+    }
+    if (!ls) return idb;
+    return idb.seq > ls.seq ? idb : ls;
+  };
+  const storeReceiptAndHead = async (receipt, head) => {
+    const db = await openDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(['receipts', 'keys'], 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Beacon receipt transaction aborted'));
+      tx.objectStore('receipts').put(receipt);
+      tx.objectStore('keys').put({ id: 'head', value: head });
+    });
+  };
   async function writeReceipt(key, eventType, action, options = {}) {
     const entries = await fullReceipts();
     const previous = entries.at(-1);
-    const head = JSON.parse(localStorage.getItem('r4-beacon-head') || 'null');
+    const head = await readHead(entries);
     const previousHash = previous ? await sha(jcs(previous)) : ZERO;
     if ((head && (head.seq !== entries.length || head.sha256 !== previousHash)) || (!head && entries.length)) {
       throw new Error('Beacon receipt chain head does not match stored receipts');
@@ -132,16 +161,17 @@
     if (options.threadId) body.thread_id = options.threadId;
     const sig = await sign(key, encoder.encode(jcs(body)));
     body.signature = { alg: 'Ed25519', key_fpr: await fingerprint(key), sig_b64: b64(sig), canonical_form: 'json/c14n-rfc8785' };
-    await request('receipts', 'put', body);
     const chainHead = await sha(jcs(body));
-    localStorage.setItem('r4-beacon-head', JSON.stringify({ seq: body.seq, sha256: chainHead }));
+    const nextHead = { seq: body.seq, sha256: chainHead };
+    await storeReceiptAndHead(body, nextHead);
+    localStorage.setItem(HEAD_KEY, JSON.stringify(nextHead));
     return body;
   }
   const ensureKey = async () => {
     const key = await getOrCreateKey();
     if (!keyState.logged) {
       const receiptCount = await request('receipts', 'count');
-      const head = JSON.parse(localStorage.getItem('r4-beacon-head') || 'null');
+      const head = await readHead();
       if (key.created || (receiptCount === 0 && !head)) {
         keyState.logged = true;
         try {
@@ -189,7 +219,7 @@
       if (!signatureOk) { firstBadSeq = receipt.seq; reason = 'signature-invalid'; break; }
       previousHash = await sha(jcs(receipt));
     }
-    const head = JSON.parse(localStorage.getItem('r4-beacon-head') || 'null');
+    const head = await readHead(entries);
     if (firstBadSeq == null && !head && entries.length) { firstBadSeq = entries.length; reason = 'head-missing'; }
     else if (firstBadSeq == null && head && head.seq > entries.length) { firstBadSeq = entries.length + 1; reason = 'truncated'; }
     else if (firstBadSeq == null && head && (head.seq !== entries.length || head.sha256 !== previousHash)) { firstBadSeq = Math.max(1, entries.length); reason = 'head-mismatch'; }
@@ -200,10 +230,11 @@
     await append('bundle.signed', 'bundle.exported', { result: 'signed receipt export' });
     const entries = await fullReceipts(), key = await withLock(ensureKey), verification = await verify();
     const publicKeyPem = await pem(key);
+    const head = await readHead(entries);
     return {
       ndjson: entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
       pem: publicKeyPem,
-      bundle: JSON.stringify({ manifest: { format: 'r4-beacon-bundle.v1', app: 'devin', created: new Date().toISOString(), count: entries.length, head_sha256: verification.ok ? JSON.parse(localStorage.getItem('r4-beacon-head') || '{}').sha256 : '', public_key_pem: publicKeyPem, key_fpr: verification.keyFpr }, receipts: entries }, null, 2),
+      bundle: JSON.stringify({ manifest: { format: 'r4-beacon-bundle.v1', app: 'devin', created: new Date().toISOString(), count: entries.length, head_sha256: verification.ok ? head?.sha256 || '' : '', public_key_pem: publicKeyPem, key_fpr: verification.keyFpr }, receipts: entries }, null, 2),
     };
   }
   window.R4Receipts = {
