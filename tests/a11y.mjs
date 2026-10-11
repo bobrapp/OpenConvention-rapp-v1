@@ -78,7 +78,8 @@ try {
       await page.screenshot({ path: path.join(shots, 'receipts.png') });
     }
     if (await page.locator('.receipt-row').count()) {
-      const row = page.locator('.receipt-row').first();
+      const row = page.locator('.receipt-row').filter({ hasText: 'charter check passed' }).first();
+      assert.equal(await row.count(), 1, 'receipt fixture includes a charter-check record despite newer background-agent receipts');
       const rowTitle = await row.locator('b').innerText();
       const rowMeta = await row.locator('small > span').innerText();
       const accessibleName = await row.getAttribute('aria-label');

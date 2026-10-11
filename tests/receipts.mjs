@@ -151,7 +151,10 @@ try {
   await page.waitForFunction(() => !!window.R4Receipts);
   const afterReload = await page.evaluate(async () => ({ verification: await R4Receipts.verify(), key: (await R4Receipts.keyInfo()).keyFpr }));
   assert.equal(afterReload.verification.ok, true, 'receipts survive reload');
-  assert.equal(afterReload.verification.count, exported.bundle ? sample.length + 1 : sample.length);
+  const exportedCount = exported.bundle ? JSON.parse(exported.bundle).manifest.count : sample.length;
+  assert.ok(afterReload.verification.count >= exportedCount, 'exported receipts survive reload even if background agent activity adds entries');
+  const afterReloadEntries = await page.evaluate(() => R4Receipts.list());
+  assert.ok(sample.every((receipt) => afterReloadEntries.some((entry) => entry.id === receipt.id)), 'every pre-reload receipt remains stored');
   assert.equal(afterReload.key, before.keyFpr, 'signing key survives reload');
   page.once('dialog', (dialog) => dialog.accept());
   await page.locator('[data-action="open-settings"]').click();

@@ -1,7 +1,8 @@
 'use strict';
 (() => {
-  const DB_NAME = 'r4-beacon';
-  const HEAD_KEY = 'r4-beacon-head';
+  const DEMO_ID = new URLSearchParams(location.search).get('demo');
+  const DB_NAME = 'r4-beacon' + (['maya','diego','priya'].includes(DEMO_ID) ? '-demo-' + DEMO_ID : '');
+  const HEAD_KEY = 'r4-beacon-head' + (['maya','diego','priya'].includes(DEMO_ID) ? '-demo-' + DEMO_ID : '');
   const ZERO = '0'.repeat(64);
   const encoder = new TextEncoder();
   let dbPromise;
