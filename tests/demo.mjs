@@ -7,21 +7,25 @@ const executablePath = process.env.CHROME_PATH || '/Applications/Google Chrome.a
 const personas = [
   {
     id: 'maya', name: 'Maya Torres', descriptor: 'social first-timer', quote: 'I want a dinner crew by tonight.',
-    people: 8, agenda: 7, goals: ['dinner crew', 'birds-of-a-feather', 'oprah keynote'], shots: [2, 4],
+    people: 8, agenda: 7, goals: ['dinner crew', 'birds-of-a-feather', 'oprah keynote'], shots: [3, 6], stepCount: 12, quick: [1, 2, 5, 6, 10],
     copy: { es: { descriptor: 'asistente social por primera vez', quote: 'Quiero encontrar un grupo para cenar hoy.', done: '✓ hecho' }, pt: { descriptor: 'estreante em networking social', quote: 'Quero encontrar um grupo para jantar ainda hoje.', done: '✓ concluído' } },
   },
   {
     id: 'diego', name: 'Diego Alvarez', descriptor: 'sales networker', quote: 'Five real client conversations and two partner co-sells.',
-    people: 10, agenda: 6, goals: ['five client conversations', 'two partner co-sells'], shots: [2, 5],
+    people: 10, agenda: 6, goals: ['five client conversations', 'two partner co-sells'], shots: [3, 6], stepCount: 11, quick: [0, 4, 6, 3, 9],
     copy: { es: { descriptor: 'profesional de ventas y alianzas', quote: 'Cinco conversaciones reales con clientes y dos ventas conjuntas con socios.', done: '✓ hecho' }, pt: { descriptor: 'profissional de vendas e parcerias', quote: 'Cinco conversas reais com clientes e duas vendas conjuntas com parceiros.', done: '✓ concluído' } },
   },
   {
     id: 'priya', name: 'Dr. Priya Natarajan', descriptor: 'academic researcher', quote: 'Four practitioner interviews without wrecking my focus.',
-    people: 8, agenda: 11, goals: ['practitioner interviews', 'writing block', 'research trend notes'], shots: [0, 7],
+    people: 8, agenda: 11, goals: ['practitioner interviews', 'writing block', 'research trend notes'], shots: [1, 9], stepCount: 11, quick: [0, 3, 6, 4, 9],
     copy: { es: { descriptor: 'investigadora académica', quote: 'Cuatro entrevistas con profesionales sin sacrificar mi concentración.', done: '✓ hecho' }, pt: { descriptor: 'pesquisadora acadêmica', quote: 'Quatro entrevistas com profissionais sem prejudicar meu foco.', done: '✓ concluído' } },
   },
 ];
 const browser = await chromium.launch({ headless: true, executablePath });
+const closeSheetIfVisible = async (page) => {
+  const close = page.locator('#sheet-root [data-action="close-sheet"]');
+  if (await close.isVisible()) await close.click({ timeout: 1000 }).catch(() => {});
+};
 
 for (const persona of personas) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
@@ -55,7 +59,7 @@ for (const persona of personas) {
       const banner = document.querySelector('[data-demo-banner]');
       const copy = banner.querySelector('[data-demo-copy]');
       const name = copy.querySelector('[data-demo-name]');
-      const count = copy.querySelector('[data-demo-count]');
+      const count = copy.querySelector('[data-demo-progress]');
       const bannerRect = banner.getBoundingClientRect();
       const copyRect = copy.getBoundingClientRect();
       const controlsRect = banner.querySelector('[data-demo-controls]').getBoundingClientRect();
@@ -124,7 +128,7 @@ for (const persona of personas) {
       const banner = document.querySelector('[data-demo-banner]');
       const copy = banner.querySelector('[data-demo-copy]');
       const name = copy.querySelector('[data-demo-name]');
-      const count = copy.querySelector('[data-demo-count]');
+      const count = copy.querySelector('[data-demo-progress]');
       const bannerRect = banner.getBoundingClientRect();
       const insideBanner = (element) => {
         const rect = element.getBoundingClientRect();
@@ -246,6 +250,7 @@ for (const persona of personas) {
   assert.ok(!serializedState.includes('this r4 networking app'), `${persona.id} demo state contains the default pitch`);
   assert.equal(demoState.backstage.charter, undefined, `${persona.id} demo state contains unenforced charter fields`);
   assert.equal(demoState.backstage.beacon.lengths, undefined, `${persona.id} demo state contains unenforced meeting lengths`);
+  assert.equal(demoState.demo.tourMode, 'quick', `${persona.id}: quick mode is the default`);
   for (const proposal of demoState.agents.proposals) {
     const linked = proposal.status === 'booked' ? demoState.sessions.find((session) => session.id === proposal.sessionId) : null;
     if (proposal.status === 'booked') {
@@ -271,44 +276,133 @@ for (const persona of personas) {
   assert.ok((await page.evaluate(() => indexedDB.databases())).some((db) => db.name === `r4-beacon-muse-demo-${persona.id}`));
   assert.equal((await page.evaluate(() => indexedDB.databases())).some((db) => db.name === 'r4-beacon-muse'), false);
 
-  const englishStepTitles = await page.locator('[data-demo-tour] li > b').allTextContents();
-  for (const language of ['es', 'pt']) {
-    await page.evaluate(([key, lang]) => {
-      const state = JSON.parse(localStorage.getItem(key));
-      state.me.lang = lang;
-      state.demo = { ...(state.demo || {}), tourOpened: false, tour: { 0: true } };
-      localStorage.setItem(key, JSON.stringify(state));
-    }, [stateKey, language]);
-    await page.reload();
-    await page.getByRole('region', { name: 'demo mode' }).waitFor();
-    await page.getByRole('dialog').waitFor();
-    await assertBannerLayout(language);
-    await assertBannerAt360(language);
-    await assertResponsiveAt200(language, 390);
-    await assertResponsiveAt200(language, 320);
-    const banner = await page.locator('[data-demo-copy]').textContent();
-    assert.ok(banner.includes(persona.copy[language].descriptor), `${persona.id}: ${language} banner has its translated descriptor`);
-    assert.ok(!banner.includes(persona.descriptor), `${persona.id}: ${language} banner falls back to its English descriptor`);
-    const quote = await page.locator('#demo-tour-title').textContent();
-    assert.ok(quote.includes(persona.copy[language].quote), `${persona.id}: ${language} tour quote is translated`);
-    assert.ok(!quote.includes(persona.quote), `${persona.id}: ${language} tour quote falls back to English`);
-    const translatedTitles = await page.locator('[data-demo-tour] li > b').allTextContents();
-    assert.equal(translatedTitles.length, englishStepTitles.length, `${persona.id}: ${language} has a title for every tour step`);
-    translatedTitles.forEach((title, index) => {
-      assert.ok(title.trim(), `${persona.id}: ${language} step ${index + 1} has a translation`);
-      assert.notEqual(title, englishStepTitles[index], `${persona.id}: ${language} step ${index + 1} is not English`);
-    });
-    assert.equal(await page.locator('[data-demo-done="0"]').textContent(), persona.copy[language].done, `${persona.id}: ${language} completion text is translated`);
+  assert.equal(await page.locator('[data-demo-show]').count(), 5, `${persona.id}: quick tour contains five steps`);
+  assert.ok((await page.locator('[data-demo-copy]').textContent()).endsWith('tour 0/5'), `${persona.id}: quick tour starts at 0/5`);
+  for (const [order, index] of persona.quick.entries()) {
+    if (!(await page.locator('[data-demo-tour]').count())) {
+      await page.locator('[data-demo-tour-button]').click();
+      await page.getByRole('dialog').waitFor();
+    }
+    assert.equal(await page.locator(`[data-demo-show="${index}"]`).count(), 1, `${persona.id}: quick step ${index} is listed`);
+    await page.locator(`[data-demo-show="${index}"]`).click();
+    await page.waitForFunction((expected) => window.__r4DemoStep?.index === expected, index);
+    assert.equal((await page.evaluate(() => window.__r4DemoStep)).fallback, false, `${persona.id}: quick target ${index} resolves`);
+    assert.ok((await page.locator('[data-demo-copy]').textContent()).endsWith(`tour ${order + 1}/5`), `${persona.id}: quick progress is ${order + 1}/5`);
+    await closeSheetIfVisible(page);
   }
+  await page.locator('[data-demo-tour-button]').click();
+  await page.getByRole('dialog').waitFor();
+  assert.equal(await page.getByRole('button', { name: `show all ${persona.stepCount} features` }).count(), 1, `${persona.id}: quick mode offers the full tour`);
+  await page.locator('[data-demo-mode]').click();
+  assert.equal(await page.locator('[data-demo-show]').count(), persona.stepCount, `${persona.id}: full toggle shows all steps`);
+  assert.ok((await page.locator('[data-demo-copy]').textContent()).endsWith(`tour 5/${persona.stepCount}`), `${persona.id}: completed quick steps carry into full progress`);
+  assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo.tourMode, stateKey), 'full');
+  await page.locator('[data-demo-close]').click();
+  assert.equal(await page.evaluate(() => document.body.classList.contains('demo-tour-active')), false, `${persona.id}: closing tour clears its active class`);
+  assert.equal(await page.evaluate(() => document.activeElement.matches('[data-demo-tour-button]')), true, `${persona.id}: closing tour returns focus`);
+  await page.reload();
+  await page.getByRole('region', { name: 'demo mode' }).waitFor();
+  await page.locator('[data-demo-tour-button]').click();
+  await page.getByRole('dialog').waitFor();
+  assert.equal(await page.locator('[data-demo-show]').count(), persona.stepCount, `${persona.id}: full mode survives reload`);
+  assert.equal(await page.getByRole('button', { name: 'show 2-minute tour' }).count(), 1);
   await page.evaluate((key) => {
     const state = JSON.parse(localStorage.getItem(key));
-    state.me.lang = 'en';
-    state.demo = { ...(state.demo || {}), tourOpened: false, tour: {} };
+    state.demo = { ...(state.demo || {}), tourMode: 'full', tourOpened: false };
     localStorage.setItem(key, JSON.stringify(state));
   }, stateKey);
   await page.reload();
   await page.getByRole('region', { name: 'demo mode' }).waitFor();
   await page.getByRole('dialog').waitFor();
+  assert.equal(await page.locator('[data-demo-show]').count(), persona.stepCount, `${persona.id}: restored full tour opens automatically`);
+  await page.locator('[data-demo-mode]').click();
+  assert.equal(await page.locator('[data-demo-show]').count(), 5, `${persona.id}: quick mode selected after full reload`);
+  await page.locator('[data-demo-close]').click();
+  await page.locator('[data-action="open-settings"]').click();
+  await page.locator('[data-form="settings"] button').click();
+  const savedDemo = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo, stateKey);
+  assert.equal(savedDemo.tourMode, 'quick', `${persona.id}: app save preserves the selected quick mode`);
+  assert.equal(savedDemo.tourOpened, true, `${persona.id}: app save preserves the opened-tour state`);
+  await page.reload();
+  await page.getByRole('region', { name: 'demo mode' }).waitFor();
+  await page.locator('[data-demo-tour-button]').click();
+  await page.getByRole('dialog').waitFor();
+  assert.equal(await page.locator('[data-demo-show]').count(), 5, `${persona.id}: saved quick mode survives reload`);
+  await page.locator('[data-demo-close]').click();
+  await page.evaluate((key) => {
+    const state = JSON.parse(localStorage.getItem(key));
+    state.demo = { ...(state.demo || {}), tourMode: 'full', tourOpened: false, tour: {} };
+    localStorage.setItem(key, JSON.stringify(state));
+  }, stateKey);
+  await page.reload();
+  await page.getByRole('region', { name: 'demo mode' }).waitFor();
+  await page.locator('[data-demo-tour-button]').click();
+  await page.getByRole('dialog').waitFor();
+  const englishStepTitles = await page.locator('[data-demo-tour] li > b').allTextContents();
+  for (const language of ['en', 'es', 'pt']) {
+    await page.evaluate(([key, lang]) => {
+      const state = JSON.parse(localStorage.getItem(key));
+      state.me.lang = lang;
+      state.demo = { ...(state.demo || {}), tourMode: 'full', tourOpened: false, tour: { 0: true } };
+      localStorage.setItem(key, JSON.stringify(state));
+    }, [stateKey, language]);
+    await page.reload();
+    await page.getByRole('region', { name: 'demo mode' }).waitFor();
+    await page.locator('[data-demo-tour-button]').click();
+    await page.getByRole('dialog').waitFor();
+    const banner = await page.locator('[data-demo-copy]').textContent();
+    const translatedCopy = persona.copy[language] || { descriptor: persona.descriptor, quote: persona.quote, done: '✓ done' };
+    assert.ok(banner.includes(translatedCopy.descriptor), `${persona.id}: ${language} banner has its translated descriptor`);
+    if (language !== 'en') assert.ok(!banner.includes(persona.descriptor), `${persona.id}: ${language} banner falls back to its English descriptor`);
+    const quickLabel = language === 'en' ? `show all ${persona.stepCount} features` : language === 'es' ? 'ver las' : 'ver todos os';
+    const fullLabel = language === 'en' ? 'show 2-minute tour' : language === 'es' ? 'ver recorrido de 2 minutos' : 'ver visita de 2 minutos';
+    assert.equal(await page.getByRole('button', { name: fullLabel }).count(), 1, `${persona.id}: ${language} full toggle is translated`);
+    await page.locator('[data-demo-mode]').click();
+    assert.ok((await page.locator('[data-demo-mode]').textContent()).startsWith(quickLabel), `${persona.id}: ${language} quick toggle is translated`);
+    assert.equal(await page.locator('[data-demo-show]').count(), 5, `${persona.id}: ${language} quick toggle shows five steps`);
+    await page.locator('[data-demo-mode]').click();
+    await assertBannerLayout(language);
+    await assertBannerAt360(language);
+    await assertResponsiveAt200(language, 390);
+    await assertResponsiveAt200(language, 320);
+    for (const width of [320, 360, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const visible = await page.evaluate(() => {
+        const banner = document.querySelector('[data-demo-banner]');
+        const name = banner.querySelector('[data-demo-name]');
+        const progress = banner.querySelector('[data-demo-progress]');
+        const fits = (element) => {
+          const rect = element.getBoundingClientRect();
+          return !!element.getClientRects().length && rect.left >= 0 && rect.right <= innerWidth && element.scrollWidth <= element.clientWidth;
+        };
+        return { name: name.textContent, progress: progress.textContent, nameFits: fits(name), progressFits: fits(progress), pageWidth: document.documentElement.scrollWidth };
+      });
+      assert.equal(visible.name, `demo · ${persona.name},`, `${persona.id}: name remains visible at ${width}px in ${language}`);
+      assert.ok(visible.progress.endsWith(`1/${persona.stepCount}`), `${persona.id}: progress remains visible at ${width}px in ${language}: ${visible.progress}`);
+      assert.ok(visible.nameFits && visible.progressFits && visible.pageWidth <= width, `${persona.id}: banner fits at ${width}px in ${language}: ${JSON.stringify(visible)}`);
+    }
+    const quote = await page.locator('#demo-tour-title').textContent();
+    assert.ok(quote.includes(translatedCopy.quote), `${persona.id}: ${language} tour quote is translated`);
+    if (language !== 'en') assert.ok(!quote.includes(persona.quote), `${persona.id}: ${language} tour quote falls back to English`);
+    const translatedTitles = await page.locator('[data-demo-tour] li > b').allTextContents();
+    assert.equal(translatedTitles.length, englishStepTitles.length, `${persona.id}: ${language} has a title for every tour step`);
+    translatedTitles.forEach((title, index) => {
+      assert.ok(title.trim(), `${persona.id}: ${language} step ${index + 1} has a translation`);
+      if (language !== 'en') assert.notEqual(title, englishStepTitles[index], `${persona.id}: ${language} step ${index + 1} is not English`);
+    });
+    assert.equal(await page.locator('[data-demo-done="0"]').textContent(), translatedCopy.done || '✓ done', `${persona.id}: ${language} completion text is translated`);
+  }
+  await page.evaluate((key) => {
+    const state = JSON.parse(localStorage.getItem(key));
+    state.me.lang = 'en';
+    state.demo = { ...(state.demo || {}), tourMode: 'full', tourOpened: false, tour: {} };
+    localStorage.setItem(key, JSON.stringify(state));
+  }, stateKey);
+  await page.reload();
+  await page.getByRole('region', { name: 'demo mode' }).waitFor();
+  await page.locator('[data-demo-tour-button]').click();
+  await page.getByRole('dialog').waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
 
   const axePath = new URL('./node_modules/axe-core/axe.min.js', import.meta.url).pathname;
   await page.addScriptTag({ path: axePath });
@@ -317,7 +411,7 @@ for (const persona of personas) {
   await assertBannerLayout('en');
   await page.locator('[data-demo-close]').click();
 
-  const stepCount = persona.id === 'priya' ? 9 : 10;
+  const stepCount = persona.stepCount;
   for (let index = 0; index < stepCount; index++) {
     if (!(await page.locator('[data-demo-tour]').count())) {
       await page.locator('[data-demo-tour-button]').evaluate((button) => button.click());
@@ -341,11 +435,15 @@ for (const persona of personas) {
     await target.waitFor({ state: 'visible', timeout: 5000 });
     const hasContent = await target.evaluate((el) => Boolean((el.innerText || '').trim() || el.innerHTML.trim()));
     assert.equal(hasContent, true, `${persona.id} step ${index + 1} target is empty (${targetInfo.selector})`);
-    assert.equal(await target.evaluate((el) => {
+    await target.scrollIntoViewIfNeeded();
+    const centerUnobscured = await page.waitForFunction((selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return false;
       const rect = el.getBoundingClientRect();
       const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
       return Boolean(hit && (hit === el || el.contains(hit)));
-    }), true, `${persona.id} step ${index + 1} target is unobscured at its center`);
+    }, targetInfo.selector, { timeout: 5000 }).then(() => true, () => false);
+    assert.equal(centerUnobscured, true, `${persona.id} step ${index + 1} target is unobscured at its center`);
     if (persona.shots.includes(index)) {
       const shotIndex = persona.shots.indexOf(index) + 1;
       const path = new URL(`../docs/demo/muse/${persona.id}-${String(shotIndex).padStart(2, '0')}.png`, import.meta.url).pathname;
@@ -362,7 +460,7 @@ for (const persona of personas) {
     }
     await page.locator('#sheet-root [data-action="close-sheet"]').click().catch(() => {});
   }
-  assert.equal(await page.evaluate((key) => Object.values(JSON.parse(localStorage.getItem(key)).demo.tour).filter(Boolean).length, stateKey), persona.id === 'priya' ? 9 : 10);
+  assert.equal(await page.evaluate((key) => Object.values(JSON.parse(localStorage.getItem(key)).demo.tour).filter(Boolean).length, stateKey), persona.stepCount);
 
   await page.locator('[data-action="go"][data-tab="agents"]').click();
   const clipboardHooked = await page.evaluate(() => {
@@ -400,7 +498,9 @@ for (const persona of personas) {
   await realPage.close();
   await page.evaluate(() => localStorage.setItem('r4-muse-v1', 'real-state-sentinel'));
 
-  await page.locator('#sheet-root [data-action="close-sheet"]').click().catch(() => {});
+  await closeSheetIfVisible(page);
+  const tourClose = page.locator('[data-demo-close]');
+  if (await tourClose.isVisible()) await tourClose.click();
   await page.locator('[data-demo-tour-button]').click();
   const beforeReset = await page.evaluate(async () => ({
     ids: (await R4Receipts.list()).map((receipt) => receipt.id),
