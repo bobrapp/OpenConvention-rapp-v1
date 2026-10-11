@@ -3,7 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <script>try{const s=JSON.parse(localStorage.getItem('r4-networking-v1' + (new URLSearchParams(location.search).get('demo') ? '-demo-' + new URLSearchParams(location.search).get('demo') : ''))||'null');document.documentElement.dataset.brand=s?.me?.brand==='aigovops'?'aigovops':'slalom'}catch{document.documentElement.dataset.brand='slalom'}</script>
+  <script>
+    try {
+      const demo = new URLSearchParams(location.search).get('demo');
+      const key = demo ? `r4-networking-v1-demo-${demo}` : 'r4-muse-v1';
+      const stored = localStorage.getItem(key) ?? (!demo ? localStorage.getItem('r4-networking-v1') : null);
+      const s = JSON.parse(stored || 'null');
+      document.documentElement.dataset.brand = s?.me?.brand === 'aigovops' ? 'aigovops' : 'slalom';
+    } catch {
+      document.documentElement.dataset.brand = 'slalom';
+    }
+  </script>
   <meta name="theme-color" content="#0c2bd8" />
   <title>r4 networking</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -4160,7 +4170,7 @@ window.R4_I18N = {
     priya: { name: 'Dr. Priya Natarajan', role: 'research fellow', company: 'University of Washington Information School', lang: 'en', mode: 'heads-down', people: 8 },
   };
   const DEMO_PERSONA = DEMO_PERSONAS[DEMO_ID] || null;
-  const KEY = DEMO_PERSONA ? `r4-networking-v1-demo-${DEMO_ID}` : 'r4-networking-v1';
+  const KEY = DEMO_PERSONA ? `r4-networking-v1-demo-${DEMO_ID}` : 'r4-muse-v1';
 
   // ---------- i18n ----------
   const LANGS = { en: { label: 'EN', locale: 'en-US' }, es: { label: 'ES', locale: 'es-ES' }, pt: { label: 'PT', locale: 'pt-BR' } };
@@ -4418,7 +4428,17 @@ window.R4_I18N = {
 
   // ---------- state ----------
   let state = null;
-  try { state = JSON.parse(localStorage.getItem(KEY)); } catch { state = null; }
+  try {
+    const stored = localStorage.getItem(KEY);
+    if (!DEMO_PERSONA && stored === null) {
+      const legacy = localStorage.getItem('r4-networking-v1');
+      const migrated = JSON.parse(legacy);
+      if (migrated && typeof migrated === 'object' && !Array.isArray(migrated)) {
+        state = migrated;
+        localStorage.setItem(KEY, legacy);
+      }
+    } else state = JSON.parse(stored);
+  } catch { state = null; }
   if (!state || state.version !== 1) state = seed();
   if (DEMO_PERSONA && !localStorage.getItem(KEY)) {
     state.me.name = DEMO_PERSONA.name; state.me.role = DEMO_PERSONA.role; state.me.team = DEMO_PERSONA.company;

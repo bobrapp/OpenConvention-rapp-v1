@@ -29,13 +29,14 @@ for (const persona of personas) {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.addInitScript(() => {
-    localStorage.setItem('r4-networking-v1', 'real-state-sentinel');
+    localStorage.setItem('r4-muse-v1', 'real-state-sentinel');
+    localStorage.setItem('r4-networking-v1', 'legacy-state-sentinel');
     localStorage.setItem('r4-beacon-head-muse', 'null');
     window.__realTouches = [];
     for (const method of ['getItem', 'setItem', 'removeItem']) {
       const original = Storage.prototype[method];
       Storage.prototype[method] = function (key, ...args) {
-        if (key === 'r4-networking-v1' || key === 'r4-beacon-head-muse') window.__realTouches.push(`${method}:${key}`);
+        if (key === 'r4-muse-v1' || key === 'r4-networking-v1' || key === 'r4-beacon-head-muse') window.__realTouches.push(`${method}:${key}`);
         return original.call(this, key, ...args);
       };
     }
@@ -91,11 +92,11 @@ for (const persona of personas) {
   assert.ok(demoState.agents.log.some((message) => message.json.status === 'declined'));
   assert.ok(demoState.agents.log.some((message) => message.json.status === 'blocked-injection'));
   const realSentinels = await page.evaluate(() => {
-    const values = [localStorage.getItem('r4-networking-v1'), localStorage.getItem('r4-beacon-head-muse')];
+    const values = [localStorage.getItem('r4-muse-v1'), localStorage.getItem('r4-networking-v1'), localStorage.getItem('r4-beacon-head-muse')];
     window.__realTouches = [];
     return values;
   });
-    assert.deepEqual(realSentinels, ['real-state-sentinel', 'null']);
+  assert.deepEqual(realSentinels, ['real-state-sentinel', 'legacy-state-sentinel', 'null']);
   assert.deepEqual(await page.evaluate(() => window.__realTouches), []);
   assert.ok((await page.evaluate(() => indexedDB.databases())).some((db) => db.name === `r4-beacon-muse-demo-${persona.id}`));
   assert.equal((await page.evaluate(() => indexedDB.databases())).some((db) => db.name === 'r4-beacon-muse'), false);
@@ -250,16 +251,16 @@ for (const persona of personas) {
   delete realState.demo;
   const beforePeople = realState.people;
   const beforeStoredState = JSON.stringify(realState);
-  await page.evaluate((value) => localStorage.setItem('r4-networking-v1', value), beforeStoredState);
+  await page.evaluate((value) => localStorage.setItem('r4-muse-v1', value), beforeStoredState);
   const realPage = await context.newPage();
   realPage.on('pageerror', (error) => errors.push(error.message));
   await realPage.goto(`${base}?keep=1${cardUrl.hash}`);
   await realPage.getByText('this is a demo card — open it from a demo', { exact: true }).waitFor();
-  const afterStoredState = await realPage.evaluate(() => localStorage.getItem('r4-networking-v1'));
+  const afterStoredState = await realPage.evaluate(() => localStorage.getItem('r4-muse-v1'));
   assert.deepEqual(JSON.parse(afterStoredState).people, beforePeople, `${persona.id} demo card changed real people`);
   assert.equal(afterStoredState, beforeStoredState, `${persona.id} demo card changed real storage`);
   await realPage.close();
-  await page.evaluate(() => localStorage.setItem('r4-networking-v1', 'real-state-sentinel'));
+  await page.evaluate(() => localStorage.setItem('r4-muse-v1', 'real-state-sentinel'));
 
   await page.locator('#sheet-root [data-action="close-sheet"]').click().catch(() => {});
   await page.locator('[data-demo-tour-button]').click();
@@ -311,11 +312,11 @@ for (const persona of personas) {
   assert.ok(afterReset.entries.every((receipt) => !beforeReset.ids.includes(receipt.id)));
   assert.notEqual(afterReset.key, beforeReset.key);
   const resetSentinels = await page.evaluate(() => {
-    const values = [localStorage.getItem('r4-networking-v1'), localStorage.getItem('r4-beacon-head-muse')];
+    const values = [localStorage.getItem('r4-muse-v1'), localStorage.getItem('r4-networking-v1'), localStorage.getItem('r4-beacon-head-muse')];
     window.__realTouches = [];
     return values;
   });
-  assert.deepEqual(resetSentinels, ['real-state-sentinel', 'null']);
+  assert.deepEqual(resetSentinels, ['real-state-sentinel', 'legacy-state-sentinel', 'null']);
   assert.deepEqual(await page.evaluate(() => window.__realTouches), []);
   await page.locator('[data-demo-exit]').click();
   await page.waitForFunction(() => !new URL(location.href).searchParams.has('demo'));
