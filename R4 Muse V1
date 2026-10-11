@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <script>try{const s=JSON.parse(localStorage.getItem('r4-networking-v1')||'null');document.documentElement.dataset.brand=s?.me?.brand==='aigovops'?'aigovops':'slalom'}catch{document.documentElement.dataset.brand='slalom'}</script>
+  <script>try{const s=JSON.parse(localStorage.getItem('r4-networking-v1' + (new URLSearchParams(location.search).get('demo') ? '-demo-' + new URLSearchParams(location.search).get('demo') : ''))||'null');document.documentElement.dataset.brand=s?.me?.brand==='aigovops'?'aigovops':'slalom'}catch{document.documentElement.dataset.brand='slalom'}</script>
   <meta name="theme-color" content="#0c2bd8" />
   <title>r4 networking</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -2815,7 +2815,8 @@ window.R4_I18N = {
  "agent receipts": "recibos de agentes", "verified on this device": "verificados en este dispositivo",
  "signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.": "recibos firmados en este dispositivo; los cambios o registros faltantes se pueden detectar en este dispositivo. no es un registro inmutable del servidor.",
  "verify": "verificar", "export ndjson + pem bundle": "exportar paquete NDJSON + PEM", "no receipts yet": "aún no hay recibos",
- "receipt {n}": "recibo {n}", "receipt verification": "verificación de recibos", "settings saved": "ajustes guardados",
+ "receipt {n}": "recibo {n}", "receipt verification": "verificación de recibos", "settings saved": "ajustes guardados", "try a demo persona": "prueba una persona de demo",
+ "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Basado en governance-as-code de AiGovOps Foundation: recibos Beacon en el formato de evidencia OVERT, verificables sin conexión.",
  "receipt verification failed at sequence {seq}: {reason}": "verificación de recibos fallida en la secuencia {seq}: {reason}",
  "sequence mismatch": "secuencia no coincidente", "chain mismatch": "cadena no coincidente", "key mismatch": "clave no coincidente",
  "signature invalid": "firma no válida", "head missing": "falta el encabezado", "truncated": "recibos truncados",
@@ -3340,7 +3341,8 @@ window.R4_I18N = {
  "agent receipts": "recibos dos agentes", "verified on this device": "verificados neste dispositivo",
  "signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.": "recibos assinados neste dispositivo; alterações ou registros ausentes podem ser detectados neste dispositivo. não é um registro imutável no servidor.",
  "verify": "verificar", "export ndjson + pem bundle": "exportar pacote NDJSON + PEM", "no receipts yet": "ainda não há recibos",
- "receipt {n}": "recibo {n}", "receipt verification": "verificação de recibos", "settings saved": "configurações salvas",
+ "receipt {n}": "recibo {n}", "receipt verification": "verificação de recibos", "settings saved": "configurações salvas", "try a demo persona": "experimente uma persona de demonstração",
+ "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Desenvolvido com governance-as-code da AiGovOps Foundation: recibos Beacon no formato de evidência OVERT, verificáveis offline.",
  "receipt verification failed at sequence {seq}: {reason}": "verificação de recibos falhou na sequência {seq}: {reason}",
  "sequence mismatch": "sequência divergente", "chain mismatch": "cadeia divergente", "key mismatch": "chave divergente",
  "signature invalid": "assinatura inválida", "head missing": "cabeçalho ausente", "truncated": "recibos truncados",
@@ -3867,8 +3869,10 @@ window.R4_I18N = {
 <script>
 'use strict';
 (() => {
-  const DB_NAME = 'r4-beacon-muse';
-  const HEAD_KEY = 'r4-beacon-head-muse';
+  const DEMO_ID = new URLSearchParams(location.search).get('demo');
+  const DEMO_PERSONA = ['maya', 'diego', 'priya'].includes(DEMO_ID);
+  const DB_NAME = `r4-beacon-muse${DEMO_PERSONA ? `-demo-${DEMO_ID}` : ''}`;
+  const HEAD_KEY = `r4-beacon-head-muse${DEMO_PERSONA ? `-demo-${DEMO_ID}` : ''}`;
   const APP = 'muse';
   const ZERO = '0'.repeat(64);
   const encoder = new TextEncoder();
@@ -4103,6 +4107,26 @@ window.R4_I18N = {
       bundle: JSON.stringify({ manifest: { format: 'r4-beacon-bundle.v1', app: APP, created: new Date().toISOString(), count: entries.length, head_sha256: verification.ok ? head?.sha256 || '' : '', public_key_pem: publicKeyPem, key_fpr: verification.keyFpr }, receipts: entries }, null, 2),
     };
   }
+  const clearDemo = async () => {
+    if (!DEMO_PERSONA) throw new Error('Demo receipts can only be cleared in demo mode');
+    await queue;
+    await withLock(async () => {
+      const db = await openDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(['receipts', 'keys'], 'readwrite');
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error('Beacon demo reset transaction aborted'));
+        tx.objectStore('receipts').clear();
+        tx.objectStore('keys').delete('head');
+        tx.objectStore('keys').delete('device');
+        tx.objectStore('keys').delete('signing');
+      });
+      localStorage.removeItem(HEAD_KEY);
+      keyPromise = null;
+      keyState.logged = false;
+    });
+  };
   window.R4Receipts = {
     init: () => withLock(ensureKey),
     append, record, jcs, sha256: (value) => sha(typeof value === 'string' ? value : jcs(value)),
@@ -4112,7 +4136,7 @@ window.R4_I18N = {
       const key = await ensureKey();
       return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) };
     }),
-    exportData,
+    exportData, clearDemo,
   };
 })();
 
@@ -4127,7 +4151,14 @@ window.R4_I18N = {
   <script>
 'use strict';
 (() => {
-  const KEY = 'r4-networking-v1';
+  const DEMO_ID = new URLSearchParams(location.search).get('demo');
+  const DEMO_PERSONAS = {
+    maya: { name: 'Maya Torres', role: 'senior consultant', company: 'Slalom Denver', lang: 'en', mode: 'open', people: 8 },
+    diego: { name: 'Diego Alvarez', role: 'client partner', company: 'Slalom Chicago', lang: 'en', mode: 'selective', people: 10 },
+    priya: { name: 'Dr. Priya Natarajan', role: 'research fellow', company: 'University of Washington Information School', lang: 'en', mode: 'heads-down', people: 8 },
+  };
+  const DEMO_PERSONA = DEMO_PERSONAS[DEMO_ID] || null;
+  const KEY = DEMO_PERSONA ? `r4-networking-v1-demo-${DEMO_ID}` : 'r4-networking-v1';
 
   // ---------- i18n ----------
   const LANGS = { en: { label: 'EN', locale: 'en-US' }, es: { label: 'ES', locale: 'es-ES' }, pt: { label: 'PT', locale: 'pt-BR' } };
@@ -4387,6 +4418,88 @@ window.R4_I18N = {
   let state = null;
   try { state = JSON.parse(localStorage.getItem(KEY)); } catch { state = null; }
   if (!state || state.version !== 1) state = seed();
+  if (DEMO_PERSONA && !localStorage.getItem(KEY)) {
+    state.me.name = DEMO_PERSONA.name; state.me.role = DEMO_PERSONA.role; state.me.team = DEMO_PERSONA.company;
+    state.me.eventName = 'r4'; state.me.eventStart = isoOf(new Date()); state.me.days = 3; state.me.lang = DEMO_PERSONA.lang;
+    state.me.brand = 'slalom'; state.me.interests = DEMO_ID === 'maya' ? ['cx & design', 'community & belonging', 'wellbeing'] : DEMO_ID === 'diego' ? ['gtm & sales', 'cloud', 'ai & data', 'financial services'] : ['ai governance', 'agentic ai', 'data platforms', 'org change'];
+    const names = DEMO_ID === 'maya'
+      ? ['Avery Brooks', 'Lina Chen', 'Marco Ruiz', 'Nora Patel', 'Sam Wilson', 'Tess Morgan', 'Jordan Lee', 'Riley Adams']
+      : DEMO_ID === 'diego'
+        ? ['Ari Gomez', 'Bea Singh', 'Chris Okafor', 'Dana Wu', 'Evan Brooks', 'Fatima Ali', 'Gus Martin', 'Hana Ito', 'Ivan Cole', 'Jo Park']
+        : ['Amara Singh', 'Ben Ortiz', 'Clara Wu', 'Dani Brooks', 'Eli Morgan', 'Fatima Noor', 'Gus Patel', 'Hana Lee'];
+    state.people = names.map((name, i) => ({
+      ...(state.people[i] || {}), id: uid(), name, role: i % 2 ? 'researcher' : 'practitioner',
+      company: i % 2 ? 'r4 community' : 'partner organisation', persona: i % 2 ? 'tech' : 'client',
+      status: i < 3 ? 'want' : 'met', priority: i < 2 ? 'hot' : i < 5 ? 'warm' : 'cold',
+      topics: state.me.interests.slice(0, 2), lookingFor: 'compare practical experience and useful next steps',
+      canOffer: i % 2 ? 'research findings and a practitioner perspective' : 'a relevant case study and warm introductions',
+      followUp: { action: i < 4 ? 'send a follow-up' : '', due: 1, done: false }, day: 0,
+    }));
+    const sessionsByPersona = {
+      maya: [
+        ['session', 'keynote: oprah winfrey', 0, '09:00', '10:00', 'main hall', 'oprah winfrey'],
+        ['bof', 'design for belonging', 0, '13:00', '13:45', 'garden room', 'community'],
+        ['work', 'lunch with new friends', 0, '12:00', '12:45', 'terrace', 'community'],
+        ['social', 'first-timers social hour', 0, '17:00', '18:00', 'lobby', 'community'],
+        ['social', '6:30am run club', 1, '06:30', '07:15', 'north entrance', 'wellbeing'],
+        ['social', 'karaoke night', 2, '19:00', '21:00', 'rooftop', 'community'],
+      ],
+      diego: [
+        ['work', 'client call: core banking', 0, '08:00', '09:00', 'private room', 'financial services'],
+        ['session', 'fintech track: modern core platforms', 0, '10:00', '11:00', 'room b', 'financial services'],
+        ['session', 'partner expo: aws + snowflake', 0, '13:00', '14:00', 'expo hall', 'cloud'],
+        ['social', 'executive dinner', 1, '18:30', '20:00', 'dining room', 'gtm & sales'],
+        ['pitch', 'pitch fest: client transformation', 2, '14:00', '15:00', 'atrium', 'gtm & sales'],
+      ],
+      priya: [
+        ['session', 'keynote: oprah winfrey', 0, '09:00', '10:00', 'main hall', 'ai governance'],
+        ['session', 'agentic ai in practice', 0, '10:15', '11:00', 'room a', 'agentic ai'],
+        ['work', 'writing block: methods', 0, '11:15', '12:00', 'quiet room', 'org change'],
+        ['session', 'governing production agents', 0, '13:00', '13:45', 'room c', 'ai governance'],
+        ['session', 'poster session: evaluation', 0, '15:00', '16:00', 'poster hall', 'data platforms'],
+        ['session', 'healthcare agents: field notes', 1, '09:00', '09:45', 'room b', 'healthcare'],
+        ['work', 'writing block: findings', 1, '10:00', '11:00', 'quiet room', 'org change'],
+        ['session', 'banking and agentic workflows', 1, '11:15', '12:00', 'room a', 'financial services'],
+        ['session', 'retail agents and accountability', 2, '13:00', '13:45', 'room c', 'org change'],
+        ['meeting', 'practitioner interview', 2, '14:00', '14:15', 'lounge', 'ai governance'],
+      ],
+    };
+    state.sessions = sessionsByPersona[DEMO_ID].map(([type, title, day, start, end, location, topic]) => ({
+      id: uid(), type, title, day, start, end, location, topic, notes: '', takeaways: '', attendees: [],
+      status: 'going', featured: title.includes('oprah'),
+    }));
+    state.headlinerSeeded = true; state.cosSeeded = true;
+    state.agents = {
+      ...freshAgents(),
+      log: [
+        { id: uid(), from: 'peer agent', to: 'my agent', text: 'A simulated peer accepted the proposed meeting.', ts: Date.now(), json: { status: 'accepted' } },
+        { id: uid(), from: 'my agent', to: 'peer agent', text: 'The agent respectfully absorbed a decline and did not interrupt the attendee.', ts: Date.now() - 1000, json: { status: 'declined' } },
+        { id: uid(), from: 'my agent', to: 'untrusted peer', text: 'Blocked an instruction that attempted to override the attendee charter.', ts: Date.now() - 2000, json: { status: 'blocked-injection' } },
+      ],
+      proposals: [
+        { id: uid(), personId: state.people[0].id, status: 'pending', day: 0, start: '12:00', end: '12:15', location: 'lobby', brief: 'A promising conversation', createdAt: Date.now() },
+        { id: uid(), personId: state.people[1].id, status: 'booked', day: 0, start: '15:00', end: '15:15', location: 'garden room', brief: 'Confirmed after mutual agreement', createdAt: Date.now() },
+      ],
+      autoBook: DEMO_ID === 'maya',
+    };
+    state.backstage = state.backstage || {};
+    state.backstage.live = true; state.backstage.onboarded = true;
+    state.backstage.autonomy = DEMO_ID === 'maya' ? 'act' : DEMO_ID === 'diego' ? 'ask' : 'suggest';
+    state.backstage.beacon = {
+      ...(state.backstage.beacon || {}),
+      mode: DEMO_PERSONA.mode,
+      lengths: DEMO_ID === 'maya' ? [7, 15] : DEMO_ID === 'diego' ? [15, 25] : [15],
+      give: DEMO_ID === 'maya' ? 'design-thinking warmups and the best coffee near the venue' : DEMO_ID === 'diego' ? 'core-banking modernisation case studies and partner introductions' : 'early findings from 40 AI-governance interviews',
+      ask: DEMO_ID === 'maya' ? 'a dinner crew for tonight' : DEMO_ID === 'diego' ? 'CIOs and COOs modernising core banking' : 'practitioners running agents in production for 15-minute interviews',
+    };
+    state.backstage.charter = {
+      ...(state.backstage.charter || {}), hideNameUntilYes: DEMO_ID !== 'maya',
+      shareTopicsOnly: DEMO_ID === 'priya', maxPerHour: DEMO_ID === 'maya' ? 3 : DEMO_ID === 'diego' ? 2 : 1,
+      protectHeadliner: true, quietAfter: DEMO_ID === 'priya' ? '19:00' : DEMO_ID === 'diego' ? '21:00' : '22:00',
+    };
+    state.demo = { id: DEMO_ID, tour: {} };
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
   function migrate() {
     state.fired = state.fired || {}; state.prep = state.prep || {};
     if (!state.me.lang) state.me.lang = 'en';
@@ -4411,7 +4524,15 @@ window.R4_I18N = {
     state.pitchRevisions = state.pitchRevisions || []; if (state.pitchDraft === undefined) state.pitchDraft = '';
     state.matchWeights = { shared: 22, goal: 18, hot: 18, bridges: 4, ...(state.matchWeights || {}) };
   }
-  const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+  const save = () => {
+    if (DEMO_PERSONA) {
+      try {
+        const current = JSON.parse(localStorage.getItem(KEY) || '{}').demo || {};
+        state.demo = { ...current, ...(state.demo || {}), tour: { ...(current.tour || {}), ...(state.demo?.tour || {}) } };
+      } catch {}
+    }
+    localStorage.setItem(KEY, JSON.stringify(state));
+  };
 
   const ui = {
     tab: 'prep', day: null,
@@ -5480,7 +5601,7 @@ window.R4_I18N = {
         <div class="qr">${qrSvg(cardLink())}</div>
         <div class="row wrap" style="gap:8px"><button class="btn sm" data-action="agent-copy-link">${t('copy link')}</button><button class="btn secondary sm" data-action="agent-card-download">${t('download agent card (json)')}</button></div>
       <form data-form="agent-import" class="row" style="margin-top:12px"><input class="search" style="margin:0" name="link" placeholder="${t('paste an agent link from someone else')}" required /><button class="btn sm">${t('add')}</button></form></div>
-      <h2 class="section">${t('agent receipts')}</h2><section class="receipt-panel"><p class="small muted">${t('signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.')}</p>
+      <h2 class="section">${t('agent receipts')}</h2><section class="receipt-panel"><p class="small muted">${t('signed device receipts; changes or missing records are detectable on this device. it is not a server-side immutable ledger.')}</p><p class="small muted">${t('Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.')} <a href="https://www.aigovops-foundation.com/overt.html">OVERT</a></p>
       <div class="row wrap"><button class="btn sm" data-action="receipts-verify">${t('verify')}</button><button class="btn secondary sm" data-action="receipts-export">${t('export ndjson + pem bundle')}</button></div>
       <p id="receipts-status" role="status" aria-live="polite"></p><div class="receipt-list">${receiptRows()}</div></section>
       <h2 class="section">${t('chiefs of staff at {event}', { event: esc(state.me.eventName) })} <small>${cosPeople.length}</small></h2>
@@ -5604,6 +5725,7 @@ window.R4_I18N = {
   }
   function settingsSheet() {
     const m = state.me;
+    const demoHref = (id) => { const url = new URL(location.href); url.searchParams.set('demo', id); return `${url.pathname}${url.search}${url.hash}`; };
     openSheet(t('me & event'), `
       <fieldset class="brand-picker"><legend>${t('design')}</legend>${[['slalom','Slalom'],['aigovops','AiGovOps']].map(([key,label]) => `<button type="button" role="radio" aria-checked="${m.brand === key}" data-action="set-brand" data-brand="${key}">${label}</button>`).join('')}</fieldset>
       <div class="field"><label>${t('language')}</label><div class="seg">${Object.entries({ en: 'english', es: 'español', pt: 'português' }).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}">${l}</button>`).join('')}</div></div>
@@ -5616,7 +5738,11 @@ window.R4_I18N = {
       <div class="card" style="margin-top:14px"><h3>${t('your data')}</h3><p class="small muted" style="margin-bottom:10px">${t('everything stays on this device (browser storage). back it up or move it to another device with export / import.')}</p>
         <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
         <button class="btn secondary sm" data-action="reset-demo">${t('reset to demo data')}</button><button class="btn danger sm" data-action="clear-all">${t('start fresh (empty)')}</button></div>
-        <input type="file" id="json-file" accept="application/json,.json" hidden /></div>`);
+        <input type="file" id="json-file" accept="application/json,.json" hidden /></div>
+      <div class="card" style="margin-top:14px"><h3>${t('try a demo persona')}</h3><div class="row wrap" style="gap:8px">
+        <a class="btn secondary sm" href="${demoHref('maya')}">Maya Torres</a>
+        <a class="btn secondary sm" href="${demoHref('diego')}">Diego Alvarez</a>
+        <a class="btn secondary sm" href="${demoHref('priya')}">Dr. Priya Natarajan</a></div></div>`);
   }
   function goalsSheet() {
     openSheet(t('my goals'), `<form data-form="goals">${state.goals.map((g) => `<div class="card tight"><div class="field"><label>${g.auto ? t('goal (auto-tracked)') : t('goal (tracked by hand)')}</label><input name="text-${g.id}" value="${esc(goalText(g))}" /></div>
@@ -5983,5 +6109,6 @@ window.R4_I18N = {
 })();
 
 </script>
+<script src="demo-runtime.js"></script>
 </body>
 </html>
