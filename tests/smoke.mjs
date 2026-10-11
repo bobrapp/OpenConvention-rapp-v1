@@ -18,6 +18,21 @@ alertCleaner.unref?.();
 const base = process.env.BASE_URL || 'http://127.0.0.1:8080/';
 const shots = process.env.SHOT_DIR || '/Users/devin/shots/v2';
 const englishLeaks = ['you both care about', 'coffee bar', 'lounge', 'atrium', 'garden room', 'could a', 'agree'];
+const groupFor = (id) => ({ today: 'today', people: 'people', meet: 'people', connect: 'people', agenda: 'agenda', pitch: 'agenda', backstage: 'backstage', report: 'backstage', receipts: 'backstage' })[id] || id;
+const goTab = async (targetPage, id) => {
+  const group = groupFor(id);
+  await targetPage.locator(`#tabbar .tab[data-tab="${group}"]`).click({ force: true });
+  if (id === 'receipts') await targetPage.locator('#view [data-action="open-receipts"]').click();
+  else if (id !== group) await targetPage.locator(`#view .subnav [data-tab="${id}"]`).click();
+};
+const completeStart = async (targetPage) => {
+  if (!(await targetPage.locator('[data-action="start-goal"]').count())) return;
+  await targetPage.locator('[data-action="start-goal"][data-goal="social"]').click();
+  await targetPage.locator('[data-action="start-next"]').click();
+  await targetPage.locator('[data-action="start-next"]').click();
+  await targetPage.locator('[data-action="start-finish"]').click();
+  await targetPage.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').backstage?.onboarded);
+};
 const shot = async (name, selector = 'body') => {
   const target = page.locator(selector).first();
   if (await target.count()) {
@@ -46,10 +61,7 @@ const makeScenario = async () => {
   scenarioPage.on('pageerror', (error) => errors.push(`scenario pageerror: ${error.message}`));
   await scenarioPage.goto(base, { waitUntil: 'domcontentloaded' });
   await scenarioPage.waitForSelector('#sheet-root .sheet');
-  await scenarioPage.locator('input[name="give"]').fill('facilitation');
-  await scenarioPage.locator('input[name="ask"]').fill('AI adoption');
-  await scenarioPage.locator('[data-action="charter-start"]').click();
-  await scenarioPage.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').backstage?.onboarded);
+  await completeStart(scenarioPage);
   await scenarioPage.waitForFunction(() => !document.querySelector('#sheet-root .sheet'));
   return { scenarioContext, scenarioPage };
 };
@@ -57,10 +69,7 @@ const fastForwardScenario = async (scenarioPage, attempts = 12) => {
   await scenarioPage.waitForTimeout(500);
   await scenarioPage.waitForLoadState('domcontentloaded').catch(() => {});
   for (let i = 0; i < attempts; i++) {
-    if (await scenarioPage.locator('[data-action="charter-start"]').count()) {
-      await scenarioPage.locator('[data-action="charter-start"]').click();
-      await scenarioPage.waitForFunction(() => !document.querySelector('#sheet-root .sheet'));
-    }
+    if (await scenarioPage.locator('[data-action="start-finish"]').count()) await completeStart(scenarioPage);
     if (await scenarioPage.locator('.alert-pop').count()) await scenarioPage.locator('.alert-pop').evaluate((el) => el.click());
     await scenarioPage.locator('.tab[data-tab="backstage"]').evaluate((el) => el.click());
     await scenarioPage.locator('[data-action="fast-forward"]').evaluate((el) => el.click());
@@ -71,7 +80,7 @@ const setCharterSwitch = async (scenarioPage, key, checked) => {
   if (await scenarioPage.locator('.alert-pop').count()) await scenarioPage.locator('.alert-pop').evaluate((el) => el.click());
   await scenarioPage.locator('.tab[data-tab="backstage"]').evaluate((el) => el.click());
   if (await scenarioPage.locator('.alert-pop').count()) await scenarioPage.locator('.alert-pop').evaluate((el) => el.click());
-  await scenarioPage.locator('[data-action="open-charter"]').evaluate((el) => el.click());
+  await scenarioPage.locator('.charter-card [data-action="open-charter"]').evaluate((el) => el.click());
   const toggle = scenarioPage.locator(`[data-action="charter-toggle"][data-key="${key}"]`);
   if (await toggle.isChecked() !== checked) await toggle.click();
   await scenarioPage.locator('[data-action="close-sheet"]').first().click();
@@ -80,10 +89,16 @@ const widthCheck = async () => {
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   assert.ok(width <= 390, `horizontal overflow: scrollWidth=${width}`);
 };
-await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
+await page.addInitScript(() => {
+  if (sessionStorage.getItem('r4-smoke-initialized') !== '1') {
+    localStorage.clear();
+    sessionStorage.clear();
+    sessionStorage.setItem('r4-smoke-initialized', '1');
+  }
+});
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#sheet-root .sheet');
-assert.match(await page.locator('#sheet-root').innerText(), /meet your agent/i);
+assert.match(await page.locator('#sheet-root').innerText(), /what are you here for/i);
 const pwa = await page.evaluate(async () => {
   const manifestLink = document.querySelector('link[rel="manifest"]');
   const response = await fetch(manifestLink.href);
@@ -109,10 +124,24 @@ const foundationFooter = page.locator('#view .foundation-footer');
 assert.match(await foundationFooter.innerText(), /© 2026 AiGovOps Foundation/);
 assert.equal(await foundationFooter.locator('a').getAttribute('href'), 'https://www.aigovops-foundation.com');
 await shot('charter-sheet', '#sheet-root .sheet');
-await page.locator('input[name="give"]').fill('facilitation');
-await page.locator('input[name="ask"]').fill('AI adoption');
-await page.locator('[data-form="charter"] button[type="submit"], [data-form="charter"] button').click();
+await completeStart(page);
 await page.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').backstage?.onboarded);
+assert.equal(await page.locator('html').getAttribute('data-brand'), 'slalom', 'missing brand migrates to Slalom');
+for (const language of ['es', 'pt']) {
+  await page.locator('[data-action="open-settings"]').click();
+  await page.locator(`.sheet [data-action="set-lang"][data-lang="${language}"]`).click();
+  await page.locator(`.sheet [data-action="brand-select"][data-brand="aigovops"]`).click();
+  assert.equal(await page.locator('html').getAttribute('data-brand'), 'aigovops');
+  assert.equal(await page.locator('html').getAttribute('lang'), language);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').me?.brand), 'aigovops', `brand is saved before reload in ${language}`);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.documentElement.dataset.brand === 'aigovops');
+  assert.equal(await page.locator('html').getAttribute('data-brand'), 'aigovops', `brand persists after reload in ${language}`);
+  await page.locator('[data-action="open-settings"]').click();
+  await page.locator('.sheet [data-action="set-lang"][data-lang="en"]').click();
+  await page.locator('.sheet [data-action="brand-select"][data-brand="slalom"]').click();
+  await page.locator('[data-action="close-sheet"]').click();
+}
 await page.waitForFunction(() => !document.querySelector('#sheet-root .sheet'));
 const shareBase = 'https://cards.example.test/OpenConvention-rapp-v1/devin/';
 await page.evaluate((content) => {
@@ -165,7 +194,7 @@ for (const language of ['es', 'pt']) {
 await page.locator('[data-action="set-lang"][data-lang="en"]').first().click();
 await page.locator('.tab[data-tab="today"]').click();
 await page.emulateMedia({ colorScheme: 'dark' });
-await page.locator('.tab[data-tab="report"]').click();
+await goTab(page, 'report');
 const reportBackground = await page.locator('.report').evaluate((el) => getComputedStyle(el).backgroundColor);
 assert.notEqual(reportBackground, 'rgb(255, 255, 255)', 'report surface should not stay white in dark mode');
 await page.locator('.tab[data-tab="today"]').click();
@@ -283,7 +312,7 @@ assert.ok(sparkedThread?.personIds.some((id) => stateAfterSpark.people.find((p) 
 for (const language of ['es', 'pt']) {
   await page.locator(`[data-action="set-lang"][data-lang="${language}"]`).click();
   for (const tab of ['today', 'backstage', 'people', 'meet', 'agenda', 'connect', 'pitch', 'report']) {
-    await page.locator(`.tab[data-tab="${tab}"]`).click();
+    await goTab(page, tab);
     await widthCheck();
   }
   if (language === 'es') {
@@ -380,7 +409,7 @@ assert.doesNotMatch(sharedProfileJson, /phone|email|linkedin/i, 'discover payloa
 await topicsScenario.scenarioContext.close();
 
 const askScenario = await makeScenario();
-await askScenario.scenarioPage.evaluate(() => {
+const askState = await askScenario.scenarioPage.evaluate(() => {
   const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
   state.backstage.autonomy = 'ask';
   const peer = state.people.find((person) => person.topics.length);
@@ -392,11 +421,16 @@ await askScenario.scenarioPage.evaluate(() => {
     draftPending: false, proposeApproved: false,
   }];
   state.backstage.stats.agents = 1;
-  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+  return JSON.stringify(state);
 });
+await askScenario.scenarioPage.addInitScript((serialized) => localStorage.setItem('r4-networking-v2', serialized), askState);
 await askScenario.scenarioPage.reload();
+assert.equal(await askScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.autonomy), 'ask');
 await fastForwardScenario(askScenario.scenarioPage, 1);
-assert.ok(await askScenario.scenarioPage.locator('.draft-card').count(), 'ask mode should surface an outbound draft');
+assert.ok(await askScenario.scenarioPage.locator('.draft-card').count(), `ask mode should surface an outbound draft: ${JSON.stringify(await askScenario.scenarioPage.evaluate(() => {
+  const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+  return { autonomy: state.backstage.autonomy, threads: state.backstage.threads.map(({ id, stage, draftPending, proposeApproved }) => ({ id, stage, draftPending, proposeApproved })), tickCount: state.backstage.tickCount };
+}))}`);
 await shotOn(askScenario.scenarioPage, 'ask-mode-draft', '.draft-card');
 const draftId = await askScenario.scenarioPage.locator('.draft-card [data-action="thread-send-draft"]').first().getAttribute('data-id');
 await askScenario.scenarioPage.locator('.draft-card [data-action="thread-send-draft"]').first().click();
@@ -438,7 +472,7 @@ assert.ok(classicState.agents.log.length || classicState.agents.proposals.length
 await classicScenario.scenarioContext.close();
 
 const pastScenario = await makeScenario();
-await pastScenario.scenarioPage.evaluate(() => {
+const pastScenarioData = await pastScenario.scenarioPage.evaluate(() => {
   const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
   const old = new Date(Date.now() - 10 * 86400000);
   state.backstage.threads = [];
@@ -446,9 +480,10 @@ await pastScenario.scenarioPage.evaluate(() => {
   state.backstage.seed = 1;
   state.me.eventStart = old.toISOString().slice(0, 10);
   state.me.days = 1;
-  localStorage.setItem('r4-networking-v2', JSON.stringify(state));
-  location.reload();
+  return JSON.stringify(state);
 });
+await pastScenario.scenarioPage.addInitScript((serialized) => localStorage.setItem('r4-networking-v2', serialized), pastScenarioData);
+await pastScenario.scenarioPage.reload();
 await fastForwardScenario(pastScenario.scenarioPage, 4);
 const pastState = await pastScenario.scenarioPage.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')));
 assert.ok(pastState.backstage.threads.every((thread) => !thread.start || new Date(`${pastState.me.eventStart}T${thread.start}:00`) >= new Date()), 'past events must not create past starts');

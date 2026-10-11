@@ -2,8 +2,11 @@
 // Community backend: Supabase when configured (config.js or settings), otherwise a local demo
 // with simulated attendees. Both adapters expose the same async API.
 (() => {
-  const CFG_KEY = 'r4-backend';
-  const DEMO_KEY = 'r4-community-demo-v1';
+  const DEMO_ID = new URLSearchParams(location.search).get('demo');
+  const DEMO_MODE = ['maya', 'diego', 'priya'].includes(DEMO_ID);
+  const SUFFIX = DEMO_MODE ? `-demo-${DEMO_ID}` : '';
+  const CFG_KEY = `r4-backend${SUFFIX}`;
+  const DEMO_KEY = `r4-community-demo-v1${SUFFIX}`;
   const H = 3600e3, D = 24 * H;
   const now = () => Date.now();
   const iso = (ms) => new Date(ms).toISOString();
@@ -16,6 +19,7 @@
   const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? v[k] : m));
 
   function config() {
+    if (DEMO_MODE) return { url: '', key: '', demo: true };
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { saved = {}; }
     const c = window.R4_CONFIG || {};
