@@ -192,9 +192,15 @@
   };
   const ensureTourMode = () => {
     const state = readDemoState();
-    if (state.demo?.tourMode === 'quick' || state.demo?.tourMode === 'full') return;
-    state.demo = { ...(state.demo || {}), tourMode: 'quick' };
-    try { localStorage.setItem(stateKey, JSON.stringify(state)); } catch {}
+    const demo = state.demo || {};
+    const tourMode = demo.tourMode === 'full' ? 'full' : 'quick';
+    if (demo.tourVersion !== 2) {
+      state.demo = { ...demo, tourVersion: 2, tourMode, tour: {} };
+      try { localStorage.setItem(stateKey, JSON.stringify(state)); } catch {}
+    } else if (demo.tourMode !== 'quick' && demo.tourMode !== 'full') {
+      state.demo = { ...demo, tourMode: 'quick' };
+      try { localStorage.setItem(stateKey, JSON.stringify(state)); } catch {}
+    }
   };
   const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
   const style = document.createElement('style');
@@ -244,6 +250,18 @@
       document.querySelector('[data-action="edit-goals"]')?.click();
     } else if (route === 'receipts') {
       document.querySelector('[data-action="go"][data-tab="agents"]')?.click();
+    } else if (route === 'agenda') {
+      document.querySelector('[data-action="go"][data-tab="agenda"]')?.click();
+      await wait();
+      if (step[2] === '.t-card.t-bof') {
+        document.querySelector('[data-action="seg"][data-key="agendaSeg"][data-val="timeline"]')?.click();
+        await wait();
+        const belonging = (readDemoState().sessions || []).find((session) => session.type === 'bof' && /belonging/i.test(session.title || ''));
+        if (belonging) {
+          document.querySelector(`[data-action="pick-day"][data-key="day"][data-day="${Number(belonging.day)}"]`)?.click();
+          await wait();
+        }
+      }
     } else if (route === 'report-recap' || route === 'report-team') {
       document.querySelector('[data-action="go"][data-tab="report"]')?.click();
       await wait();
@@ -275,6 +293,7 @@
     target.focus({ preventScroll: true });
     window.__r4DemoStep = { index, title: stepTitle(index), selector: step[2], fallback: false };
     window.dispatchEvent(new CustomEvent('r4-demo-step', { detail: window.__r4DemoStep }));
+    return target;
   };
 
   const updateProgress = (banner) => {
@@ -331,11 +350,16 @@
       });
       dialog.querySelectorAll('[data-demo-show]').forEach((button) => button.addEventListener('click', async () => {
         const index = Number(button.dataset.demoShow);
-        markDone(index);
         dialog.remove();
-        updateProgress(banner);
         document.body.classList.add('demo-tour-active');
-        await routeStep(persona.steps[index], index);
+        const target = await routeStep(persona.steps[index], index);
+        if (!target) {
+          document.body.classList.remove('demo-tour-active');
+          updateProgress(banner);
+          return;
+        }
+        markDone(index);
+        updateProgress(banner);
       }));
       dialog.querySelector('[data-demo-close]').addEventListener('click', closeTour);
       dialog.querySelector('[data-demo-reset]').addEventListener('click', async () => {
