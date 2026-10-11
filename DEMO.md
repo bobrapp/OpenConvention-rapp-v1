@@ -59,17 +59,48 @@ Open `?demo=maya`, `?demo=diego`, or `?demo=priya`; demo state, receipt database
 
 ### Maya Torres
 
-1. Open a peer's person sheet and review a needs-you moment. Screenshot: [Maya connection](docs/demo/muse/maya-01.png).
-2. Approve a backstage proposal and see how the agent keeps the interaction human-centred. Screenshot: [Maya backstage](docs/demo/muse/maya-02.png).
+Full tour: 12 steps. Quick steps, in order: 2, 3, 6, 7, 11.
+1. Prepare around a personal goal.
+2. **Quick (a):** Today view and the backstage agent.
+3. **Quick (b):** Agent negotiation and absorbed declines.
+4. People, mutual connection and follow-up. Screenshot: [Maya connection](docs/demo/muse/maya-01.png).
+5. Agenda and the Oprah keynote.
+6. **Quick (c):** Join the belonging birds-of-a-feather.
+7. **Quick (d):** Agents and a needs-you proposal. Screenshot: [Maya backstage](docs/demo/muse/maya-02.png).
+8. Connection web and community groups.
+9. Pitch fest and the live timer.
+10. End-of-day recap and team report.
+11. **Quick (e):** Signed receipts and offline trust.
+12. Slalom / AiGovOps design and language.
 
 ### Diego Alvarez
 
-1. Explore ranked matches and give/ask pairings. Screenshot: [Diego matches](docs/demo/muse/diego-01.png).
-2. Rehearse a pitch against the live timer. Screenshot: [Diego pitch](docs/demo/muse/diego-02.png).
+Full tour: 11 steps. Quick steps, in order: 1, 5, 7, 4, 10.
+1. **Quick (a):** Today: pipeline goals and next move.
+2. Qualified client and partner priorities.
+3. Give/ask matching and warm introductions.
+4. **Quick (d):** Needs-you approvals and confirmed meetings. Screenshot: [Diego matches](docs/demo/muse/diego-01.png).
+5. **Quick (b):** Agent negotiation and absorbed declines.
+6. Share the agent card by QR and link.
+7. **Quick (c):** Pitch fest and the live timer. Screenshot: [Diego pitch](docs/demo/muse/diego-02.png).
+8. Follow-up drafts and sequences.
+9. Report outcomes to the team.
+10. **Quick (e):** Verify and export signed receipts.
+11. Sales profile and goals.
 
 ### Dr. Priya Natarajan
 
-1. Inspect the research agenda and the keynote on her calendar. Screenshot: [Priya agenda](docs/demo/muse/priya-01.png).
-2. Verify and export signed receipts for her methods trail. Screenshot: [Priya receipts](docs/demo/muse/priya-02.png).
+Full tour: 11 steps. Quick steps, in order: 1, 4, 7, 5, 10.
+1. **Quick (a):** Today: protected focus and next session.
+2. Focus blocks and the keynote on her agenda. Screenshot: [Priya agenda](docs/demo/muse/priya-01.png).
+3. Session notes and takeaways.
+4. **Quick (b):** Heads-down agent proposals and blocked instructions.
+5. **Quick (d):** Needs-you approval: decide on a promising connection.
+6. Practitioner people and research interests.
+7. **Quick (c):** Connection web by topic.
+8. Prepare and capture a useful question.
+9. Research recap and report.
+10. **Quick (e):** Verify and export the evidence trail. Screenshot: [Priya receipts](docs/demo/muse/priya-02.png).
+11. Language, brand and profile settings.
 
 source available under PolyForm Noncommercial 1.0.0. © AiGovOps Foundation, Bob Rapp, Ken Johnston.
