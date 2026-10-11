@@ -222,6 +222,10 @@ label.item{cursor:pointer}
 .kit h3{font-size:1rem;color:var(--pc)}
 .kit ul{margin:0;padding-left:18px;font-size:.9rem}
 .quote{background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:.9rem;white-space:pre-wrap}
+.fu-draft-card{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-top:1px solid var(--line);min-width:0}
+.fu-draft-card:first-child{border-top:0}
+.fu-draft-card .item{width:auto;padding:0;border:0;min-width:0}
+.fu-draft{margin:0;min-width:0;max-width:100%;overflow-wrap:anywhere}
 
 /* agents */
 .agent-card{background:var(--blue-soft);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:10px}
@@ -3581,11 +3585,12 @@ function personRow(p, sub){
     '<span class="body"><span class="title">' + esc(p.name) + (p.star ? ' ★' : '') + '</span><span class="sub">' + esc(sub ?? [p.role, p.company].filter(Boolean).join(', ')) + '</span>' +
     '<span class="chips">' + personaChip(p.persona) + (p.status === 'target' ? '<span class="chip blue">want to meet</span>' : '') + (hasAgent(p) ? '<span class="chip">agent: ' + esc(p.agent.name) + '</span>' : '') + exChip(p) + '</span></span></button>';
 }
-function fuRow(p){
-  return '<div class="item"><button class="icon-btn" data-act="toggleFu" data-id="' + p.id + '" aria-label="' + (p.fu.done ? 'Mark as open' : 'Mark as done') + '">' + (p.fu.done ? '✓' : '') + '</button>' +
+function fuRow(p, showDraft = false){
+  const row = '<div class="item"><button class="icon-btn" data-act="toggleFu" data-id="' + p.id + '" aria-label="' + (p.fu.done ? 'Mark as open' : 'Mark as done') + '">' + (p.fu.done ? '✓' : '') + '</button>' +
     '<span class="body"><span class="title"' + (p.fu.done ? ' style="text-decoration:line-through;color:var(--muted)"' : '') + '>' + esc(p.fu.text) + '</span><span class="sub">' + esc(p.name) + ' · ' + esc(P(p.persona).name) + '</span>' +
     '<span class="chips"><span class="chip ' + (p.fu.done ? 'ok' : p.fu.due === 'tonight' ? 'flag' : '') + '">' + (p.fu.done ? 'done' : esc(DUE[p.fu.due] || 'no date')) + '</span></span></span>' +
     '<button class="btn small" data-act="copyFu" data-id="' + p.id + '">copy note</button></div>';
+  return showDraft ? '<div class="fu-draft-card"><blockquote class="quote fu-draft" data-fu-draft>' + esc(fuMessage(p)) + '</blockquote>' + row + '</div>' : row;
 }
 function peopleList(){
   const q = ui.q.trim().toLowerCase();
@@ -3607,7 +3612,7 @@ function renderPeople(){
     h += '<div id="plist">' + peopleList() + '</div>';
   } else if (ui.mode === 'followups'){
     const fu = S.people.filter(p => p.fu && p.fu.text).sort((a, b) => (a.fu.done - b.fu.done) || ((DUE_ORDER[a.fu.due] ?? 3) - (DUE_ORDER[b.fu.due] ?? 3)));
-    h += fu.length ? '<p class="small muted">Tap the circle when it is done. Copy note gives you a message written for that person\'s persona.</p><div class="list">' + fu.map(fuRow).join('') + '</div>'
+    h += fu.length ? '<p class="small muted">Tap the circle when it is done. Copy note gives you a message written for that person\'s persona.</p><div class="list">' + fu.map(p => fuRow(p, true)).join('') + '</div>'
       : '<div class="empty"><b>no follow-ups yet</b><span>When you log someone, add the one thing you promised them.</span></div>';
   } else if (ui.mode === 'agents'){
     h += renderAgents();

@@ -140,7 +140,7 @@
       step('Pitch fest queue and timer','pitch','#view #timer','Rehearse a short pitch and move through the queue.'),
       step('Connection web and introductions','web','#view .webbox','Spot shared topics and useful introductions across accounts and partners.'),
       step('Report outcomes to the team','report','#view [data-act="copyReport"]','Share outcomes and next steps rather than attendee tracking.'),
-      step('Review a follow-up draft before copying it','people','#view [data-act="copyFu"]','Review the message before deciding whether to move a client conversation forward.','followups',{
+      step('Review a follow-up draft before copying it','people','#view .fu-draft','Review the message before deciding whether to move a client conversation forward.','followups',{
         en:'I do not send an agent-written follow-up blindly; I review the draft and choose when to copy it.',
         es:'No envío a ciegas un seguimiento escrito por un agente; reviso el borrador y decido cuándo copiarlo.',
         pt:'Não envio às cegas um acompanhamento escrito pelo agente; reviso o rascunho e decido quando copiá-lo.',
@@ -212,8 +212,8 @@
     const state = readState();
     const demo = {...readDemo(),...patch};
     state.demo = demo;
-    storageSet.call(localStorage,stateKey,JSON.stringify(state));
     storageSet.call(localStorage,metaKey,JSON.stringify(demo));
+    storageSet.call(localStorage,stateKey,JSON.stringify(state));
     return demo;
   };
   Storage.prototype.setItem = function(key,value) {
@@ -230,8 +230,13 @@
     return storageSet.call(this,key,value);
   };
   const ensureDemo = () => {
-    if (readDemo().tourMode === 'quick' || readDemo().tourMode === 'full') return;
-    writeDemo({tourMode:'quick',tour:{}});
+    const demo = readDemo();
+    const tourMode = demo.tourMode === 'full' ? 'full' : 'quick';
+    if (demo.tourVersion !== 2) {
+      writeDemo({tourVersion:2,tourMode,tour:{}});
+      return;
+    }
+    if (demo.tourMode !== 'quick' && demo.tourMode !== 'full') writeDemo({tourVersion:2,tourMode:'quick'});
   };
   const tourMode = () => readDemo().tourMode === 'full' ? 'full' : 'quick';
   const modeIndices = () => tourMode() === 'quick' ? quick : steps.map((_item,index)=>index);
@@ -269,6 +274,7 @@
     const done = active.filter(index=>completedSteps.has(index)).length;
     banner.querySelector('[data-demo-progress]').textContent = `${tr('tour')} ${done}/${active.length}`;
   };
+  updateProgress();
   const wait = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
   const closeAppSheet = () => {
     if (!document.querySelector('#sheet')?.hidden) document.querySelector('#sheet-foot [data-act="closeSheet"]')?.click();
