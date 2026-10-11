@@ -15,7 +15,20 @@ const browser = await chromium.launch({
   args: ['--no-sandbox'],
 });
 const base = process.env.BASE_URL || 'http://127.0.0.1:8082/';
-const tabs = ['today', 'backstage', 'people', 'agenda', 'meet', 'connect', 'pitch', 'report'];
+const tabs = ['today', 'people', 'meet', 'connect', 'agenda', 'pitch', 'backstage', 'report'];
+const groupFor = (id) => ({ today: 'today', people: 'people', meet: 'people', connect: 'people', agenda: 'agenda', pitch: 'agenda', backstage: 'backstage', report: 'backstage', receipts: 'backstage' })[id] || id;
+const goTab = async (page, id) => {
+  const group = groupFor(id);
+  await page.locator(`#tabbar .tab[data-tab="${group}"]`).click({ force: true });
+  if (id !== group) await page.locator(`#view .subnav [data-tab="${id}"]`).click();
+};
+const completeStart = async (page) => {
+  if (!(await page.locator('[data-action="start-goal"]').count())) return;
+  await page.locator('[data-action="start-goal"][data-goal="social"]').click();
+  await page.locator('[data-action="start-next"]').click();
+  await page.locator('[data-action="start-next"]').click();
+  await page.locator('[data-action="start-finish"]').click();
+};
 const targetErrors = [];
 const axeCheck = async (page, label) => {
   await page.waitForTimeout(400);
@@ -45,12 +58,7 @@ try {
     });
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#sheet-root .sheet');
-    if (await page.locator('[data-form="charter"]').count()) {
-      await page.locator('input[name="give"]').fill('facilitation');
-      await page.locator('input[name="ask"]').fill('AI adoption');
-      await page.locator('[data-action="charter-start"]').click();
-      await page.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').backstage?.onboarded);
-    }
+    await completeStart(page);
     await page.addScriptTag({ path: axePath });
     if (brand !== 'slalom') await setBrand(page, brand);
     else await page.locator('[data-action="open-settings"]').click();
@@ -66,13 +74,13 @@ try {
     if (brand === 'aigovops' && colorScheme === 'light') await page.screenshot({ path: path.join(shots, 'now-aigovops-light.png') });
     if (brand === 'aigovops' && colorScheme === 'dark') await page.screenshot({ path: path.join(shots, 'now-aigovops-dark.png') });
     for (const tab of tabs) {
-      await page.locator(`[data-tab="${tab}"]`).first().click();
+      await goTab(page, tab);
       await axeCheck(page, `${brand}/${colorScheme}/${tab}`);
     }
     await page.locator('[data-action="open-settings"]').click();
     await axeCheck(page, `${brand}/${colorScheme}/settings sheet`);
     await page.locator('[data-action="close-sheet"]').click();
-    await page.locator('[data-tab="backstage"]').click();
+    await goTab(page, 'backstage');
     await page.locator('[data-action="open-receipts"]').click();
     await page.waitForFunction(() => document.querySelector('.receipt-row') || document.querySelector('.receipt-entry'));
     await axeCheck(page, `${brand}/${colorScheme}/receipts`);

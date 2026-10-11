@@ -16,15 +16,17 @@ const alertCleaner = setInterval(() => {
 }, 250);
 alertCleaner.unref?.();
 const base = process.env.BASE_URL || 'http://127.0.0.1:8082/';
+const completeStart = async (targetPage) => {
+  if (!(await targetPage.locator('[data-action="start-goal"]').count())) return;
+  await targetPage.locator('[data-action="start-goal"][data-goal="social"]').click();
+  await targetPage.locator('[data-action="start-next"]').click();
+  await targetPage.locator('[data-action="start-next"]').click();
+  await targetPage.locator('[data-action="start-finish"]').click();
+};
 try {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.R4Receipts);
-  if (await page.locator('[data-form="charter"]').count()) {
-    await page.locator('input[name="give"]').fill('facilitation');
-    await page.locator('input[name="ask"]').fill('AI adoption');
-    await page.locator('[data-action="charter-start"]').click();
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').backstage?.onboarded);
-  }
+  await completeStart(page);
   await page.evaluate(async () => {
     await R4Receipts.init();
     let parentReceiptId;
@@ -87,12 +89,7 @@ try {
   await Promise.all([listPage.goto(base, { waitUntil: 'domcontentloaded' }), writePage.goto(base, { waitUntil: 'domcontentloaded' })]);
   await Promise.all([listPage.waitForFunction(() => window.R4Receipts), writePage.waitForFunction(() => window.R4Receipts)]);
   await Promise.all([listPage, writePage].map((tab) => tab.evaluate(() => R4Receipts.init())));
-  if (await listPage.locator('[data-form="charter"]').count()) {
-    await listPage.locator('input[name="give"]').fill('facilitation');
-    await listPage.locator('input[name="ask"]').fill('AI adoption');
-    await listPage.locator('[data-action="charter-start"]').click();
-    await listPage.keyboard.press('Escape');
-  }
+  await completeStart(listPage);
   await listPage.locator('[data-tab="backstage"]').click();
   await listPage.locator('[data-action="open-receipts"]').click();
   await listPage.waitForSelector('.receipt-row');

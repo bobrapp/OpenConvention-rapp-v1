@@ -128,6 +128,11 @@
     ['notes', _('bring something to take notes')],
     ['share', _('tell my team i am going')],
   ];
+  const GOAL_PRESETS = {
+    social: { mode: 'open', interests: ['community & belonging', 'wellbeing'] },
+    business: { mode: 'selective', interests: ['gtm & sales', 'ai & data'] },
+    research: { mode: 'heads-down', interests: ['ai governance', 'agentic ai'] },
+  };
 
   const MY_AGENTS = [
     { id: 'cos', icon: '★', core: true, name: _('chief of staff'), job: _('runs your networking plan: picks who to meet, talks to other agents, and asks you before booking anything.') },
@@ -227,9 +232,9 @@
   if (!state || state.version !== 1) state = seed();
   if (DEMO_MODE && !localStorage.getItem(KEY)) {
     const personas = {
-      maya: { name: 'Maya Torres', role: 'senior consultant', company: 'Slalom Denver', interests: ['cx & design', 'community & belonging', 'wellbeing'], give: 'design-thinking warmups + the best coffee near the venue', ask: 'a dinner crew for tonight', mode: 'open', autonomy: 'act', maxPerHour: 3, quietAfter: '22:00', hideNameUntilYes: false, shareTopicsOnly: false },
-      diego: { name: 'Diego Alvarez', role: 'client partner', company: 'Slalom Chicago', interests: ['gtm & sales', 'cloud', 'ai & data', 'financial services'], give: 'core-banking modernisation case studies + partner introductions', ask: 'CIOs and COOs modernising core banking', mode: 'selective', autonomy: 'ask', maxPerHour: 2, quietAfter: '21:00', hideNameUntilYes: true, shareTopicsOnly: false },
-      priya: { name: 'Dr. Priya Natarajan', role: 'research fellow', company: 'University of Washington Information School', interests: ['ai governance', 'agentic ai', 'data platforms', 'org change'], give: 'early findings from 40 AI-governance interviews', ask: 'practitioners running agents in production, for 15-min interviews', mode: 'heads-down', autonomy: 'suggest', maxPerHour: 1, quietAfter: '19:00', hideNameUntilYes: true, shareTopicsOnly: true },
+      maya: { name: 'Maya Torres', role: 'senior consultant', company: 'Slalom Denver', goal: 'social', interests: ['cx & design', 'community & belonging', 'wellbeing'], give: 'design-thinking warmups + the best coffee near the venue', ask: 'a dinner crew for tonight', mode: 'open', autonomy: 'act', maxPerHour: 3, quietAfter: '22:00', hideNameUntilYes: false, shareTopicsOnly: false },
+      diego: { name: 'Diego Alvarez', role: 'client partner', company: 'Slalom Chicago', goal: 'business', interests: ['gtm & sales', 'cloud', 'ai & data', 'financial services'], give: 'core-banking modernisation case studies + partner introductions', ask: 'CIOs and COOs modernising core banking', mode: 'selective', autonomy: 'ask', maxPerHour: 2, quietAfter: '21:00', hideNameUntilYes: true, shareTopicsOnly: false },
+      priya: { name: 'Dr. Priya Natarajan', role: 'research fellow', company: 'University of Washington Information School', goal: 'research', interests: ['ai governance', 'agentic ai', 'data platforms', 'org change'], give: 'early findings from 40 AI-governance interviews', ask: 'practitioners running agents in production, for 15-min interviews', mode: 'heads-down', autonomy: 'suggest', maxPerHour: 1, quietAfter: '19:00', hideNameUntilYes: true, shareTopicsOnly: true },
     };
     const p = personas[DEMO_ID];
     const names = {
@@ -242,7 +247,7 @@
       : DEMO_ID === 'diego'
         ? ['CIO', 'COO', 'head of digital', 'AWS partner manager', 'Snowflake partner manager']
         : ['healthcare AI practitioner', 'banking data lead', 'retail AI researcher', 'public-sector strategist', 'standards-body member'];
-    state.me = { ...state.me, name: p.name, role: p.role, company: p.company, team: p.company, interests: p.interests, lookingFor: p.ask, canOffer: p.give, eventName: 'r4', eventStart: isoOf(new Date()), days: 3, dayStart: '06:00', dayEnd: '22:00', lang: 'en', brand: 'slalom' };
+    state.me = { ...state.me, name: p.name, role: p.role, company: p.company, team: p.company, goal: p.goal, interests: p.interests, lookingFor: p.ask, canOffer: p.give, eventName: 'r4', eventStart: isoOf(new Date()), days: 3, dayStart: '06:00', dayEnd: '22:00', lang: 'en', brand: 'slalom' };
     state.people = names.map((name, i) => ({
       id: uid(), name: name.toLowerCase(), role: roles[i % roles.length],
       company: DEMO_ID === 'diego' && i === 3 ? 'AWS' : DEMO_ID === 'diego' && i === 4 ? 'Snowflake' : 'r4 community',
@@ -342,7 +347,8 @@
       state.cosSeeded = true;
     }
     state.agents = { ...freshAgents(), ...(state.agents || {}) };
-    state.me = { role: '', company: '', linkedin: '', email: '', phone: '', lookingFor: '', canOffer: '', discoverable: true, brand: 'slalom', ...state.me };
+    state.me = { role: '', company: '', linkedin: '', email: '', phone: '', lookingFor: '', canOffer: '', discoverable: true, brand: 'slalom', goal: '', ...state.me };
+    if (!Object.hasOwn(GOAL_PRESETS, state.me.goal)) state.me.goal = '';
     if (!['slalom', 'aigovops'].includes(state.me.brand)) state.me.brand = 'slalom';
     state.passport = { scans: 0, coffee: false, ...(state.passport || {}) }; state.passport.stamps = state.passport.stamps || {};
     const base = {
@@ -380,6 +386,7 @@
     agendaSeg: 'timeline', connectSeg: 'web', reportSeg: 'team',
     webFocus: null, groupSize: 4, groupPool: 'all', groupSeed: 1, groupTopic: null,
     recapDay: null, reportPersonas: true, islandOpen: false, charterAsked: false,
+    startStep: 1, startGoal: state.me.goal || '', startSession: null, startAutonomy: 'suggest',
   };
 
   const applyBrand = () => {
@@ -469,13 +476,18 @@
     const [o, msg] = crossed[crossed.length - 1];
     if (state.fired[alertKey(s, o)]) return;
     crossed.forEach(([x]) => { state.fired[alertKey(s, x)] = 1; }); save();
-    fireAlert(s, msg);
+    fireAlert(s, msg, m);
   }
-  function fireAlert(s, msg) {
+  function fireAlert(s, msg, o) {
     const v = { name: hlName(s), loc: s.location || t('the venue') };
     const title = t('★ {name} countdown', v); const body = t(msg, v);
     if ('Notification' in window && Notification.permission === 'granted') {
       try { new Notification(title, { body, tag: `r4-${s.id}`, icon: $('link[rel=icon]')?.href }); } catch { /* some browsers need a service worker */ }
+    }
+    if (o > 5 || document.body.classList.contains('demo-tour-active') || $('#sheet-root .sheet')) {
+      beep(660, 0.15);
+      toast(`${title} · ${body}`);
+      return;
     }
     beep(660, 0.15); setTimeout(() => beep(880, 0.15), 180); setTimeout(() => beep(1100, 0.3), 360);
     $('#alert-root').innerHTML = `<div class="alert-pop" data-action="alert-close-bg"><div class="alert-card">
@@ -800,7 +812,29 @@
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   };
   I.backstage = I.agents;
-  const TABS = [['today', _('now')], ['backstage', _('backstage')], ['people', _('people')], ['meet', _('meet')], ['agenda', _('agenda')], ['connect', _('connect')], ['pitch', _('pitch fest')], ['report', _('report')]];
+  const TABS = [['today', _('now')], ['people', _('people')], ['agenda', _('agenda')], ['backstage', _('agent')]];
+  const TAB_GROUPS = {
+    today: ['today'],
+    people: ['people', 'meet', 'connect'],
+    agenda: ['agenda', 'pitch'],
+    backstage: ['backstage', 'report', 'receipts'],
+  };
+  const SUBNAVS = {
+    people: [['people', _('people')], ['meet', _('meet')], ['connect', _('web')]],
+    agenda: [['agenda', _('agenda')], ['pitch', _('pitch fest')]],
+    backstage: [['backstage', _('agent')], ['report', _('report')]],
+  };
+  const groupOf = (tab) => Object.entries(TAB_GROUPS).find(([, members]) => members.includes(tab))?.[0] || 'today';
+  const subnavHtml = () => {
+    const group = groupOf(ui.tab);
+    const items = SUBNAVS[group];
+    if (!items) return '';
+    const visibleTabs = items.map(([tab]) => tab);
+    return `<nav class="subnav" aria-label="${t('section navigation')}">${items.map(([tab, label]) => {
+      const active = ui.tab === tab || (tab === group && !visibleTabs.includes(ui.tab));
+      return `<button class="${active ? 'active' : ''}" data-action="go" data-tab="${tab}" aria-current="${active ? 'page' : 'false'}">${t(label)}</button>`;
+    }).join('')}</nav>`;
+  };
 
   // ---------- components ----------
   const personaTag = (p) => `<span class="persona-tag ${persona(p).cls}">${esc(plabel(p))}</span>`;
@@ -847,6 +881,49 @@
   }
 
   // ---------- views ----------
+  function goalHero() {
+    if (state.me.goal === 'social') {
+      const next = activeThreads().filter((th) => th.stage === 'confirmed').sort((a, b) => threadStartMs(a) - threadStartMs(b))[0];
+      return `<section class="goal-hero card"><p class="goal-kicker">${t('your next moment')}</p>
+        ${next ? `<h1>${esc(hookText(next))}</h1><p>${fmtTime(next.start)} · ${esc(placeText(next))}</p><button class="btn" data-action="thread-open" data-id="${next.id}">${t('open')}</button>`
+          : `<h1>${t('your agent is finding someone to walk with')}</h1>`}</section>`;
+    }
+    if (state.me.goal === 'business') {
+      const active = activeThreads();
+      const needs = active.filter((th) => th.stage === 'needs-you');
+      const drafts = active.filter((th) => th.draftPending);
+      const ready = [...needs, ...drafts.filter((th) => !needs.some((item) => item.id === th.id))];
+      const readyCount = needs.length + drafts.length;
+      const negotiating = active.filter((th) => ['discover', 'overlap', 'propose', 'negotiate'].includes(th.stage));
+      return `<section class="goal-hero card"><p class="goal-kicker">${readyCount
+        ? t('{n} ready for your ok', { n: readyCount })
+        : t('your agent is negotiating {n} intros', { n: negotiating.length })}</p>
+        ${ready.length
+          ? `<button class="btn" data-action="thread-open" data-id="${ready[0].id}">${t('review first approval')}</button>`
+          : `<button class="btn" data-action="go" data-tab="backstage">${t('open backstage')}</button>`}</section>`;
+    }
+    if (state.me.goal === 'research') {
+      const today = currentDay();
+      const nowM = isEventDay() ? new Date().getHours() * 60 + new Date().getMinutes() : 0;
+      const next = state.sessions.filter((s) => s.status === 'going' && (s.day > today || (s.day === today && toMin(s.end) > nowM)))
+        .sort((a, b) => a.day - b.day || toMin(a.start) - toMin(b.start))[0];
+      return `<section class="goal-hero card"><p class="goal-kicker">${t('your focus time is protected')}</p>
+        <p class="goal-mode">${t(BK().beacon.mode)}</p>
+        ${next ? `<h1>${esc(next.title)}</h1><p>${dayN(next.day)} · ${fmtTime(next.start)}</p>` : ''}
+        <button class="btn" data-action="go" data-tab="backstage">${t('open backstage')}</button></section>`;
+    }
+    return '';
+  }
+  function firstRecommendationCard(suggestion) {
+    if (!suggestion) return '';
+    const { p, score } = suggestion;
+    const shared = p.topics.filter((topic) => (state.me.interests || []).includes(topic)).map(t);
+    return `<button class="card first-recommendation" data-action="person" data-id="${p.id}">
+      <span class="goal-kicker">${t('first recommendation')}</span><b class="recommendation-name">${esc(p.name)}</b>
+      <span class="small muted">${esc([p.role, p.company].filter(Boolean).join(' · '))}</span>
+      <span class="small">${t('why: {topics}', { topics: esc(shared.join(', ') || t('no shared topics yet')) })}</span>
+      <span class="match-score">${t('{n}% match', { n: score })}</span></button>`;
+  }
   function viewToday() {
     const d = currentDay();
     const nowM = isEventDay() ? new Date().getHours() * 60 + new Date().getMinutes() : 0;
@@ -858,10 +935,11 @@
     const hl = headliner();
     return `
       ${viewNowMoments()}
-      <section class="hero">
+      ${state.me.goal ? goalHero() : `<section class="hero">
         <h1>${t('hi {name}, let us make {event} count.', { name: esc(state.me.name), event: esc(state.me.eventName) })}</h1>
         <p>${t('day {n} of {total}', { n: d + 1, total: state.me.days })} · ${esc(dayLabel(d, true))}</p>
-      </section>
+      </section>`}
+      ${state.me.goal ? firstRecommendationCard(sug[0]) : ''}
       ${hl ? headlinerCard(hl) : ''}
       <div class="stats">
         <div class="stat"><b>${metToday}</b><span>${t('met today')}</span></div>
@@ -887,7 +965,7 @@
       <h2 class="section">${t('follow-ups')} <button class="btn ghost sm" data-action="go-followups">${t('see all')}</button></h2>
       ${due.length ? due.slice(0, 3).map((p) => followRow(p)).join('') : `<div class="card empty"><b>${t('inbox zero')}</b>${t('all follow-ups done.')}</div>`}
       <h2 class="section">${t('who to find next')} <button class="btn ghost sm" data-action="go-connect" data-seg="match">${t('more')}</button></h2>
-      ${sug.map((x) => personRow(x.p, `<span class="chip good">${t('{n}% match', { n: x.score })}</span>`)).join('') || `<div class="card empty">${t('no one on your to-meet list.')}</div>`}
+      ${(state.me.goal ? sug.slice(1) : sug).map((x) => personRow(x.p, `<span class="chip good">${t('{n}% match', { n: x.score })}</span>`)).join('') || `<div class="card empty">${t('no one on your to-meet list.')}</div>`}
       <div class="card" style="margin-top:16px;background:var(--navy);color:#fff">
         <h3>${t('end of day?')}</h3><p style="opacity:.8;margin-bottom:12px">${t('get a one-tap recap of who you met, takeaways and tomorrow’s plan.')}</p>
         <button class="btn coral" data-action="go-recap">${t('write my recap')}</button>
@@ -1893,7 +1971,7 @@
     const drafts = activeThreads().filter((x) => x.draftPending);
     const needs = activeThreads().filter((x) => x.stage === 'needs-you');
     const next = activeThreads().filter((x) => x.stage === 'confirmed').sort((a, b) => threadStartMs(a) - threadStartMs(b))[0];
-    return `${needs.length || drafts.length ? `<h2 class="section">${t('needs you')} <small>${needs.length + drafts.length}</small></h2>${drafts.map(draftCard).join('')}${needs.map(momentNeedsYou).join('')}` : ''}
+    return `${needs.length || drafts.length ? `${state.me.goal === 'business' ? '' : `<h2 class="section">${t('needs you')} <small>${needs.length + drafts.length}</small></h2>`}${drafts.map(draftCard).join('')}${needs.map(momentNeedsYou).join('')}` : ''}
       ${next ? `<button class="card next-moment" data-action="thread-open" data-id="${next.id}"><div class="row between"><b>${t('next moment')}</b><span class="chip good">${cdShort({ day: next.day, start: next.start })}</span></div><p class="hook">${esc(hookText(next))}</p><div class="small muted">${fmtTime(next.start)} · ${esc(placeText(next))}</div><span class="btn sm" data-action="moment-start" data-id="${next.id}">${t('start now')}</span></button>` : ''}`;
   }
   function islandHtml() {
@@ -1924,6 +2002,82 @@
     island.innerHTML = markup;
     islandMarkup = markup;
     lastIslandUpdate = Date.now();
+  }
+  function applyGoal(goal) {
+    const preset = GOAL_PRESETS[goal];
+    if (!preset) return;
+    state.me.goal = goal;
+    state.me.interests = [...new Set([...preset.interests, ...(Array.isArray(state.me.interests) ? state.me.interests : [])])];
+    BK().beacon.mode = preset.mode;
+    if (!BK().beacon.give) BK().beacon.give = state.me.canOffer || preset.interests[0];
+    if (!BK().beacon.ask) BK().beacon.ask = state.me.lookingFor || preset.interests[1];
+  }
+  function startAgent(settings) {
+    recordReceipt(null, 'inventory.trust.changed', 'charter.updated', settings, 'charter settings saved');
+    Object.assign(BK().beacon, { give: settings.give, ask: settings.ask });
+    BK().charter.quietAfter = settings.quietAfter;
+    BK().onboarded = true;
+    BK().live = true;
+    save();
+    closeSheet();
+    render();
+    fastForward();
+  }
+  function startSheet() {
+    ui.startSession ??= headliner()?.id || 'none';
+    const sessions = state.sessions.filter((s) => s.status === 'going').sort((a, b) => a.day - b.day || toMin(a.start) - toMin(b.start));
+    const listed = sessions.slice(0, 8);
+    const featured = headliner();
+    if (featured && !listed.some((s) => s.id === featured.id)) {
+      listed.splice(7, 1, featured);
+      listed.sort((a, b) => a.day - b.day || toMin(a.start) - toMin(b.start));
+    }
+    const choices = [
+      ['social', _('meet people'), _('low-pressure company and new friends')],
+      ['business', _('find business'), _('clients, partners and pipeline')],
+      ['research', _('learn & research'), _('trends, experts and focus time')],
+    ];
+    const progress = `<div class="start-progress" role="status">${t('{step} of {total}', { step: ui.startStep, total: 3 })}<span aria-hidden="true"><i style="width:${Math.round((ui.startStep / 3) * 100)}%"></i></span></div>`;
+    let content = '';
+    if (ui.startStep === 1) {
+      content = `<h3>${t('what are you here for?')}</h3><div class="start-options" role="radiogroup" aria-label="${t('what are you here for?')}">
+        ${choices.map(([value, title, description], index) => `<button type="button" class="start-option ${ui.startGoal === value ? 'selected' : ''}" role="radio" aria-checked="${ui.startGoal === value}" tabindex="${ui.startGoal === value || (!ui.startGoal && index === 0) ? '0' : '-1'}" ${ui.startGoal === value || (!ui.startGoal && index === 0) ? 'data-autofocus' : ''} data-action="start-goal" data-goal="${value}"><b>${t(title)}</b><span>${t(description)}</span></button>`).join('')}
+      </div>`;
+    } else if (ui.startStep === 2) {
+      const sessionChoices = listed.map((s) => [s.id, `${s.title} · ${dayN(s.day)} · ${fmtTime(s.start)}`]);
+      sessionChoices.push(['none', _('none')]);
+      content = `<h3>${t("which session can't you miss?")}</h3><div class="start-options start-session-options" role="radiogroup" aria-label="${t("which session can't you miss?")}">
+        ${sessionChoices.map(([value, label], index) => `<button type="button" class="start-option start-session-option ${ui.startSession === value ? 'selected' : ''}" role="radio" aria-checked="${ui.startSession === value}" tabindex="${ui.startSession === value || (!ui.startSession && index === 0) ? '0' : '-1'}" ${ui.startSession === value || (!ui.startSession && index === 0) ? 'data-autofocus' : ''} data-action="start-session" data-session="${esc(value)}">${esc(label)}</button>`).join('')}
+      </div>`;
+    } else {
+      const autonomy = [
+        ['ask', _('check with me first: it asks before reaching out')],
+        ['suggest', _('suggest, i approve: it negotiates, you say yes')],
+        ['act', _('book for me: it confirms good fits on its own')],
+      ];
+      content = `<h3>${t('how much can your agent do?')}</h3><div class="start-options" role="radiogroup" aria-label="${t('how much can your agent do?')}">
+        ${autonomy.map(([value, description]) => `<button type="button" class="start-option ${ui.startAutonomy === value ? 'selected' : ''}" role="radio" aria-checked="${ui.startAutonomy === value}" tabindex="${ui.startAutonomy === value ? '0' : '-1'}" ${ui.startAutonomy === value ? 'data-autofocus' : ''} data-action="start-autonomy" data-value="${value}"><b>${t(value === 'ask' ? 'ask me' : value)}</b><span>${t(description)}</span></button>`).join('')}
+      </div><button type="button" class="btn ghost sm start-more-rules" data-action="more-agent-rules">${t('more agent rules')}</button>`;
+    }
+    openSheet(t('get started'), `${progress}${content}<div class="start-footer">
+      <button type="button" class="btn ghost sm start-skip" data-action="start-skip">${t('skip, set up later')}</button>
+      <div class="row start-step-actions"><button type="button" class="btn secondary" data-action="start-back" ${ui.startStep === 1 ? 'disabled' : ''}>${t('back')}</button>
+      ${ui.startStep < 3
+        ? `<button type="button" class="btn" data-action="start-next" ${ui.startStep === 1 && !ui.startGoal ? 'disabled' : ''}>${t('next')}</button>`
+        : `<button type="button" class="btn coral" data-action="start-finish">${t('let my agent work')}</button>`}</div></div>`);
+  }
+  function finishStart() {
+    applyGoal(ui.startGoal);
+    if (ui.startSession === 'none') {
+      BK().charter.protectHeadliner = false;
+      state.sessions.forEach((s) => { s.featured = false; });
+    } else if (ui.startSession) {
+      state.sessions.forEach((s) => { s.featured = s.id === ui.startSession; });
+      BK().charter.protectHeadliner = true;
+    }
+    BK().autonomy = ui.startAutonomy || 'suggest';
+    startAgent({ give: BK().beacon.give, ask: BK().beacon.ask, quietAfter: BK().charter.quietAfter });
+    go('today');
   }
   function charterSheet() {
     const c = BK().charter;
@@ -2129,12 +2283,15 @@
     $('#lang-switch').setAttribute('aria-label', t('language'));
     $('#lang-switch').innerHTML = Object.entries(LANGS).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}" aria-label="${l.label}" aria-pressed="${lang() === k}">${l.label}</button>`).join('');
     $('#tabbar').setAttribute('aria-label', t('primary navigation'));
-    $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}" aria-current="${ui.tab === k ? 'page' : 'false'}"><span class="tab-ico" aria-hidden="true">${I[k]}</span>${t(l)}</button>`).join('');
+    $('#tabbar').innerHTML = TABS.map(([k, l]) => {
+      const active = groupOf(ui.tab) === k;
+      return `<button class="tab ${active ? 'active' : ''}" data-action="go" data-tab="${k}" aria-current="${active ? 'page' : 'false'}"><span class="tab-ico" aria-hidden="true">${I[k]}</span>${t(l)}</button>`;
+    }).join('');
     const hl = headliner();
     $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${hl.id}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
     updateAgentIsland();
     const views = { today: viewToday, backstage: viewBackstage, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewBackstage, meet: viewMeet, pitch: viewPitch, report: viewReport, receipts: viewReceipts };
-    $('#view').innerHTML = views[ui.tab]() + foundationFooter();
+    $('#view').innerHTML = subnavHtml() + views[ui.tab]() + foundationFooter();
     if (window.ResizeObserver && !window.__r4TopbarObserver) {
       const topbar = document.querySelector('.topbar');
       if (topbar) {
@@ -2153,7 +2310,7 @@
       publishHeight();
     }
     requestAnimationFrame(() => document.querySelector('#tabbar .tab.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'auto' }));
-    if (!BK().onboarded && ['today', 'backstage'].includes(ui.tab) && !ui.charterAsked) { ui.charterAsked = true; setTimeout(charterSheet, 0); }
+    if (!BK().onboarded && ['today', 'backstage'].includes(ui.tab) && !ui.charterAsked) { ui.charterAsked = true; setTimeout(startSheet, 0); }
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
   }
@@ -2163,7 +2320,15 @@
   const A = {
     go: (el) => go(el.dataset.tab),
     'island-toggle': () => { ui.islandOpen = !ui.islandOpen; updateAgentIsland(true); },
-    'open-charter': charterSheet,
+    'open-charter': () => (BK().onboarded ? charterSheet : startSheet)(),
+    'start-goal': (el) => { ui.startGoal = el.dataset.goal; startSheet(); },
+    'start-session': (el) => { ui.startSession = el.dataset.session; startSheet(); },
+    'start-autonomy': (el) => { ui.startAutonomy = el.dataset.value; startSheet(); },
+    'start-next': () => { ui.startStep = Math.min(3, ui.startStep + 1); startSheet(); },
+    'start-back': () => { ui.startStep = Math.max(1, ui.startStep - 1); startSheet(); },
+    'start-skip': () => { ui.charterAsked = true; ui.startStep = 1; closeSheet(); render(); },
+    'start-finish': finishStart,
+    'more-agent-rules': charterSheet,
     'fast-forward': fastForward,
     'backstage-live': (el) => { BK().live = el.checked; save(); refreshBackstageUi(); },
     'beacon-mode': (el) => { BK().beacon.mode = el.dataset.mode; save(); refreshBackstageUi(); },
@@ -2371,11 +2536,7 @@
   const F = {
     charter: (fd) => {
       const settings = { give: fd.get('give').trim(), ask: fd.get('ask').trim(), quietAfter: fd.get('quietAfter') || '21:00' };
-      recordReceipt(null, 'inventory.trust.changed', 'charter.updated', settings, 'charter settings saved');
-      Object.assign(BK().beacon, { give: settings.give, ask: settings.ask });
-      BK().charter.quietAfter = settings.quietAfter;
-      BK().onboarded = true; BK().live = true;
-      save(); closeSheet(); render(); fastForward();
+      startAgent(settings);
     },
     icebreaker: (fd, form) => {
       const th = threadById(form.dataset.id); if (!th) return;
@@ -3064,6 +3225,15 @@
   window.addEventListener('hashchange', handleMeetHash);
 
   // ---------- events ----------
+  document.addEventListener('keydown', (e) => {
+    const radio = e.target.closest?.('.start-options [role="radio"]');
+    if (!radio) return;
+    const delta = ['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 0;
+    if (!delta) return;
+    e.preventDefault();
+    const options = [...radio.closest('[role="radiogroup"]').querySelectorAll('[role="radio"]')];
+    options[(options.indexOf(radio) + delta + options.length) % options.length].click();
+  });
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]'); if (!el) return;
     const fn = A[el.dataset.action]; if (!fn) return;

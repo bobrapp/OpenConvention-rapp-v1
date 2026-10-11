@@ -181,7 +181,13 @@
     });
     backdrop.querySelector('[data-close]').focus();
   };
-  const tabFor = (id) => document.querySelector(`.tabbar .tab[data-tab="${id}"]`);
+  const tabGroups = {
+    today: 'today',
+    people: 'people', meet: 'people', connect: 'people',
+    agenda: 'agenda', pitch: 'agenda',
+    backstage: 'backstage', report: 'backstage', receipts: 'backstage',
+  };
+  const tabFor = (id) => document.querySelector(`.tabbar .tab[data-tab="${tabGroups[id] || id}"]`);
   const showStep = async (index) => {
     const step = steps[index];
     document.body.classList.add('demo-tour-active');
@@ -191,8 +197,12 @@
     if (step[1] === 'settings') {
       document.querySelector('[data-action="open-settings"]')?.click();
     } else {
-      tabFor(step[1] === 'receipts' ? 'backstage' : step[1])?.click();
+      tabFor(step[1])?.click();
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (step[1] !== 'receipts' && tabGroups[step[1]] !== step[1]) {
+        document.querySelector(`#view .subnav [data-tab="${step[1]}"]`)?.click();
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
       if (step[1] === 'receipts') document.querySelector('[data-action="open-receipts"]')?.click();
     }
     await new Promise((resolve) => setTimeout(resolve, 80));

@@ -2014,3 +2014,52 @@ Object.assign(window.R4_I18N.pt, {
  "signing key created": "chave de assinatura criada", "receipts exported": "recibos exportados",
  "non-extractable browser key": "chave de navegador não extraível", "software key": "chave de software"
 });
+
+Object.assign(window.R4_I18N.es, {
+ "what are you here for?": "¿A qué has venido?", "meet people": "Conocer gente",
+ "low-pressure company and new friends": "Conocer gente nueva en un ambiente relajado",
+ "find business": "Impulsar mi negocio", "clients, partners and pipeline": "Clientes, socios y oportunidades",
+ "learn & research": "Aprender e investigar", "trends, experts and focus time": "Tendencias, especialistas y tiempo de concentración",
+ "which session can't you miss?": "¿Qué sesión no te puedes perder?", "how much can your agent do?": "¿Cuánto puede hacer tu agente?",
+ "check with me first: it asks before reaching out": "Consúltame primero: preguntará antes de contactar",
+ "suggest, i approve: it negotiates, you say yes": "Propón y yo apruebo: negocia y tú decides",
+ "book for me: it confirms good fits on its own": "Reserva por mí: confirma buenos encuentros por su cuenta",
+ "more agent rules": "Más reglas del agente", "skip, set up later": "Omitir y configurar más tarde",
+ "get started": "Empecemos", "{step} of {total}": "{step} de {total}", "back": "Atrás",
+ "section navigation": "Navegación de sección", "agent": "Agente", "web": "Web",
+ "your next moment": "Tu próximo encuentro",
+ "your agent is finding someone to walk with": "Tu agente está buscando con quién dar un paseo",
+ "{n} ready for your ok": "{n} esperan tu aprobación",
+ "your agent is negotiating {n} intros": "Tu agente está negociando {n} presentaciones",
+ "review first approval": "Revisar la primera aprobación",
+ "your focus time is protected": "Tu tiempo de concentración está protegido",
+ "first recommendation": "Primera recomendación", "why: {topics}": "Por qué: {topics}",
+ "no shared topics yet": "Aún no hay temas en común",
+ "community & belonging": "comunidad y pertenencia", "wellbeing": "bienestar",
+ "gtm & sales": "comercial y ventas", "ai & data": "IA y datos",
+ "ai governance": "gobernanza de IA", "agentic ai": "IA agéntica", "none": "ninguno"
+});
+Object.assign(window.R4_I18N.pt, {
+ "what are you here for?": "O que você veio fazer?", "meet people": "Conhecer pessoas",
+ "low-pressure company and new friends": "Conhecer gente nova sem pressão",
+ "find business": "Fazer negócios", "clients, partners and pipeline": "Clientes, parceiros e oportunidades",
+ "learn & research": "Aprender e pesquisar", "trends, experts and focus time": "Tendências, especialistas e tempo de foco",
+ "which session can't you miss?": "Qual sessão você não pode perder?", "how much can your agent do?": "O que seu agente pode fazer?",
+ "check with me first: it asks before reaching out": "Consulte comigo primeiro: pergunte antes de entrar em contato",
+ "suggest, i approve: it negotiates, you say yes": "Sugira, eu aprovo: negocie e eu confirmo",
+ "book for me: it confirms good fits on its own": "Agende por mim: confirme boas combinações por conta própria",
+ "more agent rules": "Mais regras do agente", "skip, set up later": "Pular e configurar depois",
+ "get started": "Vamos começar", "{step} of {total}": "{step} de {total}", "back": "Voltar",
+ "section navigation": "Navegação da seção", "agent": "Agente", "web": "Rede",
+ "your next moment": "Seu próximo encontro",
+ "your agent is finding someone to walk with": "Seu agente está procurando alguém para caminhar com você",
+ "{n} ready for your ok": "{n} aguardam sua aprovação",
+ "your agent is negotiating {n} intros": "Seu agente está negociando {n} apresentações",
+ "review first approval": "Revisar primeira aprovação",
+ "your focus time is protected": "Seu tempo de foco está protegido",
+ "first recommendation": "Primeira recomendação", "why: {topics}": "Por quê: {topics}",
+ "no shared topics yet": "Ainda não há assuntos em comum",
+ "community & belonging": "comunidade e pertencimento", "wellbeing": "bem-estar",
+ "gtm & sales": "negócios e vendas", "ai & data": "IA e dados",
+ "ai governance": "governança de IA", "agentic ai": "IA agêntica", "none": "nenhum"
+});
