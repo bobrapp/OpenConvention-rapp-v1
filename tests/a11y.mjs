@@ -114,11 +114,11 @@ assert.equal(await lastTab.getAttribute('aria-current'), 'page');
 assert.equal(await lastTab.evaluate((tab) => { const rect = tab.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth; }), true, 'active tab is not visible');
 await page.setViewportSize({ width: 390, height: 844 });
 await page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem('r4-networking-v1'));
+  const state = JSON.parse(localStorage.getItem('r4-muse-v1'));
   state.me.eventStart = '2030-01-01';
   const featured = state.sessions.find((session) => session.featured);
   if (featured) featured.day = 0;
-  localStorage.setItem('r4-networking-v1', JSON.stringify(state));
+  localStorage.setItem('r4-muse-v1', JSON.stringify(state));
 });
 await page.reload();
 await dismissAlert();
