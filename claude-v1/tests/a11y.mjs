@@ -12,12 +12,16 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:8084/';
 mkdirSync(shots, {recursive:true});
 const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', args:['--no-sandbox']});
 const problems = [];
+const activate = async (page, selector, key = 'Enter') => {
+  await page.locator(selector).focus();
+  await page.keyboard.press(key);
+};
 try {
   for (const brand of ['slalom', 'aigovops']) for (const scheme of ['light', 'dark']) {
     const page = await browser.newPage({viewport:{width:390,height:844}, colorScheme:scheme});
     await page.goto(base, {waitUntil:'domcontentloaded'});
-    await page.locator('#settings-trigger').click();
-    await page.locator(`[role="radio"][data-brand="${brand}"]`).click();
+    await activate(page, '#settings-trigger');
+    await activate(page, `[role="radio"][data-brand="${brand}"]`, 'Space');
     await page.addScriptTag({path:axePath});
     assert.equal(await page.locator('html').getAttribute('data-brand'), brand);
     const axe = await page.evaluate(async()=>axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']}}));
@@ -53,7 +57,7 @@ try {
       if(metrics.overlap.length)problems.push(`${brand}/${scheme}/${label}: header overlap ${metrics.overlap.join(', ')}`);
     };
     for(const tab of ['today','people','agenda','web','pitch','report']){
-      await page.locator(`[data-tab="${tab}"]`).click();
+      await activate(page, `[data-tab="${tab}"]`);
       await checkReflow(tab);
       const small=await page.evaluate(()=>[...document.querySelectorAll('button,a[href],input:not([type=hidden]),select,textarea,[role=button],[role=radio],[role=switch],[role=tab]')].filter(e=>e.offsetParent&&!(e.matches('a[href]')&&e.closest('p'))).map(e=>{const r=e.getBoundingClientRect();return {name:e.getAttribute('aria-label')||e.textContent.trim(),w:r.width,h:r.height}}).filter(e=>e.w<43.9||e.h<43.9));
       if(small.length)problems.push(`${brand}/${scheme}/${tab}: 200% target size ${JSON.stringify(small.slice(0,8))}`);
@@ -62,7 +66,7 @@ try {
         if(graphTargets.length)problems.push(`${brand}/${scheme}/web: undersized graph hit areas ${JSON.stringify(graphTargets)}`);
       }
     }
-    await page.locator('#settings-trigger').click();
+    await activate(page, '#settings-trigger');
     await checkReflow('settings');
     const settingWidth=await page.evaluate(()=>[...document.querySelectorAll('.sheet-body input:not([type=checkbox]),.sheet-body select,.sheet-body textarea')].some(el=>el.getBoundingClientRect().right>390));
     if(settingWidth)problems.push(`${brand}/${scheme}: settings field exceeds 390px`);
@@ -78,7 +82,7 @@ try {
   assert.equal(status,'true');
   const receiptRow=page.locator('#receipt-list .receipt-row').first();
   const receiptSeq=await receiptRow.getAttribute('data-seq');
-  await receiptRow.click();
+  await activate(page, '#receipt-list .receipt-row');
   await page.waitForFunction(seq=>document.querySelector('#sheet-title')?.textContent===`Receipt ${seq}`,receiptSeq);
   await page.keyboard.press('Escape');
   await page.waitForFunction(seq=>document.activeElement?.matches(`[data-act="receiptDetail"][data-seq="${seq}"]`),receiptSeq);
