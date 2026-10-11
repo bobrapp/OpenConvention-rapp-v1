@@ -3576,7 +3576,7 @@ function renderToday(){
   h += '</section>';
 
   h += '<section><div class="sec-head"><h2>follow-ups due</h2><button class="link-btn" data-act="mode" data-mode="followups">see all ' + open.length + '</button></div>';
-  h += open.length ? '<div class="list">' + open.slice(0, 3).map(fuRow).join('') + '</div>' : '<div class="empty"><span>No open follow-ups. Set one when you log a person.</span></div>';
+  h += open.length ? '<div class="list">' + open.slice(0, 3).map(p => fuRow(p)).join('') + '</div>' : '<div class="empty"><span>No open follow-ups. Set one when you log a person.</span></div>';
   h += '</section><p class="foot">A personal planner for ' + esc(c.event) + '. Not an official Slalom app.</p>';
   return h;
 }
@@ -3590,7 +3590,7 @@ function fuRow(p, showDraft = false){
     '<span class="body"><span class="title"' + (p.fu.done ? ' style="text-decoration:line-through;color:var(--muted)"' : '') + '>' + esc(p.fu.text) + '</span><span class="sub">' + esc(p.name) + ' · ' + esc(P(p.persona).name) + '</span>' +
     '<span class="chips"><span class="chip ' + (p.fu.done ? 'ok' : p.fu.due === 'tonight' ? 'flag' : '') + '">' + (p.fu.done ? 'done' : esc(DUE[p.fu.due] || 'no date')) + '</span></span></span>' +
     '<button class="btn small" data-act="copyFu" data-id="' + p.id + '">copy note</button></div>';
-  return showDraft ? '<div class="fu-draft-card"><blockquote class="quote fu-draft" data-fu-draft>' + esc(fuMessage(p)) + '</blockquote>' + row + '</div>' : row;
+  return showDraft === true ? '<div class="fu-draft-card"><blockquote class="quote fu-draft" data-fu-draft>' + esc(fuMessage(p)) + '</blockquote>' + row + '</div>' : row;
 }
 function peopleList(){
   const q = ui.q.trim().toLowerCase();
