@@ -5,9 +5,21 @@ import { chromium } from 'playwright-core';
 const base = process.env.BASE_URL || 'http://127.0.0.1:60804/R4%20Muse%20V1';
 const executablePath = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const personas = [
-  { id: 'maya', name: 'Maya Torres', people: 8, agenda: 7, goals: ['dinner crew', 'birds-of-a-feather', 'oprah keynote'], shots: [2, 4] },
-  { id: 'diego', name: 'Diego Alvarez', people: 10, agenda: 6, goals: ['five client conversations', 'two partner co-sells'], shots: [2, 5] },
-  { id: 'priya', name: 'Dr. Priya Natarajan', people: 8, agenda: 11, goals: ['practitioner interviews', 'writing block', 'research trend notes'], shots: [0, 7] },
+  {
+    id: 'maya', name: 'Maya Torres', descriptor: 'social first-timer', quote: 'I want a dinner crew by tonight.',
+    people: 8, agenda: 7, goals: ['dinner crew', 'birds-of-a-feather', 'oprah keynote'], shots: [2, 4],
+    copy: { es: { descriptor: 'asistente social por primera vez', quote: 'Quiero encontrar un grupo para cenar hoy.', done: '✓ hecho' }, pt: { descriptor: 'estreante em networking social', quote: 'Quero encontrar um grupo para jantar ainda hoje.', done: '✓ concluído' } },
+  },
+  {
+    id: 'diego', name: 'Diego Alvarez', descriptor: 'sales networker', quote: 'Five real client conversations and two partner co-sells.',
+    people: 10, agenda: 6, goals: ['five client conversations', 'two partner co-sells'], shots: [2, 5],
+    copy: { es: { descriptor: 'networker de ventas', quote: 'Cinco conversaciones reales con clientes y dos ventas conjuntas con socios.', done: '✓ hecho' }, pt: { descriptor: 'networker de vendas', quote: 'Cinco conversas reais com clientes e duas vendas conjuntas com parceiros.', done: '✓ concluído' } },
+  },
+  {
+    id: 'priya', name: 'Dr. Priya Natarajan', descriptor: 'academic researcher', quote: 'Four practitioner interviews without wrecking my focus.',
+    people: 8, agenda: 11, goals: ['practitioner interviews', 'writing block', 'research trend notes'], shots: [0, 7],
+    copy: { es: { descriptor: 'investigadora académica', quote: 'Cuatro entrevistas con profesionales sin sacrificar mi concentración.', done: '✓ hecho' }, pt: { descriptor: 'pesquisadora acadêmica', quote: 'Quatro entrevistas com profissionais sem prejudicar meu foco.', done: '✓ concluído' } },
+  },
 ];
 const browser = await chromium.launch({ headless: true, executablePath });
 
@@ -87,6 +99,41 @@ for (const persona of personas) {
   assert.deepEqual(await page.evaluate(() => window.__realTouches), []);
   assert.ok((await page.evaluate(() => indexedDB.databases())).some((db) => db.name === `r4-beacon-muse-demo-${persona.id}`));
   assert.equal((await page.evaluate(() => indexedDB.databases())).some((db) => db.name === 'r4-beacon-muse'), false);
+
+  const englishStepTitles = await page.locator('[data-demo-tour] li > b').allTextContents();
+  for (const language of ['es', 'pt']) {
+    await page.evaluate(([key, lang]) => {
+      const state = JSON.parse(localStorage.getItem(key));
+      state.me.lang = lang;
+      state.demo = { ...(state.demo || {}), tourOpened: false, tour: { 0: true } };
+      localStorage.setItem(key, JSON.stringify(state));
+    }, [stateKey, language]);
+    await page.reload();
+    await page.getByRole('region', { name: 'demo mode' }).waitFor();
+    await page.getByRole('dialog').waitFor();
+    const banner = await page.locator('[data-demo-copy]').textContent();
+    assert.ok(banner.includes(persona.copy[language].descriptor), `${persona.id}: ${language} banner has its translated descriptor`);
+    assert.ok(!banner.includes(persona.descriptor), `${persona.id}: ${language} banner falls back to its English descriptor`);
+    const quote = await page.locator('#demo-tour-title').textContent();
+    assert.ok(quote.includes(persona.copy[language].quote), `${persona.id}: ${language} tour quote is translated`);
+    assert.ok(!quote.includes(persona.quote), `${persona.id}: ${language} tour quote falls back to English`);
+    const translatedTitles = await page.locator('[data-demo-tour] li > b').allTextContents();
+    assert.equal(translatedTitles.length, englishStepTitles.length, `${persona.id}: ${language} has a title for every tour step`);
+    translatedTitles.forEach((title, index) => {
+      assert.ok(title.trim(), `${persona.id}: ${language} step ${index + 1} has a translation`);
+      assert.notEqual(title, englishStepTitles[index], `${persona.id}: ${language} step ${index + 1} is not English`);
+    });
+    assert.equal(await page.locator('[data-demo-done="0"]').textContent(), persona.copy[language].done, `${persona.id}: ${language} completion text is translated`);
+  }
+  await page.evaluate((key) => {
+    const state = JSON.parse(localStorage.getItem(key));
+    state.me.lang = 'en';
+    state.demo = { ...(state.demo || {}), tourOpened: false, tour: {} };
+    localStorage.setItem(key, JSON.stringify(state));
+  }, stateKey);
+  await page.reload();
+  await page.getByRole('region', { name: 'demo mode' }).waitFor();
+  await page.getByRole('dialog').waitFor();
 
   const axePath = new URL('./node_modules/axe-core/axe.min.js', import.meta.url).pathname;
   await page.addScriptTag({ path: axePath });

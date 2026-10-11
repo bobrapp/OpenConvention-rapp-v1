@@ -52,15 +52,61 @@
   const persona = personas[id];
   if (!persona) return;
   const strings = {
-    en: { tour: 'tour', exit: 'exit demo', show: 'show me', reset: 'reset this demo', close: 'exit tour', why: 'Why this matters for {name}: it makes the event valuable on your terms.', confirm: 'Reset this persona demo?' },
-    es: { tour: 'recorrido', exit: 'salir de demo', show: 'ver', reset: 'reiniciar esta demo', close: 'salir del recorrido', why: 'Por qué importa para {name}: hace que el evento sea valioso en sus propios términos.', confirm: '¿Reiniciar la demo de esta persona?' },
-    pt: { tour: 'tour', exit: 'sair da demo', show: 'ver', reset: 'redefinir esta demo', close: 'sair do tour', why: 'Por que isso importa para {name}: torna o evento valioso nos termos de cada pessoa.', confirm: 'Redefinir a demo desta persona?' },
+    en: { tour: 'tour', exit: 'exit demo', show: 'show me', reset: 'reset this demo', close: 'exit tour', why: 'Why this matters for {name}: it makes the event valuable on your terms.', confirm: 'Reset this persona demo?', done: '✓ done' },
+    es: { tour: 'recorrido', exit: 'salir de demo', show: 'ver', reset: 'reiniciar esta demo', close: 'salir del recorrido', why: 'Por qué importa para {name}: hace que el evento sea valioso en sus propios términos.', confirm: '¿Reiniciar la demo de esta persona?', done: '✓ hecho' },
+    pt: { tour: 'tour', exit: 'sair da demo', show: 'ver', reset: 'redefinir esta demo', close: 'sair do tour', why: 'Por que isso importa para {name}: torna o evento valioso nos termos de cada pessoa.', confirm: 'Redefinir esta demo?', done: '✓ concluído' },
+  };
+  const personaTranslations = {
+    es: {
+      maya: {
+        descriptor: 'asistente social por primera vez',
+        quote: 'Quiero encontrar un grupo para cenar hoy.',
+        steps: ['Prepárate con un objetivo personal', 'Vista de Hoy y agente entre bastidores', 'Personas, conexión mutua y seguimiento', 'Agenda y la conferencia de Oprah', 'Agentes y propuesta que requiere tu atención', 'Red de conexiones y grupos comunitarios', 'Ronda de presentaciones y cronómetro en vivo', 'Resumen del día e informe del equipo', 'Recibos firmados y confianza sin conexión', 'Diseño e idioma de Slalom / AiGovOps'],
+      },
+      diego: {
+        descriptor: 'networker de ventas',
+        quote: 'Cinco conversaciones reales con clientes y dos ventas conjuntas con socios.',
+        steps: ['Prioridades de clientes potenciales y socios', 'Empareja ofertas y pedidos con presentaciones cálidas', 'Aprobaciones pendientes y reuniones confirmadas', 'Negociación del agente y rechazos gestionados', 'Comparte la tarjeta del agente por QR y enlace', 'Ensayo de presentación, cronómetro y duración', 'Borradores y secuencias de seguimiento', 'Informe por persona y exportación', 'Verifica y exporta recibos firmados', 'Perfil de ventas y objetivos'],
+      },
+      priya: {
+        descriptor: 'investigadora académica',
+        quote: 'Cuatro entrevistas con profesionales sin sacrificar mi concentración.',
+        steps: ['Bloques de concentración y conferencia principal en su agenda', 'Notas de la sesión y conclusiones', 'Propuestas del agente en modo concentración e instrucciones bloqueadas', 'Profesionales y temas de investigación', 'Red de conexiones por tema', 'Prepárate y anota una pregunta útil', 'Resumen de investigación e informe', 'Verifica y exporta el registro de evidencia', 'Texto más grande, idioma y controles de diseño'],
+      },
+    },
+    pt: {
+      maya: {
+        descriptor: 'estreante em networking social',
+        quote: 'Quero encontrar um grupo para jantar ainda hoje.',
+        steps: ['Prepare-se com um objetivo pessoal', 'Visão de Hoje e agente nos bastidores', 'Pessoas, conexão mútua e acompanhamento', 'Agenda e a palestra principal de Oprah', 'Agentes e proposta que precisa da sua atenção', 'Rede de conexões e grupos da comunidade', 'Rodada de apresentações e cronômetro ao vivo', 'Resumo do dia e relatório da equipe', 'Recibos assinados e confiança offline', 'Design e idioma do Slalom / AiGovOps'],
+      },
+      diego: {
+        descriptor: 'networker de vendas',
+        quote: 'Cinco conversas reais com clientes e duas vendas conjuntas com parceiros.',
+        steps: ['Prioridades de clientes e parceiros qualificados', 'Combine ofertas e pedidos com apresentações calorosas', 'Aprovações que precisam de você e reuniões confirmadas', 'Negociação do agente e recusas absorvidas', 'Compartilhe o cartão do agente por QR e link', 'Ensaio da apresentação, cronômetro e duração', 'Rascunhos e sequências de acompanhamento', 'Relatório por persona e exportação', 'Verifique e exporte recibos assinados', 'Perfil de vendas e metas'],
+      },
+      priya: {
+        descriptor: 'pesquisadora acadêmica',
+        quote: 'Quatro entrevistas com profissionais sem prejudicar meu foco.',
+        steps: ['Blocos de foco e palestra principal na agenda', 'Anotações da sessão e aprendizados', 'Propostas do agente em modo foco e instruções bloqueadas', 'Profissionais e interesses de pesquisa', 'Rede de conexões por tema', 'Prepare-se e registre uma pergunta útil', 'Resumo de pesquisa e relatório', 'Verifique e exporte o registro de evidências', 'Texto maior, idioma e controles de design'],
+      },
+    },
   };
   const locale = () => {
     try { return strings[JSON.parse(localStorage.getItem(`r4-networking-v1-demo-${id}`) || '{}').me?.lang] ? JSON.parse(localStorage.getItem(`r4-networking-v1-demo-${id}`) || '{}').me.lang : 'en'; }
     catch { return 'en'; }
   };
-  const tr = (key, vars = {}) => (strings[locale()][key] || strings.en[key]).replace(/\{(\w+)\}/g, (_match, name) => vars[name] || '');
+  const tr = (key, vars = {}) => {
+    const [type, personaId, index] = key.split('.');
+    const localized = personaTranslations[locale()]?.[personaId];
+    const english = personas[personaId];
+    const value = strings[locale()][key] ||
+      (type === 'step' ? localized?.steps?.[Number(index)] : localized?.[type]) ||
+      strings.en[key] ||
+      (type === 'step' ? english?.steps?.[Number(index)]?.[0] : english?.[type]);
+    return (value || '').replace(/\{(\w+)\}/g, (_match, name) => vars[name] || '');
+  };
+  const stepTitle = (index) => tr(`step.${id}.${index}`);
 
   const stateKey = `r4-networking-v1-demo-${id}`;
   const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -122,14 +168,14 @@
     await wait();
     const target = document.querySelector(step[2]);
     if (!target || !target.getClientRects().length) {
-      window.__r4DemoStep = { index, title: step[0], selector: step[2], fallback: true };
+      window.__r4DemoStep = { index, title: stepTitle(index), selector: step[2], fallback: true };
       return;
     }
     target.classList.add('demo-feature-highlight');
     if (!target.matches('a,button,input,select,textarea,[tabindex]')) target.tabIndex = -1;
     target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
     target.focus({ preventScroll: true });
-    window.__r4DemoStep = { index, title: step[0], selector: step[2], fallback: false };
+    window.__r4DemoStep = { index, title: stepTitle(index), selector: step[2], fallback: false };
     window.dispatchEvent(new CustomEvent('r4-demo-step', { detail: window.__r4DemoStep }));
   };
 
@@ -137,7 +183,7 @@
     const state = JSON.parse(localStorage.getItem(stateKey) || '{}');
     const done = Object.values(state.demo?.tour || {}).filter(Boolean).length;
     const copy = banner.querySelector('[data-demo-copy]');
-    const text = `demo · ${persona.name}, ${persona.descriptor} · ${tr('tour')} ${done}/${persona.steps.length}`;
+    const text = `demo · ${persona.name}, ${tr(`descriptor.${id}`)} · ${tr('tour')} ${done}/${persona.steps.length}`;
     copy.textContent = text;
     copy.title = text;
     copy.setAttribute('aria-label', text);
@@ -157,10 +203,10 @@
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
     dialog.setAttribute('aria-labelledby', 'demo-tour-title');
-    dialog.innerHTML = `<section class="demo-sheet"><h2 id="demo-tour-title">${persona.name}: “${persona.quote}”</h2><ol>${persona.steps.map((step, index) => `<li><b>${step[0]}</b><p>${tr('why', { name: persona.name })}</p><button type="button" data-demo-show="${index}">${tr('show')}</button> <span data-demo-done="${index}"></span></li>`).join('')}</ol><div class="row wrap"><button type="button" data-demo-reset>${tr('reset')}</button><button type="button" data-demo-close>${tr('close')}</button></div></section>`;
+    dialog.innerHTML = `<section class="demo-sheet"><h2 id="demo-tour-title">${persona.name}: “${tr(`quote.${id}`)}”</h2><ol>${persona.steps.map((_step, index) => `<li><b>${stepTitle(index)}</b><p>${tr('why', { name: persona.name })}</p><button type="button" data-demo-show="${index}">${tr('show')}</button> <span data-demo-done="${index}"></span></li>`).join('')}</ol><div class="row wrap"><button type="button" data-demo-reset>${tr('reset')}</button><button type="button" data-demo-close>${tr('close')}</button></div></section>`;
     document.body.append(dialog);
     persona.steps.forEach((_step, index) => {
-      if (state.demo?.tour?.[index]) dialog.querySelector(`[data-demo-done="${index}"]`).textContent = '✓ done';
+      if (state.demo?.tour?.[index]) dialog.querySelector(`[data-demo-done="${index}"]`).textContent = tr('done');
     });
     updateProgress(banner);
     dialog.querySelectorAll('[data-demo-show]').forEach((button) => button.addEventListener('click', async () => {
