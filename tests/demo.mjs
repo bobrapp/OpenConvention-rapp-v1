@@ -15,7 +15,11 @@ const browser = await chromium.launch({
   args: ['--no-sandbox'],
 });
 const base = process.env.BASE_URL || 'http://127.0.0.1:60802/';
-const personas = [['maya', 'Maya Torres', 8, 6], ['diego', 'Diego Alvarez', 10, 9], ['priya', 'Dr. Priya Natarajan', 8, 10]];
+const personas = [
+  ['maya', 'Maya Torres', 8, 6, ['dinner crew', 'birds-of-a-feather', 'oprah keynote']],
+  ['diego', 'Diego Alvarez', 10, 9, ['five client conversations', 'two partner co-sells']],
+  ['priya', 'Dr. Priya Natarajan', 8, 10, ['practitioner interviews', 'writing block', 'research trend notes']],
+];
 
 const snapshot = (page) => page.evaluate(async () => {
   const db = await new Promise((resolve, reject) => {
@@ -41,7 +45,7 @@ const closeFeatureSheet = async (page) => {
 };
 
 try {
-  for (const [index, [id, name, count, agendaCount]] of personas.entries()) {
+  for (const [index, [id, name, count, agendaCount, goalLabels]] of personas.entries()) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     const pageErrors = [];
@@ -65,14 +69,47 @@ try {
     await page.waitForFunction((key) => !!localStorage.getItem(key), `r4-networking-v2-demo-${id}`);
     await page.waitForFunction(() => !!document.querySelector('.demo-tour[role="dialog"]'));
     const demoState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), `r4-networking-v2-demo-${id}`);
+    const minute = (time) => {
+      const [hour, minutes] = time.split(':').map(Number);
+      return hour * 60 + minutes;
+    };
     assert.equal(demoState.me.name, name);
     assert.equal(demoState.people.length, count);
     assert.equal(demoState.sessions.filter((session) => !session.agentBooked).length, agendaCount, `${id}: exact attendee agenda count is seeded`);
+    assert.ok(goalLabels.every((label) => demoState.goals.some((goal) => goal.text.toLowerCase().includes(label))), `${id}: goals are persona-specific`);
+    assert.ok(demoState.pitches.some((pitch) => pitch.name === name), `${id}: persona does not own a seeded pitch`);
+    if (id === 'diego') assert.ok(demoState.pitches[0].idea.toLowerCase().includes('client transformation'), 'Diego pitch describes client transformation');
     assert.deepEqual(
       [...new Set(demoState.backstage.threads.map((thread) => thread.stage))].sort(),
       ['blocked', 'confirmed', 'declined', 'needs-you'].sort(),
       `${id}: backstage seeds every toured agent outcome`,
     );
+    for (const thread of demoState.backstage.threads.filter((item) => item.stage === 'confirmed')) {
+      const session = demoState.sessions.find((item) => item.id === thread.momentId);
+      assert.ok(session, `${id}: confirmed thread has no linked meeting`);
+      assert.equal(session.momentId, thread.id);
+      assert.equal(session.day, thread.day);
+      assert.equal(session.start, thread.start);
+      const endMinutes = minute(thread.start) + thread.minutes;
+      assert.equal(session.end, `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`);
+    }
+    const serializedState = JSON.stringify(demoState).toLowerCase();
+    assert.ok(!serializedState.includes('bob'), `${id}: demo state contains Bob`);
+    assert.ok(!serializedState.includes('this r4 networking app'), `${id}: demo state contains the default pitch`);
+    assert.equal(demoState.backstage.beacon.lengths, undefined, `${id}: demo state contains unenforced meeting lengths`);
+    for (const proposal of demoState.agents.proposals) {
+      const linked = proposal.status === 'booked' ? demoState.sessions.find((session) => session.id === proposal.sessionId) : null;
+      if (proposal.status === 'booked') {
+        assert.ok(linked, `${id}: booked proposal has no session`);
+        assert.equal(linked.day, proposal.day);
+        assert.equal(linked.start, proposal.start);
+        assert.equal(linked.end, proposal.end);
+      }
+      for (const session of demoState.sessions) {
+        if (session.id === linked?.id || session.day !== proposal.day) continue;
+        assert.ok(minute(proposal.start) >= minute(session.end) || minute(proposal.end) <= minute(session.start), `${id}: proposal overlaps ${session.title}`);
+      }
+    }
     if (index === 0) {
       const testLanguage = async (lang, button, firstStep) => {
         await page.evaluate(([key, nextLang]) => {
@@ -97,11 +134,43 @@ try {
     assert.equal(realAfter.head, realBefore.head, `${id}: real receipt head stays isolated`);
     assert.deepEqual(realAfter.entries, realBefore.entries, `${id}: real receipt DB stays isolated`);
 
+    if (await page.locator('.demo-tour [data-close]').count()) await page.locator('.demo-tour [data-close]').click();
+    await page.locator('.tab[data-tab="backstage"]').click();
+    await page.locator('.classic-tools > summary').click();
+    const clipboardHooked = await page.evaluate(() => {
+      try {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: { writeText: async (text) => { window.__demoCopiedCardLink = text; } },
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(clipboardHooked, `${id}: could not intercept the demo card copy`);
+    await page.locator('[data-action="agent-copy-link"]').click();
+    await page.waitForFunction(() => Boolean(window.__demoCopiedCardLink));
+    const cardLink = await page.evaluate(() => window.__demoCopiedCardLink);
+    const cardUrl = new URL(cardLink);
+    assert.equal(cardUrl.searchParams.get('demo'), id, `${id}: demo card link is missing its demo query`);
+    const card = JSON.parse(Buffer.from(cardUrl.hash.slice('#agent='.length), 'base64url').toString('utf8'));
+    assert.equal(card.demo, true, `${id}: demo card payload is not marked as demo`);
+    const realStoredState = await page.evaluate(() => localStorage.getItem('r4-networking-v2'));
+    const realPage = await context.newPage();
+    realPage.on('pageerror', (error) => pageErrors.push(error.message));
+    await realPage.goto(`${base}${cardUrl.hash}`, { waitUntil: 'domcontentloaded' });
+    await realPage.getByText('this is a demo card — open it from a demo', { exact: true }).waitFor();
+    assert.equal(await realPage.evaluate(() => localStorage.getItem('r4-networking-v2')), realStoredState, `${id}: demo card changed real storage`);
+    await realPage.close();
+    await page.locator('.demo-banner [data-tour]').click();
+
     await page.addScriptTag({ path: axePath });
     const violations = await page.evaluate(async () => (await axe.run(document, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
     })).violations.filter((violation) => ['serious', 'critical'].includes(violation.impact)));
     assert.deepEqual(violations, [], `${id}: no serious/critical axe findings`);
+    await page.waitForFunction(() => !document.querySelector('#toast')?.classList.contains('show'));
     const targetSizes = await page.evaluate(() => [...document.querySelectorAll('.demo-banner button,.demo-banner a,.demo-tour button')]
       .filter((element) => element.getClientRects().length)
       .map((element) => {

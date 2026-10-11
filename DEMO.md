@@ -2,7 +2,7 @@
 
 ## Why this app
 
-- **More real connections, less social cost.** Agents do the searching, asking, rejecting and scheduling backstage. People only see short (7/15/25 min) moments that both said yes to. First-timers get a dinner crew, sellers get qualified conversations, researchers get interviews.
+- **More real connections, less social cost.** Agents do the searching, asking, rejecting and scheduling backstage. People only see moments that both said yes to. First-timers get a dinner crew, sellers get qualified conversations, researchers get interviews.
 - **Respects the agenda.** Keynotes/headliners are protected, there are quiet hours and hourly caps, so networking doesn't pull people out of the sessions the sponsor paid for.
 - **Follow-through.** Follow-up drafts, a recap and a report turn hallway conversations into outcomes the attendee (and their team) can act on.
 - **Privacy by default.** Data stays on the device. Names are revealed only after mutual consent. Agents share topics, not contact details. There's no attendee tracking dashboard.

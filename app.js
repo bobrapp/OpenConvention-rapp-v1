@@ -227,9 +227,9 @@
   if (!state || state.version !== 1) state = seed();
   if (DEMO_MODE && !localStorage.getItem(KEY)) {
     const personas = {
-      maya: { name: 'Maya Torres', role: 'senior consultant', company: 'Slalom Denver', interests: ['cx & design', 'community & belonging', 'wellbeing'], give: 'design-thinking warmups + the best coffee near the venue', ask: 'a dinner crew for tonight', mode: 'open', lengths: [7, 15], autonomy: 'act', maxPerHour: 3, quietAfter: '22:00', hideNameUntilYes: false, shareTopicsOnly: false },
-      diego: { name: 'Diego Alvarez', role: 'client partner', company: 'Slalom Chicago', interests: ['gtm & sales', 'cloud', 'ai & data', 'financial services'], give: 'core-banking modernisation case studies + partner introductions', ask: 'CIOs and COOs modernising core banking', mode: 'selective', lengths: [15, 25], autonomy: 'ask', maxPerHour: 2, quietAfter: '21:00', hideNameUntilYes: true, shareTopicsOnly: false },
-      priya: { name: 'Dr. Priya Natarajan', role: 'research fellow', company: 'University of Washington Information School', interests: ['ai governance', 'agentic ai', 'data platforms', 'org change'], give: 'early findings from 40 AI-governance interviews', ask: 'practitioners running agents in production, for 15-min interviews', mode: 'heads-down', lengths: [15], autonomy: 'suggest', maxPerHour: 1, quietAfter: '19:00', hideNameUntilYes: true, shareTopicsOnly: true },
+      maya: { name: 'Maya Torres', role: 'senior consultant', company: 'Slalom Denver', interests: ['cx & design', 'community & belonging', 'wellbeing'], give: 'design-thinking warmups + the best coffee near the venue', ask: 'a dinner crew for tonight', mode: 'open', autonomy: 'act', maxPerHour: 3, quietAfter: '22:00', hideNameUntilYes: false, shareTopicsOnly: false },
+      diego: { name: 'Diego Alvarez', role: 'client partner', company: 'Slalom Chicago', interests: ['gtm & sales', 'cloud', 'ai & data', 'financial services'], give: 'core-banking modernisation case studies + partner introductions', ask: 'CIOs and COOs modernising core banking', mode: 'selective', autonomy: 'ask', maxPerHour: 2, quietAfter: '21:00', hideNameUntilYes: true, shareTopicsOnly: false },
+      priya: { name: 'Dr. Priya Natarajan', role: 'research fellow', company: 'University of Washington Information School', interests: ['ai governance', 'agentic ai', 'data platforms', 'org change'], give: 'early findings from 40 AI-governance interviews', ask: 'practitioners running agents in production, for 15-min interviews', mode: 'heads-down', autonomy: 'suggest', maxPerHour: 1, quietAfter: '19:00', hideNameUntilYes: true, shareTopicsOnly: true },
     };
     const p = personas[DEMO_ID];
     const names = {
@@ -290,15 +290,33 @@
       ],
     };
     state.sessions = agendas[DEMO_ID];
-    state.goals = [
-      { id: uid(), text: DEMO_ID === 'maya' ? 'Meet 10 new people' : DEMO_ID === 'diego' ? 'Qualified client conversations' : 'Practitioner interviews', target: DEMO_ID === 'maya' ? 10 : DEMO_ID === 'diego' ? 5 : 4, auto: 'people', count: 0 },
-      { id: uid(), text: DEMO_ID === 'maya' ? 'Find a dinner crew' : DEMO_ID === 'diego' ? 'Partner co-sell introductions' : 'Attend governance talks', target: DEMO_ID === 'diego' ? 2 : 3, auto: '', count: 0 },
-    ];
-    state.pitches = [{ id: uid(), name: p.name, idea: DEMO_ID === 'diego' ? 'Core banking modernization with responsible AI' : 'Responsible AI in practice', done: false, sparked: [] }];
-    state.agents = { ...freshAgents(), autoBook: DEMO_ID === 'maya', log: [{ id: uid(), from: 'peer agent', to: 'my agent', text: 'A simulated agent proposed a useful connection.', ts: Date.now() }], proposals: [{ id: uid(), personId: state.people[0].id, status: 'needs-you', day: 0, start: '12:00', end: '12:15', location: 'lobby' }] };
+    state.goals = ({
+      maya: [
+        { text: 'Find a dinner crew tonight', target: 1, auto: '', count: 0 },
+        { text: 'Join one birds-of-a-feather', target: 1, auto: 'bof', count: 0 },
+        { text: 'Attend the Oprah keynote', target: 1, auto: '', count: 0 },
+      ],
+      diego: [
+        { text: 'Five client conversations', target: 5, auto: 'people', count: 2 },
+        { text: 'Two partner co-sells', target: 2, auto: '', count: 1 },
+      ],
+      priya: [
+        { text: 'Complete practitioner interviews', target: 4, auto: 'people', count: 1 },
+        { text: 'Complete a writing block', target: 2, auto: '', count: 1 },
+        { text: 'Capture research trend notes', target: 3, auto: '', count: 1 },
+      ],
+    })[DEMO_ID].map((goal) => ({ id: uid(), ...goal }));
+    state.pitches = [{
+      id: uid(), name: p.name,
+      idea: DEMO_ID === 'maya' ? 'A welcoming dinner crew for first-time attendees'
+        : DEMO_ID === 'diego' ? 'Client transformation through core-banking modernization'
+          : 'Three emerging themes in agent governance practice',
+      done: false, sparked: [],
+    }];
+    state.agents = { ...freshAgents(), autoBook: DEMO_ID === 'maya', log: [{ id: uid(), from: 'peer agent', to: 'my agent', text: 'A simulated agent proposed a useful connection.', ts: Date.now() }], proposals: [{ id: uid(), personId: state.people[0].id, status: 'needs-you', day: 1, start: '16:00', end: '16:15', location: 'lobby' }] };
     state.backstage = {
       ...(state.backstage || {}), live: true, onboarded: true, autonomy: p.autonomy,
-      beacon: { ...(state.backstage?.beacon || {}), mode: p.mode, lengths: p.lengths, give: p.give, ask: p.ask },
+      beacon: { ...(state.backstage?.beacon || {}), mode: p.mode, give: p.give, ask: p.ask },
       charter: { ...(state.backstage?.charter || {}), hideNameUntilYes: p.hideNameUntilYes, shareTopicsOnly: p.shareTopicsOnly, maxPerHour: p.maxPerHour, protectHeadliner: true, quietAfter: p.quietAfter },
     };
     state.headlinerSeeded = true;
@@ -329,7 +347,7 @@
     state.passport = { scans: 0, coffee: false, ...(state.passport || {}) }; state.passport.stamps = state.passport.stamps || {};
     const base = {
       live: true, onboarded: false, autonomy: 'suggest',
-      beacon: { give: '', ask: '', mode: 'open', lengths: [7, 15] },
+      beacon: { give: '', ask: '', mode: 'open' },
       charter: { hideNameUntilYes: true, shareTopicsOnly: true, maxPerHour: 2, protectHeadliner: true, quietAfter: '21:00' },
       threads: [],
       stats: { agents: 0, convos: 0, nosAbsorbed: 0, blocked: 0, moments: 0, sparks: 0 },
@@ -342,6 +360,7 @@
       stats: { ...base.stats, ...(state.backstage?.stats || {}) },
       threads: Array.isArray(state.backstage?.threads) ? state.backstage.threads : [],
     };
+    if (DEMO_MODE) delete state.backstage.beacon.lengths;
     if (!state.backstage.beacon.give) state.backstage.beacon.give = state.me.canOffer || state.me.interests?.[0] || '';
     if (!state.backstage.beacon.ask) state.backstage.beacon.ask = state.me.lookingFor || state.me.interests?.[1] || state.me.interests?.[0] || '';
   }
@@ -1655,10 +1674,16 @@
   const b64e = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const b64d = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
   const shareBase = () => document.querySelector('meta[name="r4-share-base"]')?.content || `${location.origin}${location.pathname}`;
-  const cardLink = () => `${shareBase()}#agent=${b64e(JSON.stringify({ v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName }))}`;
+  const cardLink = () => {
+    const url = new URL(shareBase(), location.href);
+    if (DEMO_MODE) url.searchParams.set('demo', DEMO_ID);
+    const card = { v: 1, n: state.me.name, r: state.me.role, c: state.me.team, i: state.me.interests, e: state.me.eventName, ...(DEMO_MODE ? { demo: true } : {}) };
+    return `${url.toString()}#agent=${b64e(JSON.stringify(card))}`;
+  };
   function importCard(str) {
     const m = String(str).match(/agent=([\w-]+)/); if (!m) throw new Error('no card');
     const c = JSON.parse(b64d(m[1])); if (!c.n) throw new Error('bad card');
+    if (c.demo && !DEMO_MODE) { toast(t('this is a demo card — open it from a demo')); return null; }
     let p = state.people.find((x) => x.imported && x.name === c.n);
     if (!p) {
       p = { id: uid(), name: String(c.n), role: String(c.r || ''), company: String(c.c || ''), persona: 'peer', topics: (c.i || []).map((x) => String(x).toLowerCase()), status: 'want', priority: 'warm', lookingFor: '', canOffer: '', notes: t('added from their agent card'), metAt: '', day: currentDay(), followUp: { action: '', due: currentDay() + 1, done: false }, createdAt: Date.now(), imported: true };
@@ -2400,7 +2425,7 @@
     'propose-bof': (fd) => { state.bofTopics.push({ id: uid(), title: fd.get('title').trim().toLowerCase(), by: state.me.name, votes: 1, voted: true }); save(); render(); toast(t('topic proposed')); },
     'agent-import': (fd) => {
       if (String(fd.get('link')).includes(cardLink().split('#agent=')[1])) { toast(t('that is your own agent card')); return; }
-      try { const p = importCard(fd.get('link')); render(); toast(t('{name}\'s agent card added', { name: first(p.name) })); } catch { toast(t('that agent link did not work')); }
+      try { const p = importCard(fd.get('link')); if (!p) return; render(); toast(t('{name}\'s agent card added', { name: first(p.name) })); } catch { toast(t('that agent link did not work')); }
     },
     'add-pitch': (fd) => { state.pitches.push({ id: uid(), name: fd.get('name').trim(), idea: fd.get('idea').trim(), done: false, sparked: [] }); save(); render(); toast(t('added to queue')); },
     settings: (fd) => {
@@ -2532,7 +2557,7 @@
     try {
       let m = s.match(/#card=([\w-]+)/);
       if (m) { const c = JSON.parse(b64d(m[1])); if (!c.n) throw new Error('bad'); if (c.n === state.me.name && (c.l || '') === normLinkedIn(state.me.linkedin)) { toast(t('that is your own card')); return; } scanPreview({ name: c.n, role: c.r, company: c.c, linkedin: c.l, email: c.m, topics: c.i || [], lookingFor: c.f, canOffer: c.o }); return; }
-      if (/#agent=/.test(s)) { closeSheet(); const p = importCard(s); toast(t('{name}\'s agent card added', { name: first(p.name) })); go('agents'); return; }
+      if (/#agent=/.test(s)) { closeSheet(); const p = importCard(s); if (!p) return; toast(t('{name}\'s agent card added', { name: first(p.name) })); go('agents'); return; }
       m = s.match(/#pod=([A-Za-z0-9]{6})/) || s.match(/^([A-Z0-9]{6})$/);
       if (m) { joinConsent(m[1].toUpperCase()); return; }
       if (/BEGIN:VCARD/i.test(s)) { const o = parseVcard(s); if (o.name) { scanPreview(o); return; } }
@@ -3106,7 +3131,10 @@
     if (!/^#agent=/.test(location.hash)) return;
     try {
       if (location.hash.includes(cardLink().split('#agent=')[1])) toast(t('that is your own agent card'));
-      else { const p = importCard(location.hash); ui.tab = 'backstage'; setTimeout(() => toast(t('{name}\'s agent card added', { name: first(p.name) })), 300); }
+      else {
+        const p = importCard(location.hash);
+        if (p) { ui.tab = 'backstage'; setTimeout(() => toast(t('{name}\'s agent card added', { name: first(p.name) })), 300); }
+      }
     } catch { toast(t('that agent link did not work')); }
     history.replaceState(null, '', location.pathname + location.search);
     render();
@@ -3128,6 +3156,7 @@
     }
     if (confirmed) {
       confirmed.stage = 'confirmed'; confirmed.youSaid = 'yes'; confirmed.theySaid = 'yes'; confirmed.revealed = true;
+      addSessionForThread(confirmed);
       BK().stats.convos += 1; BK().stats.moments += 1;
       threadLog(confirmed, 'mine', 'you both said yes. meeting is on the calendar for {time} at {place}.', {
         time: fmtTime(confirmed.start), place: { k: 'the {place}', p: { place: { k: confirmed.place, p: {} } } },
