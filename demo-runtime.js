@@ -115,12 +115,16 @@
     return;
   }
   const parserNote = 'In the Claude artifact this step uses Claude; here it uses the local parser.';
-  const step = (title, tab, target, explanation, open = '') => ({title,tab,target,explanation,open});
+  const step = (title, tab, target, explanation, open = '', why = null) => ({title,tab,target,explanation,open,why});
   const tours = {
     maya:[
       step('Quick capture and AI parsing','people','#sheet-body #f-line',`Log a conversation while it is fresh. ${parserNote}`,'quickAdd'),
-      step('People, follow-ups and event goals','people','#view [data-act="viewPerson"]','Keep next steps attached to the people Maya wants to meet.'),
-      step('Agenda and the belonging conversation','agenda','#view [data-act="editSession"]','See the keynote, birds-of-a-feather session and social plans without losing the agenda.'),
+      step('People, follow-ups and event goals','people','#view [data-act="copyFu"]','Keep next steps attached to the people Maya wants to meet.','followups',{
+        en:'I choose when a follow-up leaves my phone; the draft stays attached to the person.',
+        es:'Yo decido cuándo sale un seguimiento; el borrador permanece junto a la persona.',
+        pt:'Eu decido quando um acompanhamento sai do meu celular; o rascunho fica ligado à pessoa.',
+      }),
+      step('Agenda and the belonging conversation','agenda','#view [data-act="editSession"][data-id="demo-maya-bof"]','See the keynote, birds-of-a-feather session and social plans without losing the agenda.'),
       step('Connection web by shared subject','web','#view .webbox','Find people connected by belonging, design and wellbeing.'),
       step('Progress toward a dinner crew','today','#view .goal','Track the goals that turn a first event into a set of real connections.'),
       step('Recap and team report','report','#view [data-act="copyReport"]','Carry useful follow-ups and outcomes beyond the event.'),
@@ -136,12 +140,21 @@
       step('Pitch fest queue and timer','pitch','#view #timer','Rehearse a short pitch and move through the queue.'),
       step('Connection web and introductions','web','#view .webbox','Spot shared topics and useful introductions across accounts and partners.'),
       step('Report outcomes to the team','report','#view [data-act="copyReport"]','Share outcomes and next steps rather than attendee tracking.'),
+      step('Review a follow-up draft before copying it','people','#view [data-act="copyFu"]','Review the message before deciding whether to move a client conversation forward.','followups',{
+        en:'I do not send an agent-written follow-up blindly; I review the draft and choose when to copy it.',
+        es:'No envío a ciegas un seguimiento escrito por un agente; reviso el borrador y decido cuándo copiarlo.',
+        pt:'Não envio às cegas um acompanhamento escrito pelo agente; reviso o rascunho e decido quando copiá-lo.',
+      }),
       step('Verify and export receipts','','#sheet-body .receipt-card','Review the signed evidence and offline export controls.','settings'),
     ],
     priya:[
       step('Agenda, notes and writing blocks','agenda','#sheet-body #f-take','Capture talk takeaways while keeping protected writing time visible.','session'),
       step('Parse an agenda or badge list','agenda','#sheet-body #f-paste',`Turn pasted text into reviewable sessions. ${parserNote}`,'importAgenda'),
-      step('Quick capture after an interview','people','#sheet-body #f-line',`Capture a practitioner conversation and confirm the structured record. ${parserNote}`,'quickAdd'),
+      step('Quick capture after an interview','people','#sheet-body #f-line',`Capture a practitioner conversation and confirm the structured record. ${parserNote}`,'quickAdd',{
+        en:'I want the parser to organize my notes, but I decide what becomes part of my research record.',
+        es:'Quiero que el analizador organice mis notas, pero yo decido qué forma parte de mi registro de investigación.',
+        pt:'Quero que o analisador organize minhas notas, mas eu decido o que entra no meu registro de pesquisa.',
+      }),
       step('Person summaries and follow-up drafts','people','#sheet-body #ai-out','Claude can write a summary in the artifact; this browser shows the local template without making an AI call.','person'),
       step('Connection web and research themes','web','#view .webbox','Group practitioners by AI governance, agentic AI, data platforms and organizational change.'),
       step('Research goals and next interviews','today','#view .goal','Track talks attended, practitioner interviews and emerging themes.'),
@@ -150,6 +163,79 @@
     ],
   };
   const steps = tours[id];
+  const quick = {
+    maya:[4,0,2,1,7],
+    diego:[2,1,4,7,8],
+    priya:[5,1,4,2,7],
+  }[id];
+  const locale = () => {
+    const queryLanguage = new URLSearchParams(location.search).get('lang');
+    const language = queryLanguage || document.documentElement.lang || navigator.language || 'en';
+    return language.toLowerCase().startsWith('es') ? 'es' : language.toLowerCase().startsWith('pt') ? 'pt' : 'en';
+  };
+  const strings = {
+    en:{tour:'tour',exit:'exit demo',show:'show me',reset:'reset this demo',close:'close tour',confirm:'Reset this persona demo? Its demo data and receipts will be cleared.',done:'✓ shown',why:'Why this matters for {name}: it keeps the next step in your hands.',showAll:'show all {n} features',showQuick:'show 2-minute tour',
+      quotes:{maya:'I want a dinner crew by tonight.',diego:'Five client conversations and two co-sells.',priya:'Four practitioner interviews without losing focus.'},
+      steps:{
+        maya:['Quick capture and AI parsing','People, follow-ups and event goals','Agenda and the belonging conversation','Connection web by shared subject','Progress toward a dinner crew','Recap and team report','Event profile and Slalom design','Beacon receipts and offline verification','Person summaries and follow-up drafts'],
+        diego:['People, priorities and follow-ups','Agent card and consent-aware handoffs','Goals by persona','Protect client work blocks','Pitch fest queue and timer','Connection web and introductions','Report outcomes to the team','Review a follow-up draft before copying it','Verify and export receipts'],
+        priya:['Agenda, notes and writing blocks','Parse an agenda or badge list','Quick capture after an interview','Person summaries and follow-up drafts','Connection web and research themes','Research goals and next interviews','Recap and report','Receipts, verification and offline export'],
+      }},
+    es:{tour:'recorrido',exit:'salir de la demo',show:'ver',reset:'reiniciar esta demo',close:'cerrar recorrido',confirm:'¿Reiniciar esta demo? Se borrarán los datos y recibos de esta persona.',done:'✓ visto',why:'Por qué importa para {name}: mantiene el siguiente paso en tus manos.',showAll:'ver las {n} funciones',showQuick:'ver recorrido de 2 minutos',
+      quotes:{maya:'Quiero un grupo para cenar hoy.',diego:'Cinco conversaciones con clientes y dos ventas conjuntas.',priya:'Cuatro entrevistas con profesionales sin perder la concentración.'},
+      steps:{
+        maya:['Registro rápido y análisis con IA','Personas, seguimientos y objetivos del evento','Agenda y conversación sobre pertenencia','Red de conexiones por tema compartido','Avance hacia un grupo para cenar','Resumen e informe del equipo','Perfil del evento y diseño Slalom','Recibos Beacon y verificación sin conexión','Resúmenes y borradores de seguimiento'],
+        diego:['Personas, prioridades y seguimientos','Tarjeta del agente y traspasos con consentimiento','Objetivos por persona','Protege los bloques de trabajo con clientes','Cola de Pitch Fest y cronómetro','Red de conexiones e introducciones','Resultados para el equipo','Revisa un borrador antes de copiarlo','Verifica y exporta recibos'],
+        priya:['Agenda, notas y bloques de escritura','Analiza una agenda o lista de acreditaciones','Captura rápida después de una entrevista','Resúmenes y borradores de seguimiento','Red de conexiones y temas de investigación','Objetivos de investigación y próximas entrevistas','Resumen e informe','Recibos, verificación y exportación sin conexión'],
+      }},
+    pt:{tour:'tour',exit:'sair da demo',show:'ver',reset:'redefinir esta demo',close:'fechar tour',confirm:'Redefinir esta demo? Os dados e recibos desta pessoa serão apagados.',done:'✓ visto',why:'Por que isso importa para {name}: mantém o próximo passo nas suas mãos.',showAll:'ver todos os {n} recursos',showQuick:'ver visita de 2 minutos',
+      quotes:{maya:'Quero encontrar um grupo para jantar hoje.',diego:'Cinco conversas com clientes e duas vendas conjuntas.',priya:'Quatro entrevistas com profissionais sem perder o foco.'},
+      steps:{
+        maya:['Registro rápido e análise com IA','Pessoas, acompanhamentos e metas do evento','Agenda e conversa sobre pertencimento','Rede de conexões por assunto compartilhado','Progresso para encontrar um grupo para jantar','Resumo e relatório da equipe','Perfil do evento e design Slalom','Recibos Beacon e verificação offline','Resumos e rascunhos de acompanhamento'],
+        diego:['Pessoas, prioridades e acompanhamentos','Cartão do agente e repasses com consentimento','Metas por persona','Proteja os blocos de trabalho com clientes','Fila do Pitch Fest e cronômetro','Rede de conexões e apresentações','Resultados para a equipe','Revise o rascunho antes de copiá-lo','Verifique e exporte recibos'],
+        priya:['Agenda, notas e blocos de escrita','Analise uma agenda ou lista de crachás','Registro rápido após uma entrevista','Resumos e rascunhos de acompanhamento','Rede de conexões e temas de pesquisa','Metas de pesquisa e próximas entrevistas','Resumo e relatório','Recibos, verificação e exportação offline'],
+      }},
+  };
+  const tr = (key, values = {}) => Object.entries(values).reduce((text,[name,value])=>text.replaceAll(`{${name}}`,String(value)),strings[locale()][key] || strings.en[key] || key);
+  const stepTitle = (index) => strings[locale()].steps[id]?.[index] || steps[index].title;
+  const stepWhy = (index) => steps[index].why?.[locale()] || steps[index].explanation || tr('why',{name:persona.name});
+  const metaKey = `${stateKey}:tour`;
+  const storageGet = Storage.prototype.getItem;
+  const storageSet = Storage.prototype.setItem;
+  const readState = () => { try { return JSON.parse(storageGet.call(localStorage,stateKey) || '{}'); } catch { return {}; } };
+  const readDemo = () => {
+    let stored = {};
+    try { stored = JSON.parse(storageGet.call(localStorage,metaKey) || '{}'); } catch {}
+    return {...(readState().demo || {}),...stored};
+  };
+  const writeDemo = (patch) => {
+    const state = readState();
+    const demo = {...readDemo(),...patch};
+    state.demo = demo;
+    storageSet.call(localStorage,stateKey,JSON.stringify(state));
+    storageSet.call(localStorage,metaKey,JSON.stringify(demo));
+    return demo;
+  };
+  Storage.prototype.setItem = function(key,value) {
+    if (this === localStorage && key === stateKey) {
+      try {
+        const state = JSON.parse(value);
+        const stored = JSON.parse(storageGet.call(localStorage,metaKey) || 'null');
+        if (stored) {
+          state.demo = {...(state.demo || {}),...stored};
+          value = JSON.stringify(state);
+        }
+      } catch {}
+    }
+    return storageSet.call(this,key,value);
+  };
+  const ensureDemo = () => {
+    if (readDemo().tourMode === 'quick' || readDemo().tourMode === 'full') return;
+    writeDemo({tourMode:'quick',tour:{}});
+  };
+  const tourMode = () => readDemo().tourMode === 'full' ? 'full' : 'quick';
+  const modeIndices = () => tourMode() === 'quick' ? quick : steps.map((_item,index)=>index);
+  const setTourMode = (mode) => { writeDemo({tourMode:mode}); };
   const style = document.createElement('style');
   style.textContent = `
     .demo-banner{position:sticky;top:0;z-index:80;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:8px 12px;background:var(--blue,#0c62fb);color:#fff;box-sizing:border-box}
@@ -173,12 +259,15 @@
   banner.setAttribute('aria-label','demo mode');
   const exitUrl = new URL(location.href);
   exitUrl.searchParams.delete('demo');
-  banner.innerHTML = `<div class="demo-banner__copy"><strong>demo · ${persona.name}</strong><span>${persona.role} · <span data-demo-progress>0/${steps.length}</span> tour steps</span></div><div class="demo-banner__controls"><button type="button" data-demo-tour>tour</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>exit demo</a></div>`;
+  banner.innerHTML = `<div class="demo-banner__copy"><strong>demo · ${persona.name}</strong><span>${persona.role} · <span data-demo-progress>${tr('tour')} 0/5</span></span></div><div class="demo-banner__controls"><button type="button" data-demo-tour>${tr('tour')}</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>${tr('exit')}</a></div>`;
   document.body.prepend(banner);
   let dialog;
-  const completedSteps = new Set();
+  ensureDemo();
+  const completedSteps = new Set(Object.keys(readDemo().tour || {}).filter(index=>readDemo().tour[index]).map(Number));
   const updateProgress = () => {
-    banner.querySelector('[data-demo-progress]').textContent = `${completedSteps.size}/${steps.length}`;
+    const active = modeIndices();
+    const done = active.filter(index=>completedSteps.has(index)).length;
+    banner.querySelector('[data-demo-progress]').textContent = `${tr('tour')} ${done}/${active.length}`;
   };
   const wait = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
   const closeAppSheet = () => {
@@ -190,7 +279,7 @@
     if (item.tab) document.querySelector(`#tabs [data-act="tab"][data-tab="${item.tab}"]`)?.click();
     await wait();
     if (item.tab === 'people') {
-      const mode = item.open === 'agentsCard' ? 'agents' : 'people';
+      const mode = item.open === 'agentsCard' ? 'agents' : item.open === 'followups' ? 'followups' : 'people';
       const control = document.querySelector(`#view [data-act="mode"][data-mode="${mode}"]`);
       if (control?.getAttribute('aria-pressed') !== 'true') control?.click();
       if (mode === 'people') {
@@ -232,7 +321,7 @@
     window.__demoLastStep = {title:item.title,target:!!target,selector:item.target,tab:item.tab || ''};
     return target;
   };
-  const closeTour = (restore = true, preserveHighlight = false) => {
+  const closeTour = (restore = true, preserveHighlight = false, preserveTourActive = false) => {
     if (!dialog) return;
     dialog.remove();
     dialog = null;
@@ -241,10 +330,12 @@
       const target = window.__demoLastStep?.selector && document.querySelector(window.__demoLastStep.selector);
       target?.removeAttribute('data-demo-highlight');
     }
+    if (!preserveTourActive) document.body.classList.remove('demo-tour-active');
     if (restore) banner.querySelector('[data-demo-tour]').focus();
   };
   const showTour = () => {
     if (dialog) return;
+    ensureDemo();
     const scrim = document.createElement('div');
     scrim.className = 'demo-tour-scrim';
     scrim.dataset.demoTour = 'true';
@@ -254,33 +345,43 @@
     dialog.setAttribute('role','dialog');
     dialog.setAttribute('aria-modal','true');
     dialog.setAttribute('aria-labelledby','demo-tour-title');
-    dialog.innerHTML = `<h2 id="demo-tour-title">${persona.name}: “${id === 'maya' ? "I want a dinner crew by tonight." : id === 'diego' ? "Five client conversations and two co-sells." : "Four practitioner interviews without losing focus."}”</h2><ol>${steps.map((item,index)=>`<li><strong>${item.title}</strong><p>${item.explanation}</p><button type="button" data-demo-show="${index}">show me</button><span data-demo-done="${index}" aria-live="polite"></span></li>`).join('')}</ol><div class="demo-tour__controls"><button type="button" data-demo-reset>reset this demo</button><button type="button" data-demo-close>close tour</button></div>`;
     document.body.append(scrim,dialog);
-    dialog.querySelectorAll('[data-demo-done]').forEach((node) => {
-      if (completedSteps.has(Number(node.dataset.demoDone))) node.textContent = ' ✓ shown';
-    });
-    updateProgress();
-    dialog.querySelectorAll('[data-demo-show]').forEach((button) => button.addEventListener('click', async () => {
-      const index = Number(button.dataset.demoShow);
-      const target = await openStep(steps[index]);
-      if (target) {
-        completedSteps.add(index);
-        dialog.querySelector(`[data-demo-done="${index}"]`).textContent = ' ✓ shown';
+    document.body.classList.add('demo-tour-active');
+    const renderTour = (focusToggle = false) => {
+      const indices = modeIndices();
+      const modeLabel = tourMode() === 'quick' ? tr('showAll',{n:steps.length}) : tr('showQuick');
+      const quote = strings[locale()].quotes[id] || strings.en.quotes[id];
+      dialog.innerHTML = `<h2 id="demo-tour-title">${persona.name}: “${quote}”</h2><button type="button" data-demo-mode>${modeLabel}</button><ol>${indices.map(index=>`<li><strong>${stepTitle(index)}</strong><p>${stepWhy(index)}</p><button type="button" data-demo-show="${index}">${tr('show')}</button><span data-demo-done="${index}" aria-live="polite">${completedSteps.has(index)?` ${tr('done')}`:''}</span></li>`).join('')}</ol><div class="demo-tour__controls"><button type="button" data-demo-reset>${tr('reset')}</button><button type="button" data-demo-close>${tr('close')}</button></div>`;
+      dialog.querySelector('[data-demo-mode]').addEventListener('click',()=>{
+        setTourMode(tourMode()==='quick'?'full':'quick');
         updateProgress();
-        closeTour(false, true);
-        if (!target.matches('a,button,input,select,textarea,[tabindex]')) target.tabIndex = -1;
-        target.focus({ preventScroll: true });
-        target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-      }
-    }));
-    dialog.querySelector('[data-demo-close]').addEventListener('click', closeTour);
-    dialog.querySelector('[data-demo-reset]').addEventListener('click', async () => {
-      if (!window.confirm('Reset this persona demo? Its demo data and receipts will be cleared.')) return;
-      await window.R4Receipts.clearDemo();
-      localStorage.removeItem(stateKey);
-      location.reload();
-    });
-    dialog.addEventListener('keydown',(event)=>{
+        renderTour(true);
+      });
+      dialog.querySelectorAll('[data-demo-show]').forEach(button=>button.addEventListener('click',async()=>{
+        const index=Number(button.dataset.demoShow);
+        const target=await openStep(steps[index]);
+        if(!target)return;
+        completedSteps.add(index);
+        const demo=readDemo();
+        writeDemo({tourMode:demo.tourMode || 'quick',tour:{...(demo.tour || {}),[index]:true}});
+        updateProgress();
+        closeTour(false,true,true);
+        if(!target.matches('a,button,input,select,textarea,[tabindex]'))target.tabIndex=-1;
+        target.focus({preventScroll:true});
+        target.scrollIntoView({block:'center',inline:'nearest',behavior:'auto'});
+      }));
+      dialog.querySelector('[data-demo-close]').addEventListener('click',()=>closeTour());
+      dialog.querySelector('[data-demo-reset]').addEventListener('click',async()=>{
+        if(!window.confirm(tr('confirm')))return;
+        await window.R4Receipts.clearDemo();
+        localStorage.removeItem(stateKey);
+        localStorage.removeItem(metaKey);
+        location.reload();
+      });
+      if(focusToggle)dialog.querySelector('[data-demo-mode]').focus();
+      else dialog.querySelector('[data-demo-mode]').focus();
+    };
+    dialog.addEventListener('keydown',event=>{
       if(event.key==='Escape'){event.preventDefault();closeTour();return;}
       if(event.key==='Tab'){
         const items=[...dialog.querySelectorAll('button:not([disabled]),a[href]')];
@@ -289,9 +390,10 @@
         else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
       }
     });
-    dialog.querySelector('[data-demo-show]')?.focus();
+    renderTour();
   };
   banner.querySelector('[data-demo-tour]').addEventListener('click',showTour);
+  banner.querySelector('[data-demo-exit]').addEventListener('click',()=>document.body.classList.remove('demo-tour-active'));
   if (!sessionStorage.getItem(`r4-demo-tour-${id}`)) {
     sessionStorage.setItem(`r4-demo-tour-${id}`,'1');
     setTimeout(showTour,250);
