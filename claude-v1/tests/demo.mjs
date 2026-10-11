@@ -13,7 +13,8 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:60805/claude-v1/';
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH || process.env.CHROME_PATH || undefined,args:['--no-sandbox']});
 mkdirSync(screenshotDir,{recursive:true});
 const personaRows = [['maya','Maya Torres',8,6],['diego','Diego Alvarez',10,9],['priya','Dr. Priya Natarajan',8,10]];
-const shotIndexes = {maya:[0,3],diego:[0,3],priya:[0,3]};
+const shotIndexes = {maya:[0,3],diego:[0,4],priya:[0,4]};
+const quickIndexes = {maya:[4,0,2,1,7],diego:[2,1,4,7,8],priya:[5,1,4,2,7]};
 try {
   for (const [id,name,peopleCount,agendaCount] of personaRows) {
     const context = await browser.newContext({viewport:{width:390,height:844},colorScheme:'light'});
@@ -46,11 +47,74 @@ try {
     assert.equal(state.sessions.length+state.blocks.length,agendaCount);
     assert.ok(state.goals.length>=3);
     assert.ok(state.pitches.length>=1);
+    assert.equal(state.demo.tourMode,'quick',`${id}: quick mode is the default`);
     await page.addScriptTag({path:axePath});
     const tour=page.getByRole('dialog');
     await tour.waitFor();
-    const stepCount=await tour.getByRole('button',{name:'show me'}).count();
-    assert.ok(stepCount>=7,`${id}: the tour covers multiple real app features`);
+    assert.equal(await tour.getByRole('button',{name:'show me'}).count(),5,`${id}: quick tour has five steps`);
+    assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),'tour 0/5',`${id}: quick tour starts at 0/5`);
+    for(const [order,index] of quickIndexes[id].entries()){
+      if(!(await page.getByRole('dialog').count())){
+        await page.locator('.demo-banner [data-demo-tour]').click();
+        await page.getByRole('dialog').waitFor();
+      }
+      const quickStep=page.locator(`.demo-tour [data-demo-show="${index}"]`);
+      assert.equal(await quickStep.count(),1,`${id}: quick index ${index} is listed`);
+      const title=await quickStep.locator('xpath=..').locator('strong').textContent();
+      await quickStep.click();
+      await page.waitForFunction((expected)=>window.__demoLastStep?.title===expected&&window.__demoLastStep.target&&!document.querySelector('.demo-tour')&&!document.querySelector('.demo-tour-scrim'),title);
+      assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour ${order+1}/5`,`${id}: quick progress advances to ${order+1}/5`);
+      const target=await page.evaluate(()=>{const last=window.__demoLastStep;return {selector:last?.selector,found:!!last?.target,visible:!!document.querySelector(last?.selector)?.getClientRects().length};});
+      assert.ok(target.found&&target.visible,`${id}: quick target ${index} resolves at ${target.selector}`);
+      await page.evaluate(()=>{if(!document.querySelector('#sheet')?.hidden)document.querySelector('#sheet-foot [data-act="closeSheet"]')?.click();});
+      await page.locator('#sheet').waitFor({state:'hidden'});
+    }
+    await page.locator('.demo-banner [data-demo-tour]').click();
+    await page.getByRole('dialog').waitFor();
+    const stepCount={maya:9,diego:9,priya:8}[id];
+    assert.equal(await page.getByRole('button',{name:`show all ${stepCount} features`}).count(),1,`${id}: quick tour offers the full list`);
+    await page.locator('[data-demo-mode]').click();
+    assert.equal(await page.getByRole('dialog').getByRole('button',{name:'show me'}).count(),stepCount,`${id}: full toggle shows N steps`);
+    assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour 5/${stepCount}`,`${id}: full progress carries quick completions`);
+    assert.equal(await page.evaluate((key)=>JSON.parse(localStorage.getItem(key)).demo.tourMode,`r4companion.v1-demo-${id}`),'full',`${id}: full mode is stored on demo state`);
+    for(const lang of ['es','pt']){
+      await page.goto(`${base}?demo=${id}&lang=${lang}`,{waitUntil:'domcontentloaded'});
+      await page.getByRole('region',{name:'demo mode'}).waitFor();
+      await page.locator('.demo-banner [data-demo-tour]').click();
+      await page.getByRole('dialog').waitFor();
+      const fullLabel=lang==='es'?'ver recorrido de 2 minutos':'ver visita de 2 minutos';
+      const allLabel=lang==='es'?`ver las ${stepCount} funciones`:`ver todos os ${stepCount} recursos`;
+      assert.equal(await page.getByRole('button',{name:fullLabel}).count(),1,`${id}: ${lang} full toggle is localized`);
+      await page.locator('[data-demo-mode]').click();
+      assert.equal(await page.getByRole('button',{name:allLabel}).count(),1,`${id}: ${lang} all-features toggle is localized`);
+      assert.equal(await page.locator('[data-demo-show]').count(),5,`${id}: ${lang} quick mode contains five steps`);
+      if(id==='diego'){
+        const approval=page.locator('.demo-tour [data-demo-show="7"]').locator('xpath=..');
+        const expectedTitle=lang==='es'?'Revisa un borrador antes de copiarlo':'Revise o rascunho antes de copiá-lo';
+        const expectedWhy=lang==='es'?'No envío a ciegas un seguimiento escrito por un agente; reviso el borrador y decido cuándo copiarlo.':'Não envio às cegas um acompanhamento escrito pelo agente; reviso o rascunho e decido quando copiá-lo.';
+        assert.equal(await approval.locator('strong').textContent(),expectedTitle,`${id}: ${lang} approval-step title is localized`);
+        assert.equal(await approval.locator('p').textContent(),expectedWhy,`${id}: ${lang} approval rationale is localized`);
+      }
+      await page.locator('[data-demo-mode]').click();
+      await page.getByRole('button',{name:lang==='es'?'cerrar recorrido':'fechar tour'}).click();
+    }
+    await page.goto(`${base}?demo=${id}`,{waitUntil:'domcontentloaded'});
+    await page.getByRole('region',{name:'demo mode'}).waitFor();
+    await page.evaluate((key)=>{
+      const state=JSON.parse(localStorage.getItem(key));
+      state.demo={...(state.demo||{}),tourMode:'full',tour:{}};
+      localStorage.setItem(`${key}:tour`,JSON.stringify(state.demo));
+      localStorage.setItem(key,JSON.stringify(state));
+    },`r4companion.v1-demo-${id}`);
+    await page.reload();
+    await page.getByRole('region',{name:'demo mode'}).waitFor();
+    await page.locator('.demo-banner [data-demo-tour]').click();
+    await page.getByRole('dialog').waitFor();
+    assert.equal(await page.getByRole('dialog').getByRole('button',{name:'show me'}).count(),stepCount,`${id}: full mode survives reload`);
+    assert.equal(await page.getByRole('button',{name:'show 2-minute tour'}).count(),1);
+    await page.locator('[data-demo-close]').click();
+    assert.equal(await page.evaluate(()=>document.body.classList.contains('demo-tour-active')),false,`${id}: closing tour clears the active class`);
+    assert.equal(await page.evaluate(()=>document.activeElement.matches('.demo-banner [data-demo-tour]')),true,`${id}: closing tour returns focus`);
     const imageIndexes=shotIndexes[id];
     let screenshotIndex=0;
     for(let index=0;index<stepCount;index++){
@@ -62,7 +126,7 @@ try {
       const title=await step.locator('xpath=..').locator('strong').textContent();
       await step.click();
       await page.waitForFunction((expected)=>window.__demoLastStep?.title===expected&&window.__demoLastStep.target&&!document.querySelector('.demo-tour')&&!document.querySelector('.demo-tour-scrim'),title);
-      assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`${index+1}/${stepCount}`,`${id}: banner advances after Show Me step ${index+1}`);
+      assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour ${index+1}/${stepCount}`,`${id}: banner advances after Show Me step ${index+1}`);
       const feature=await page.evaluate(()=>{
         const target=document.querySelector('[data-demo-highlight]');
         if(!target)return null;
@@ -146,6 +210,7 @@ try {
     await showAndAssertCenter(0,'first step after last step');
     await page.locator('.demo-banner [data-demo-tour]').click();
     await page.getByRole('dialog').waitFor();
+    await page.addScriptTag({path:axePath});
     const axe=await page.evaluate(async()=>{
       const report=await axe.run([document.querySelector('[data-demo-banner]'),document.querySelector('.demo-tour')],{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']}});
       return report.violations.filter((item)=>['serious','critical'].includes(item.impact)).map((item)=>`${item.id}: ${item.nodes.map(node=>node.target.join(' ')).join(', ')}`);

@@ -38,11 +38,13 @@
 |---|---|---|
 | Today dashboard, goals and follow-ups | Maya | Progress toward a dinner crew |
 | People search, status, persona detail and quick capture | Maya | Quick capture and AI parsing |
+| Belonging birds-of-a-feather session | Maya | Agenda and the belonging conversation |
 | Agenda day picker, sessions, notes, work blocks, clashes and free windows | Priya | Agenda, notes and writing blocks |
 | Paste agenda and attendee-list parser | Priya | Parse an agenda or badge list |
 | Connection web, subject filters, small groups and introductions | Priya | Connection web and research themes |
 | Agent cards, QR sharing and consent-aware agent notes | Diego | Agent card and consent-aware handoffs |
 | Pitch queue, live timer and follow-up spark | Diego | Pitch fest queue and timer |
+| Human-reviewed follow-up draft | Diego | Review a follow-up draft before copying it |
 | End-of-day recap, team report, copy and save | Diego | Report outcomes to the team |
 | Slalom/AiGovOps design controls and event settings | Maya | Sponsor design switch |
 | Beacon receipt list, verification and offline export | Priya | Receipts, verification and offline export |
@@ -53,17 +55,40 @@ Use `?demo=maya`, `?demo=diego`, or `?demo=priya`. Demo state and receipts are i
 
 ### Maya Torres
 
-1. Open quick capture and review the local parser's structured notes. ![Maya quick capture](docs/demo/claude/maya-01.png)
-2. Follow shared interests on the connection web. ![Maya connection web](docs/demo/claude/maya-02.png)
+Full tour: 9 steps. Quick steps, in order: 5, 1, 3, 2, 8.
+1. Quick capture and AI parsing. (Quick b) ![Maya quick capture](docs/demo/claude/maya-01.png)
+2. People, follow-ups and event goals. (Quick d)
+3. Agenda and the belonging conversation. (Quick c)
+4. Connection web by shared subject. ![Maya connection web](docs/demo/claude/maya-02.png)
+5. Progress toward a dinner crew. (Quick a)
+6. Recap and team report.
+7. Event profile and Slalom design.
+8. Beacon receipts and offline verification. (Quick e)
+9. Person summaries and follow-up drafts.
 
 ### Diego Alvarez
 
-1. Review a prioritized client or partner and its follow-up. ![Diego people](docs/demo/claude/diego-01.png)
-2. Rehearse in the pitch timer and queue. ![Diego pitch fest](docs/demo/claude/diego-02.png)
+Full tour: 9 steps. Quick steps, in order: 3, 2, 5, 8, 9.
+1. People, priorities and follow-ups. ![Diego people](docs/demo/claude/diego-01.png)
+2. Agent card and consent-aware handoffs. (Quick b)
+3. Goals by persona. (Quick a)
+4. Protect client work blocks.
+5. Pitch fest queue and timer. (Quick c) ![Diego pitch fest](docs/demo/claude/diego-02.png)
+6. Connection web and introductions.
+7. Report outcomes to the team.
+8. Review a follow-up draft before copying it. (Quick d)
+9. Verify and export receipts. (Quick e)
 
 ### Dr. Priya Natarajan
 
-1. Review a session note and writing block. ![Priya agenda](docs/demo/claude/priya-01.png)
-2. Explore research themes in the connection web. ![Priya connection web](docs/demo/claude/priya-02.png)
+Full tour: 8 steps. Quick steps, in order: 6, 2, 5, 3, 8.
+1. Agenda, notes and writing blocks. ![Priya agenda](docs/demo/claude/priya-01.png)
+2. Parse an agenda or badge list. (Quick b)
+3. Quick capture after an interview. (Quick d)
+4. Person summaries and follow-up drafts.
+5. Connection web and research themes. (Quick c) ![Priya connection web](docs/demo/claude/priya-02.png)
+6. Research goals and next interviews. (Quick a)
+7. Recap and report.
+8. Receipts, verification and offline export. (Quick e)
 
 source available under PolyForm Noncommercial 1.0.0. © AiGovOps Foundation, Bob Rapp, Ken Johnston.
