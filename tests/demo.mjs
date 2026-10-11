@@ -119,6 +119,7 @@ try {
     const demoState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), `r4-networking-v2-demo-${id}`);
     const quickSequence = quickIndices[id];
     assert.equal(demoState.demo.tourMode, 'quick', `${id}: quick tour is the default persisted mode`);
+    assert.equal(demoState.demo.tourVersion, 2, `${id}: current tour version is stored`);
     assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), 'tour 0/5', `${id}: quick progress starts at zero`);
     assert.deepEqual(await page.locator('.demo-tour [data-show]').evaluateAll((buttons) => buttons.map((button) => Number(button.dataset.show))), quickSequence, `${id}: quick list uses the selected full-tour indices`);
     const minute = (time) => {
@@ -500,6 +501,19 @@ try {
       assert.notEqual(afterReset.key, beforeReset.key, 'reset generates a fresh persona signing key');
       assert.equal(await page.evaluate(() => localStorage.getItem('r4-networking-v2')), realBefore.state, 'reset preserves real state');
     }
+    await page.goto(`${base}?demo=${id}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('region', { name: 'demo mode' }).waitFor();
+    await page.evaluate((key) => {
+      const state = JSON.parse(localStorage.getItem(key));
+      state.demo = { ...(state.demo || {}), tourMode: 'quick', tour: { 0: true, 1: true } };
+      delete state.demo.tourVersion;
+      localStorage.setItem(key, JSON.stringify(state));
+    }, `r4-networking-v2-demo-${id}`);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.querySelector('.demo-banner [data-progress]')?.textContent === 'tour 0/5');
+    const guardedTour = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo, `r4-networking-v2-demo-${id}`);
+    assert.equal(guardedTour.tourVersion, 2);
+    assert.deepEqual(guardedTour.tour, {});
     assert.deepEqual(pageErrors, [], `${id}: no uncaught page errors`);
     assert.deepEqual(consoleErrors, [], `${id}: no console errors`);
     await context.close();

@@ -129,8 +129,13 @@
   const ensureTourMode = () => {
     try {
       const state = JSON.parse(localStorage.getItem(key) || '{}');
-      if (!['quick', 'full'].includes(state.demo?.tourMode)) {
-        state.demo = { ...(state.demo || {}), tourMode: 'quick' };
+      const demo = state.demo || {};
+      const tourMode = ['quick', 'full'].includes(demo.tourMode) ? demo.tourMode : 'quick';
+      if (demo.tourVersion !== 2) {
+        state.demo = { ...demo, tourVersion: 2, tourMode, tour: {} };
+        localStorage.setItem(key, JSON.stringify(state));
+      } else if (!['quick', 'full'].includes(demo.tourMode)) {
+        state.demo = { ...demo, tourMode: 'quick' };
         localStorage.setItem(key, JSON.stringify(state));
       }
     } catch {}
