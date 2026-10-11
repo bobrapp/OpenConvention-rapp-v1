@@ -20,10 +20,13 @@ const freshPage = async (width = 390) => {
   const page = await context.newPage();
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#sheet-root .sheet');
+  await page.locator('#sheet-root .sheet').evaluate(async (el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
   return { context, page };
 };
 const goTab = async (page, id) => {
   const group = groupFor(id);
+  const close = page.locator('#sheet-root [data-action="close-sheet"]');
+  if (await close.count()) await close.click({ force: true });
   await page.locator(`#tabbar .tab[data-tab="${group}"]`).click({ force: true });
   await page.locator(`#tabbar .tab[data-tab="${group}"][aria-current="page"]`).waitFor();
   if (id === 'receipts') await page.locator('#view [data-action="open-receipts"]').click();
@@ -52,11 +55,47 @@ const assertLayout = async (page, label) => {
   assert.ok(result.width <= result.inner, `${label}: horizontal overflow ${result.width}/${result.inner}`);
   assert.deepEqual(result.small, [], `${label}: undersized targets`);
 };
+const assertOpaqueStartSheet = async (page, label) => {
+  const result = await page.evaluate(() => {
+    const alpha = (color) => {
+      const match = color.match(/^rgba?\((.*)\)$/);
+      const channels = match ? match[1].split(/[,/ ]+/).filter(Boolean) : [];
+      return channels.length > 3 ? Number(channels[3]) : 1;
+    };
+    const sheet = document.querySelector('#sheet-root .sheet');
+    const options = [...document.querySelectorAll('.start-option')];
+    const selected = document.querySelector('.start-option.selected');
+    return {
+      sheet: alpha(getComputedStyle(sheet).backgroundColor),
+      options: options.map((el) => alpha(getComputedStyle(el).backgroundColor)),
+      selected: selected ? alpha(getComputedStyle(selected).backgroundColor) : null,
+      opacity: Number(getComputedStyle(sheet).opacity),
+    };
+  });
+  assert.equal(result.sheet, 1, `${label}: sheet background is translucent`);
+  assert.ok(result.options.length >= 3 && result.options.every((value) => value === 1), `${label}: option background is translucent`);
+  assert.equal(result.opacity, 1, `${label}: sheet fades through the page`);
+  if (result.selected !== null) assert.equal(result.selected, 1, `${label}: selected option tint is translucent`);
+};
 try {
   const { context, page } = await freshPage();
   await page.addScriptTag({ path: axePath });
   assert.match(await page.locator('.start-progress').innerText(), /1 of 3/);
   await page.screenshot({ path: path.join(shots, 'start-step-1.png') });
+  await assertOpaqueStartSheet(page, 'Slalom/light');
+  for (const scheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const brand of ['slalom', 'aigovops']) {
+      await page.evaluate((value) => {
+        if (value === 'aigovops') document.documentElement.dataset.brand = value;
+        else document.documentElement.removeAttribute('data-brand');
+      }, brand);
+      await assertOpaqueStartSheet(page, `${brand}/${scheme}`);
+      await page.locator('[data-action="start-goal"][data-goal="business"]').click();
+      await page.locator('#sheet-root .sheet').evaluate(async (el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
+      await assertOpaqueStartSheet(page, `${brand}/${scheme} selected`);
+    }
+  }
   await checkAxe(page, 'start sheet');
   await assertLayout(page, '390px start');
 
@@ -177,6 +216,12 @@ try {
     url.searchParams.set('demo', persona);
     await demo.goto(url.toString(), { waitUntil: 'domcontentloaded' });
     await demo.waitForSelector('.goal-hero');
+    assert.equal(await demo.evaluate(() => {
+      const view = document.querySelector('#view');
+      const hero = view.querySelector('.goal-hero');
+      const cards = view.querySelectorAll('.card');
+      return hero !== null && cards[0] === hero;
+    }), true, `${persona}: goal hero is not the first Today card`);
     await demo.screenshot({ path: path.join(shots, `today-${persona}.png`) });
     await demo.close();
   }

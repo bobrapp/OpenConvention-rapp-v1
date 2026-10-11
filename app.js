@@ -892,15 +892,12 @@
       const active = activeThreads();
       const needs = active.filter((th) => th.stage === 'needs-you');
       const drafts = active.filter((th) => th.draftPending);
-      const ready = [...needs, ...drafts.filter((th) => !needs.some((item) => item.id === th.id))];
       const readyCount = needs.length + drafts.length;
       const negotiating = active.filter((th) => ['discover', 'overlap', 'propose', 'negotiate'].includes(th.stage));
       return `<section class="goal-hero card"><p class="goal-kicker">${readyCount
         ? t('{n} ready for your ok', { n: readyCount })
         : t('your agent is negotiating {n} intros', { n: negotiating.length })}</p>
-        ${ready.length
-          ? `<button class="btn" data-action="thread-open" data-id="${ready[0].id}">${t('review first approval')}</button>`
-          : `<button class="btn" data-action="go" data-tab="backstage">${t('open backstage')}</button>`}</section>`;
+        ${readyCount ? '' : `<button class="btn" data-action="go" data-tab="backstage">${t('open agent')}</button>`}</section>`;
     }
     if (state.me.goal === 'research') {
       const today = currentDay();
@@ -910,7 +907,7 @@
       return `<section class="goal-hero card"><p class="goal-kicker">${t('your focus time is protected')}</p>
         <p class="goal-mode">${t(BK().beacon.mode)}</p>
         ${next ? `<h1>${esc(next.title)}</h1><p>${dayN(next.day)} · ${fmtTime(next.start)}</p>` : ''}
-        <button class="btn" data-action="go" data-tab="backstage">${t('open backstage')}</button></section>`;
+        <button class="btn" data-action="go" data-tab="backstage">${t('open agent')}</button></section>`;
     }
     return '';
   }
@@ -934,8 +931,9 @@
     const sug = suggestions(3);
     const hl = headliner();
     return `
+      ${state.me.goal ? goalHero() : ''}
       ${viewNowMoments()}
-      ${state.me.goal ? goalHero() : `<section class="hero">
+      ${state.me.goal ? '' : `<section class="hero">
         <h1>${t('hi {name}, let us make {event} count.', { name: esc(state.me.name), event: esc(state.me.eventName) })}</h1>
         <p>${t('day {n} of {total}', { n: d + 1, total: state.me.days })} · ${esc(dayLabel(d, true))}</p>
       </section>`}
@@ -2065,6 +2063,7 @@
       ${ui.startStep < 3
         ? `<button type="button" class="btn" data-action="start-next" ${ui.startStep === 1 && !ui.startGoal ? 'disabled' : ''}>${t('next')}</button>`
         : `<button type="button" class="btn coral" data-action="start-finish">${t('let my agent work')}</button>`}</div></div>`);
+    $('#sheet-root .sheet')?.classList.add('start-sheet');
   }
   function finishStart() {
     applyGoal(ui.startGoal);
