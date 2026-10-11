@@ -32,8 +32,6 @@
   if (!personas[id]) return;
   const persona = personas[id];
   const key = `r4-networking-v2-demo-${id}`;
-  const headKey = `r4-beacon-head-demo-${id}`;
-  const dbName = `r4-beacon-demo-${id}`;
   const copy = {
     en: { tour: 'tour', exit: 'exit demo', reset: 'reset this demo', close: 'close tour', show: 'show me', why: 'Why it matters to', demo: 'demo', region: 'demo mode', entry: 'Try a demo persona', desc: 'Start an isolated guided tour', confirm: 'Reset this persona demo? Its demo data and receipts will be cleared.' },
     es: { tour: 'recorrido', exit: 'salir de la demo', reset: 'reiniciar esta demo', close: 'cerrar recorrido', show: 'mostrar', why: 'Por qué le importa a', demo: 'demo', region: 'modo demo', entry: 'Probar una persona demo', desc: 'Inicia un recorrido guiado aislado', confirm: '¿Reiniciar esta demo? Se borrarán sus datos y recibos.' },
@@ -223,14 +221,13 @@
       usedFallback: !!target && !target.matches(selector),
     } }));
   };
-  const resetDemo = () => {
+  const resetDemo = async () => {
     if (!window.confirm(locale().confirm)) return;
     closeTour(false);
+    await window.R4Receipts.clearDemo();
     localStorage.removeItem(key);
-    localStorage.removeItem(headKey);
     localStorage.removeItem(`r4-backend-demo-${id}`);
     localStorage.removeItem(`r4-community-demo-v1-demo-${id}`);
-    indexedDB.deleteDatabase(dbName);
     location.reload();
   };
   const boot = () => {

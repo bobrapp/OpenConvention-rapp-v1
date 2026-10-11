@@ -67,7 +67,7 @@ try {
     const demoState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), `r4-networking-v2-demo-${id}`);
     assert.equal(demoState.me.name, name);
     assert.equal(demoState.people.length, count);
-    assert.equal(demoState.sessions.length, agendaCount, `${id}: exact agenda count is seeded`);
+    assert.equal(demoState.sessions.filter((session) => !session.agentBooked).length, agendaCount, `${id}: exact attendee agenda count is seeded`);
     assert.deepEqual(
       [...new Set(demoState.backstage.threads.map((thread) => thread.stage))].sort(),
       ['blocked', 'confirmed', 'declined', 'needs-you'].sort(),
@@ -166,8 +166,33 @@ try {
         ids: (await R4Receipts.list()).map((receipt) => receipt.id),
         key: (await R4Receipts.keyInfo()).keyFpr,
       }));
+      await page.evaluate(() => {
+        const clear = R4Receipts.clearDemo;
+        R4Receipts.clearDemo = async () => {
+          await clear();
+          const demoId = new URLSearchParams(location.search).get('demo');
+          const db = await new Promise((resolve, reject) => {
+            const request = indexedDB.open(`r4-beacon-demo-${demoId}`);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          const tx = db.transaction(['receipts', 'keys'], 'readonly');
+          const read = (store, operation) => new Promise((resolve, reject) => {
+            const request = operation === 'count' ? tx.objectStore(store).count() : tx.objectStore(store).get(operation);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          const [receipts, head, device, signing] = await Promise.all([
+            read('receipts', 'count'), read('keys', 'head'), read('keys', 'device'), read('keys', 'signing'),
+          ]);
+          sessionStorage.setItem('r4-demo-reset-records', JSON.stringify({ receipts, head: !!head, device: !!device, signing: !!signing }));
+          db.close();
+        };
+      });
       page.once('dialog', (dialog) => dialog.accept());
+      const reloaded = page.waitForEvent('load');
       await page.locator('.demo-tour [data-reset]').click();
+      await reloaded;
       await page.waitForFunction((key) => {
         try { return JSON.parse(localStorage.getItem(key) || 'null')?.me?.name === 'Maya Torres'; } catch { return false; }
       }, `r4-networking-v2-demo-${id}`);
@@ -187,6 +212,11 @@ try {
         return count;
       }, `r4-beacon-demo-${id}`);
       assert.ok(resetCount >= 1, 'reset recreates the persona demo receipt DB');
+      assert.deepEqual(
+        JSON.parse(await page.evaluate(() => sessionStorage.getItem('r4-demo-reset-records'))),
+        { receipts: 0, head: false, device: false, signing: false },
+        'reset clears the demo receipts, IDB head, device and signing key in the demo database',
+      );
       const afterReset = await page.evaluate(async () => ({ entries: await R4Receipts.list(), verification: await R4Receipts.verify(), key: (await R4Receipts.keyInfo()).keyFpr }));
       assert.equal(afterReset.verification.ok, true, 'reset receipts verify');
       assert.equal(afterReset.entries[0].action, 'key.created', 'reset starts a new receipt chain with key creation');

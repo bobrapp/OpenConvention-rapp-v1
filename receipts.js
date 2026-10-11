@@ -1,8 +1,9 @@
 'use strict';
 (() => {
   const DEMO_ID = new URLSearchParams(location.search).get('demo');
-  const DB_NAME = 'r4-beacon' + (['maya','diego','priya'].includes(DEMO_ID) ? '-demo-' + DEMO_ID : '');
-  const HEAD_KEY = 'r4-beacon-head' + (['maya','diego','priya'].includes(DEMO_ID) ? '-demo-' + DEMO_ID : '');
+  const DEMO_PERSONA = ['maya','diego','priya'].includes(DEMO_ID);
+  const DB_NAME = 'r4-beacon' + (DEMO_PERSONA ? '-demo-' + DEMO_ID : '');
+  const HEAD_KEY = 'r4-beacon-head' + (DEMO_PERSONA ? '-demo-' + DEMO_ID : '');
   const ZERO = '0'.repeat(64);
   const encoder = new TextEncoder();
   let dbPromise;
@@ -238,12 +239,32 @@
       bundle: JSON.stringify({ manifest: { format: 'r4-beacon-bundle.v1', app: 'devin', created: new Date().toISOString(), count: entries.length, head_sha256: verification.ok ? head?.sha256 || '' : '', public_key_pem: publicKeyPem, key_fpr: verification.keyFpr }, receipts: entries }, null, 2),
     };
   }
+  const clearDemo = async () => {
+    if (!DEMO_PERSONA) throw new Error('Demo receipts can only be cleared in demo mode');
+    await queue;
+    await withLock(async () => {
+      const db = await openDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(['receipts', 'keys'], 'readwrite');
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error('Beacon demo reset transaction aborted'));
+        tx.objectStore('receipts').clear();
+        tx.objectStore('keys').delete('head');
+        tx.objectStore('keys').delete('device');
+        tx.objectStore('keys').delete('signing');
+      });
+      localStorage.removeItem(HEAD_KEY);
+      keyPromise = null;
+      keyState.logged = false;
+    });
+  };
   window.R4Receipts = {
     init: () => withLock(ensureKey),
     append, record, jcs, sha256: (value) => sha(typeof value === 'string' ? value : jcs(value)),
     verify, list: fullReceipts,
     get: async (id) => (await fullReceipts()).find((item) => item.id === id || item.seq === Number(id)),
     keyInfo: () => withLock(async () => { const key = await ensureKey(); return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) }; }),
-    exportData,
+    exportData, clearDemo,
   };
 })();
