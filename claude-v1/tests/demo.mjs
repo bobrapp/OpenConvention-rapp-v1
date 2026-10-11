@@ -109,6 +109,41 @@ try {
       });
       await page.locator('#sheet').waitFor({state:'hidden'});
     }
+    const showAndAssertCenter=async(index,label)=>{
+      if(!(await page.getByRole('dialog').count())){
+        await page.locator('.demo-banner [data-demo-tour]').click();
+        await page.getByRole('dialog').waitFor();
+      }
+      const step=page.getByRole('dialog').getByRole('button',{name:'show me'}).nth(index);
+      const title=await step.locator('xpath=..').locator('strong').textContent();
+      await step.click();
+      await page.waitForFunction((expected)=>{
+        const result=window.__demoLastStep;
+        const element=result&&document.querySelector(result.selector);
+        if(!result?.target||!element?.getClientRects().length||document.querySelector('.demo-tour')||document.querySelector('.demo-tour-scrim'))return false;
+        const rect=element.getBoundingClientRect();
+        const hit=document.elementFromPoint(rect.left+rect.width/2,rect.top+rect.height/2);
+        return result.title===expected&&!!hit&&(hit===element||element.contains(hit));
+      },title);
+      const target=await page.evaluate(()=>{
+        const result=window.__demoLastStep;
+        const element=result&&document.querySelector(result.selector);
+        if(!element)return {found:false,visible:false,centerHit:false,selector:result?.selector};
+        const rect=element.getBoundingClientRect();
+        const hit=document.elementFromPoint(rect.left+rect.width/2,rect.top+rect.height/2);
+        return {found:!!result.target,visible:!!element.getClientRects().length,centerHit:!!hit&&(hit===element||element.contains(hit)),selector:result.selector};
+      });
+      assert.ok(target.found&&target.visible&&target.centerHit,`${id}: ${label} resolves a visible, unobscured target at ${target.selector}`);
+      await page.evaluate(()=>{
+        if(!document.querySelector('#sheet')?.hidden)document.querySelector('#sheet-foot [data-act="closeSheet"]')?.click();
+      });
+      await page.locator('#sheet').waitFor({state:'hidden'});
+    };
+    await showAndAssertCenter(0,'People row before Agents');
+    await showAndAssertCenter(1,'Agents subview');
+    await showAndAssertCenter(0,'People row after Agents');
+    await showAndAssertCenter(stepCount-1,'last step before first step');
+    await showAndAssertCenter(0,'first step after last step');
     await page.locator('.demo-banner [data-demo-tour]').click();
     await page.getByRole('dialog').waitFor();
     const axe=await page.evaluate(async()=>{

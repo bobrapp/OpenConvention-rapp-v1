@@ -193,6 +193,24 @@
       const mode = item.open === 'agentsCard' ? 'agents' : 'people';
       const control = document.querySelector(`#view [data-act="mode"][data-mode="${mode}"]`);
       if (control?.getAttribute('aria-pressed') !== 'true') control?.click();
+      if (mode === 'people') {
+        const all = document.querySelector('#view [data-act="filter"][data-f="all"]');
+        if (all?.getAttribute('aria-pressed') !== 'true') all?.click();
+        const search = document.querySelector('#view #q');
+        if (search?.value) {
+          search.value = '';
+          search.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+      await wait();
+    }
+    if (item.tab === 'agenda' || item.tab === 'report') {
+      const day = document.querySelector('#days [data-act="day"][data-i="0"]');
+      if (day?.getAttribute('aria-pressed') !== 'true') day?.click();
+      await wait();
+    }
+    if (item.tab === 'web') {
+      document.querySelector('#view .chips button[data-act="subject"][aria-pressed="true"]')?.click();
       await wait();
     }
     if (item.open === 'settings') document.querySelector('#settings-trigger')?.click();
