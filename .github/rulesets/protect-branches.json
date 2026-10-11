@@ -1,0 +1,16 @@
+{
+  "name": "protect release branches",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH", "refs/heads/Devin-v1", "refs/heads/Claude-v1", "refs/heads/muse-v1", "refs/heads/gh-pages"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" }
+  ],
+  "bypass_actors": []
+}
