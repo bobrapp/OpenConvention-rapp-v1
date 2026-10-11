@@ -17,6 +17,7 @@ const shotIndexes = {maya:[0,3],diego:[0,4],priya:[0,4]};
 const quickIndexes = {maya:[4,0,2,1,7],diego:[2,1,4,7,8],priya:[5,1,4,2,7]};
 try {
   for (const [id,name,peopleCount,agendaCount] of personaRows) {
+    const stepCount={maya:9,diego:9,priya:8}[id];
     const context = await browser.newContext({viewport:{width:390,height:844},colorScheme:'light'});
     const page = await context.newPage();
     const errors = [];
@@ -66,12 +67,43 @@ try {
       assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour ${order+1}/5`,`${id}: quick progress advances to ${order+1}/5`);
       const target=await page.evaluate(()=>{const last=window.__demoLastStep;return {selector:last?.selector,found:!!last?.target,visible:!!document.querySelector(last?.selector)?.getClientRects().length};});
       assert.ok(target.found&&target.visible,`${id}: quick target ${index} resolves at ${target.selector}`);
+      if(id==='diego'&&index===7){
+        const draft=page.locator('#view .fu-draft').first();
+        assert.ok(await draft.isVisible(),'Diego draft is visible during its tour step');
+        assert.ok((await draft.textContent()).trim().length>0,'Diego draft has readable message text');
+        const layout=await draft.evaluate(element=>{
+          const copy=element.parentElement.querySelector('[data-act="copyFu"]');
+          return {draft:element.getBoundingClientRect().toJSON(),copy:copy.getBoundingClientRect().toJSON()};
+        });
+        assert.ok(layout.draft.bottom<=layout.copy.top,`Diego draft appears above its copy control: ${JSON.stringify(layout)}`);
+      }
       await page.evaluate(()=>{if(!document.querySelector('#sheet')?.hidden)document.querySelector('#sheet-foot [data-act="closeSheet"]')?.click();});
       await page.locator('#sheet').waitFor({state:'hidden'});
+      if(order===1){
+        await page.reload();
+        await page.getByRole('region',{name:'demo mode'}).waitFor();
+        assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),'tour 2/5',`${id}: quick progress survives reload`);
+        await page.locator('.demo-banner [data-demo-tour]').click();
+        await page.getByRole('dialog').waitFor();
+        await page.locator('[data-demo-mode]').click();
+        assert.equal(await page.getByRole('dialog').getByRole('button',{name:'show me'}).count(),stepCount,`${id}: full mode shows N steps`);
+        assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour 2/${stepCount}`,`${id}: two quick completions count in full mode`);
+        await page.getByRole('button',{name:'close tour'}).click();
+        await page.locator('#tabs [data-tab="today"]').click();
+        await page.locator('#view [data-act="bumpGoal"]').first().click();
+        await page.reload();
+        await page.getByRole('region',{name:'demo mode'}).waitFor();
+        assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour 2/${stepCount}`,`${id}: full mode and progress survive an app save and reload`);
+        await page.locator('.demo-banner [data-demo-tour]').click();
+        await page.getByRole('dialog').waitFor();
+        assert.equal(await page.getByRole('dialog').getByRole('button',{name:'show me'}).count(),stepCount,`${id}: reloaded full mode still shows N steps`);
+        await page.locator('[data-demo-mode]').click();
+        assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),'tour 2/5',`${id}: returning to quick mode restores quick progress`);
+        await page.getByRole('button',{name:'close tour'}).click();
+      }
     }
     await page.locator('.demo-banner [data-demo-tour]').click();
     await page.getByRole('dialog').waitFor();
-    const stepCount={maya:9,diego:9,priya:8}[id];
     assert.equal(await page.getByRole('button',{name:`show all ${stepCount} features`}).count(),1,`${id}: quick tour offers the full list`);
     await page.locator('[data-demo-mode]').click();
     assert.equal(await page.getByRole('dialog').getByRole('button',{name:'show me'}).count(),stepCount,`${id}: full toggle shows N steps`);
@@ -102,7 +134,20 @@ try {
     await page.getByRole('region',{name:'demo mode'}).waitFor();
     await page.evaluate((key)=>{
       const state=JSON.parse(localStorage.getItem(key));
-      state.demo={...(state.demo||{}),tourMode:'full',tour:{}};
+      state.demo={...(state.demo||{}),tourMode:'quick',tour:{0:true,1:true}};
+      delete state.demo.tourVersion;
+      localStorage.setItem(`${key}:tour`,JSON.stringify(state.demo));
+      localStorage.setItem(key,JSON.stringify(state));
+    },`r4companion.v1-demo-${id}`);
+    await page.reload();
+    await page.getByRole('region',{name:'demo mode'}).waitFor();
+    assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),'tour 0/5',`${id}: old unversioned tour progress resets`);
+    const versioned=await page.evaluate((key)=>JSON.parse(localStorage.getItem(key)).demo,`r4companion.v1-demo-${id}`);
+    assert.equal(versioned.tourVersion,2,`${id}: current tour version is stored`);
+    assert.deepEqual(versioned.tour,{},`${id}: old completion keys are cleared`);
+    await page.evaluate((key)=>{
+      const state=JSON.parse(localStorage.getItem(key));
+      state.demo={...(state.demo||{}),tourMode:'full',tour:{},tourVersion:2};
       localStorage.setItem(`${key}:tour`,JSON.stringify(state.demo));
       localStorage.setItem(key,JSON.stringify(state));
     },`r4companion.v1-demo-${id}`);
@@ -110,6 +155,7 @@ try {
     await page.getByRole('region',{name:'demo mode'}).waitFor();
     await page.locator('.demo-banner [data-demo-tour]').click();
     await page.getByRole('dialog').waitFor();
+    assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour 0/${stepCount}`,`${id}: full-mode progress initializes on banner creation`);
     assert.equal(await page.getByRole('dialog').getByRole('button',{name:'show me'}).count(),stepCount,`${id}: full mode survives reload`);
     assert.equal(await page.getByRole('button',{name:'show 2-minute tour'}).count(),1);
     await page.locator('[data-demo-close]').click();
@@ -264,6 +310,25 @@ try {
       assert.ok(width<=390,`${id}: ${tab} stays within 390px at 200% text (scrollWidth ${width})`);
       const overlap=await headerOverlaps();
       assert.equal(overlap,false,`${id}: ${tab} header controls do not overlap at 200% text`);
+      if(tab==='people'){
+        await page.locator('#view [data-act="mode"][data-mode="followups"]').click();
+        await resetTextZoom();
+        await applyTextZoom();
+        const draftLayout=await page.evaluate(()=>{
+          const draft=document.querySelector('#view .fu-draft');
+          const copy=draft?.parentElement.querySelector('[data-act="copyFu"]');
+          return {
+            scroll:document.documentElement.scrollWidth,
+            width:innerWidth,
+            draftWidth:draft?.clientWidth,
+            draftScroll:draft?.scrollWidth,
+            copyHeight:copy?.getBoundingClientRect().height,
+          };
+        });
+        assert.ok(draftLayout.draftWidth>0&&draftLayout.draftScroll<=draftLayout.draftWidth,`${id}: follow-up draft reflows at 200% text: ${JSON.stringify(draftLayout)}`);
+        assert.ok(draftLayout.scroll<=draftLayout.width,`${id}: follow-up view has no horizontal overflow at 200% text: ${JSON.stringify(draftLayout)}`);
+        assert.ok(draftLayout.copyHeight>=44,`${id}: copy-note control keeps a 44px target at 200% text: ${JSON.stringify(draftLayout)}`);
+      }
     }
     await resetTextZoom();
     await page.locator('#settings-trigger').click();
