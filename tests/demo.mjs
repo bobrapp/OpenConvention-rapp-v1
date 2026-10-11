@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deflateSync, inflateSync } from 'node:zlib';
 import { chromium } from 'playwright-core';
 
 const require = createRequire(import.meta.url);
@@ -20,6 +21,50 @@ const personas = [
   ['diego', 'Diego Alvarez', 10, 9, ['five client conversations', 'two partner co-sells']],
   ['priya', 'Dr. Priya Natarajan', 8, 10, ['practitioner interviews', 'writing block', 'research trend notes']],
 ];
+const crcTable = Uint32Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+  return value >>> 0;
+});
+const crc32 = (data) => {
+  let value = 0xffffffff;
+  for (const byte of data) value = crcTable[(value ^ byte) & 0xff] ^ (value >>> 8);
+  return (value ^ 0xffffffff) >>> 0;
+};
+const optimizePng = (file) => {
+  const image = readFileSync(file);
+  const chunks = [];
+  const imageData = [];
+  let offset = 8;
+  while (offset < image.length) {
+    const start = offset;
+    const length = image.readUInt32BE(offset);
+    const type = image.toString('ascii', offset + 4, offset + 8);
+    const data = image.subarray(offset + 8, offset + 8 + length);
+    offset += length + 12;
+    if (type === 'IDAT') imageData.push(data);
+    chunks.push({ type, raw: image.subarray(start, offset) });
+  }
+  const compressed = deflateSync(inflateSync(Buffer.concat(imageData)), { level: 9 });
+  const type = Buffer.from('IDAT');
+  const size = Buffer.alloc(4);
+  size.writeUInt32BE(compressed.length);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(crc32(Buffer.concat([type, compressed])));
+  const optimized = [image.subarray(0, 8)];
+  let inserted = false;
+  for (const chunk of chunks) {
+    if (chunk.type === 'IDAT') {
+      if (!inserted) {
+        optimized.push(size, type, compressed, checksum);
+        inserted = true;
+      }
+    } else {
+      optimized.push(chunk.raw);
+    }
+  }
+  writeFileSync(file, Buffer.concat(optimized));
+};
 
 const snapshot = (page) => page.evaluate(async () => {
   const db = await new Promise((resolve, reject) => {
@@ -163,7 +208,7 @@ try {
     await realPage.getByText('this is a demo card — open it from a demo', { exact: true }).waitFor();
     assert.equal(await realPage.evaluate(() => localStorage.getItem('r4-networking-v2')), realStoredState, `${id}: demo card changed real storage`);
     await realPage.close();
-    await page.locator('.demo-banner [data-tour]').click();
+    await page.locator('.demo-banner [data-tour]').evaluate((button) => button.click());
 
     await page.addScriptTag({ path: axePath });
     const violations = await page.evaluate(async () => (await axe.run(document, {
@@ -186,13 +231,28 @@ try {
     for (let step = 0; step < stepCount; step++) {
       if (!(await page.locator('.demo-tour[role="dialog"]').count())) {
         await closeFeatureSheet(page);
-        await page.locator('.demo-banner [data-tour]').click();
+        await page.locator('.demo-banner [data-tour]').evaluate((button) => button.click());
+      }
+      if (step === 0) {
+        await page.evaluate(() => {
+          const alert = document.createElement('div');
+          alert.className = 'alert-pop';
+          alert.dataset.demoTestAlert = 'true';
+          document.querySelector('#alert-root').replaceChildren(alert);
+        });
       }
       await page.locator(`.demo-tour [data-show="${step}"]`).click();
       await page.waitForFunction((expected) => window.__demoStepResult?.index === expected && window.__demoStepResult?.target, step);
+      assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), `tour ${step + 1}/${stepCount}`, `${id}: banner advances after Show Me step ${step + 1}`);
+      assert.equal(await page.locator('#alert-root').evaluate((root) => getComputedStyle(root).display), 'none', `${id}: demo countdown alert is suppressed while showing a tour step`);
       const stepResult = await page.evaluate(() => window.__demoStepResult);
       assert.equal(stepResult.usedFallback, false, `${id}: show-me step ${step} resolves mapped selector ${stepResult.selector}`);
       assert.ok(await page.locator('.demo-tour-target').count(), `${id}: show-me step ${step} highlights a real target`);
+      assert.equal(await page.locator('.demo-tour-target').evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        return Boolean(hit && (hit === el || el.contains(hit)));
+      }), true, `${id}: step ${step + 1} target is unobscured at its center`);
       if (stepResult.selector === '.receipt-row') {
         assert.ok(await page.locator('.receipt-explanation').filter({ hasText: 'Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.' }).count());
       }
@@ -200,6 +260,7 @@ try {
       if (screenshotIndex >= 0) {
         const shotPath = path.join(shotDir, `${id}-${String(screenshotIndex + 1).padStart(2, '0')}.png`);
         await page.screenshot({ path: shotPath });
+        optimizePng(shotPath);
         assert.ok(statSync(shotPath).size <= 150 * 1024, `${shotPath} must stay at or below 150 KB`);
       }
     }

@@ -116,6 +116,7 @@
       .demo-tour li{padding:10px 0;border-bottom:1px solid #d9dfeb}
       .demo-tour h2{margin:0 0 8px}.demo-tour p{margin:6px 0}
       .demo-tour-target{outline:4px solid #ffb900!important;outline-offset:3px!important;scroll-margin:100px}
+      .demo-tour-active #alert-root{display:none!important}
       .demo-personas{margin:14px 0;padding:14px}.demo-personas a{margin:4px}
       @media(max-width:390px){.demo-banner{align-items:flex-start}.demo-banner .demo-copy{flex-basis:100%}}
     `;
@@ -183,6 +184,7 @@
   const tabFor = (id) => document.querySelector(`.tabbar .tab[data-tab="${id}"]`);
   const showStep = async (index) => {
     const step = steps[index];
+    document.body.classList.add('demo-tour-active');
     closeTour(false);
     document.querySelector('.demo-tour-target')?.classList.remove('demo-tour-target');
     if (document.querySelector('#sheet-root .sheet')) document.querySelector('#sheet-root [data-action="close-sheet"]')?.click();
