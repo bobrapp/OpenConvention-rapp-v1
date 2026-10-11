@@ -25,8 +25,24 @@ const freshPage = async (width = 390) => {
 };
 const goTab = async (page, id) => {
   const group = groupFor(id);
-  const close = page.locator('#sheet-root [data-action="close-sheet"]');
-  if (await close.count()) await close.click({ force: true });
+  const alert = page.locator('#alert-root .alert-pop');
+  if (await alert.count()) {
+    await alert.evaluate(async (element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+    const alertClose = page.locator('#alert-root [data-action="alert-close"]');
+    if (await alertClose.count()) {
+      await alertClose.evaluate((element) => element.click());
+      await alert.waitFor({ state: 'detached' });
+    }
+  }
+  const sheet = page.locator('#sheet-root .sheet');
+  if (await sheet.count()) {
+    await sheet.evaluate(async (element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+    const close = page.locator('#sheet-root .sheet-head [data-action="close-sheet"]');
+    if (await close.count()) {
+      await close.evaluate((element) => element.click());
+      await sheet.waitFor({ state: 'detached' });
+    }
+  }
   await page.locator(`#tabbar .tab[data-tab="${group}"]`).click({ force: true });
   await page.locator(`#tabbar .tab[data-tab="${group}"][aria-current="page"]`).waitFor();
   if (id === 'receipts') await page.locator('#view [data-action="open-receipts"]').click();
@@ -106,6 +122,7 @@ try {
   const selectedHeadliner = page.locator('.start-session-option[aria-checked="true"]');
   const selectedSessionId = await selectedHeadliner.getAttribute('data-session');
   assert.notEqual(selectedSessionId, 'none', 'headliner is preselected');
+  assert.equal(selectedSessionId, await page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).sessions.find((session) => session.featured)?.id), 'the current headliner is preselected');
   await page.screenshot({ path: path.join(shots, 'start-step-2.png') });
   await tap('[data-action="start-next"]');
   await page.screenshot({ path: path.join(shots, 'start-step-3.png') });
@@ -118,6 +135,9 @@ try {
   const result = await page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')));
   assert.equal(result.me.goal, 'business');
   assert.equal(result.backstage.beacon.mode, 'selective');
+  assert.equal(result.backstage.beaconAuto, true);
+  assert.equal(result.backstage.beacon.give, 'gtm & sales');
+  assert.equal(result.backstage.beacon.ask, 'ai & data');
   assert.equal(result.backstage.autonomy, 'act');
   assert.equal(result.sessions.find((s) => s.featured)?.id, selectedSessionId);
   assert.ok(await page.locator('.goal-hero').count(), 'Today shows the business hero');
@@ -125,21 +145,86 @@ try {
   await checkAxe(page, 'Today');
   await assertLayout(page, '390px Today');
   await page.waitForFunction(async () => (await R4Receipts.list()).some((r) => r.action === 'charter.updated'));
+  await goTab(page, 'backstage');
+  await page.locator('.charter-card [data-action="open-charter"]').click();
+  await page.locator('.charter-form [name="give"]').fill('custom business offer');
+  await page.locator('.charter-form [name="ask"]').fill('custom business request');
+  await page.locator('.charter-form [data-action="charter-start"]').click();
+  await page.waitForFunction(() => {
+    const saved = JSON.parse(localStorage.getItem('r4-networking-v2'));
+    return saved.backstage.beaconAuto === false
+      && saved.backstage.beacon.give === 'custom business offer'
+      && saved.backstage.beacon.ask === 'custom business request';
+  });
 
   const alternate = await freshPage();
   await alternate.page.locator('[data-action="start-goal"][data-goal="business"]').click();
   await alternate.page.locator('[data-action="start-next"]').click();
-  const otherSession = alternate.page.locator('.start-session-option:not([aria-checked="true"]):not([data-session="none"])').first();
-  const otherSessionId = await otherSession.getAttribute('data-session');
-  await otherSession.click();
+  const picker = alternate.page.locator('.start-session-options');
+  const goingCount = await alternate.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).sessions.filter((session) => session.status === 'going').length);
+  const pickerLayout = await picker.evaluate((element) => ({
+    overflowY: getComputedStyle(element).overflowY,
+    scrollable: element.scrollHeight > element.clientHeight,
+  }));
+  assert.equal(await alternate.page.locator('.start-session-option').count(), goingCount + 1, 'all going sessions plus none are listed');
+  assert.equal(await alternate.page.locator('.start-session-option').last().getAttribute('data-session'), 'none', 'none is last in the session picker');
+  assert.equal(pickerLayout.overflowY, 'auto');
+  assert.equal(pickerLayout.scrollable, true, 'the full session list scrolls');
+  const closingKeynote = alternate.page.locator('.start-session-option').filter({ hasText: /closing keynote/i });
+  const closingSessionId = await closingKeynote.getAttribute('data-session');
+  assert.ok(closingSessionId, 'the seeded closing keynote is selectable');
+  assert.equal(await alternate.page.evaluate((id) => JSON.parse(localStorage.getItem('r4-networking-v2')).sessions.find((session) => session.id === id)?.day, closingSessionId), 2, 'the closing keynote is on day 3');
+  const selected = alternate.page.locator('.start-session-option[aria-checked="true"]');
+  const selectedIndex = await selected.evaluate((element) => [...element.parentElement.querySelectorAll('.start-session-option')].indexOf(element));
+  const closingIndex = await closingKeynote.evaluate((element) => [...element.parentElement.querySelectorAll('.start-session-option')].indexOf(element));
+  const arrow = closingIndex > selectedIndex ? 'ArrowDown' : 'ArrowUp';
+  for (let i = 0; i < Math.abs(closingIndex - selectedIndex); i++) await alternate.page.keyboard.press(arrow);
+  assert.equal(await alternate.page.locator('.start-session-option[aria-checked="true"]').getAttribute('data-session'), closingSessionId, 'roving radio keys select the closing keynote');
+  const focusScroll = await closingKeynote.evaluate((element) => {
+    const list = element.parentElement;
+    const optionRect = element.getBoundingClientRect();
+    const listRect = list.getBoundingClientRect();
+    return {
+      focused: document.activeElement === element,
+      visible: optionRect.top >= listRect.top && optionRect.bottom <= listRect.bottom,
+      scrollTop: list.scrollTop,
+    };
+  });
+  assert.equal(focusScroll.focused, true, 'keyboard selection keeps focus on the selected radio');
+  assert.equal(focusScroll.visible, true, 'keyboard focus scrolls the selected radio into view');
+  assert.ok(focusScroll.scrollTop > 0, 'the picker scrolls to later sessions');
   await alternate.page.locator('[data-action="start-next"]').click();
   await alternate.page.locator('[data-action="start-finish"]').click();
   await alternate.page.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.onboarded);
   const alternateState = await alternate.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')));
-  assert.equal(alternateState.sessions.find((s) => s.featured)?.id, otherSessionId);
+  assert.equal(alternateState.sessions.find((s) => s.featured)?.id, closingSessionId);
   assert.equal(alternateState.backstage.charter.protectHeadliner, true);
 
+  const research = await freshPage();
+  await research.page.locator('[data-action="start-goal"][data-goal="research"]').click();
+  await research.page.locator('[data-action="start-next"]').click();
+  await research.page.locator('[data-action="start-next"]').click();
+  await research.page.locator('[data-action="start-finish"]').click();
+  await research.page.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.onboarded);
+  const researchState = await research.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')));
+  assert.equal(researchState.me.goal, 'research');
+  assert.equal(researchState.backstage.beacon.mode, 'selective');
+  assert.equal(researchState.backstage.charter.maxPerHour, true);
+  assert.equal(researchState.backstage.charter.protectHeadliner, true);
+  assert.ok(researchState.backstage.threads.length > 0, 'research onboarding fast-forward creates an introduction thread');
+  assert.match(await research.page.locator('.goal-hero .goal-kicker').innerText(), /your focus time is protected/i);
+  assert.match(await research.page.locator('.goal-hero .goal-mode').innerText(), /selective.*quiet after.*21:00/i);
+
   const none = await freshPage();
+  await none.page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+    state.backstage.beaconAuto = false;
+    state.backstage.beacon.give = 'my custom offer';
+    state.backstage.beacon.ask = 'my custom request';
+    localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+  });
+  await none.page.reload({ waitUntil: 'domcontentloaded' });
+  await none.page.waitForSelector('#sheet-root .sheet');
   await none.page.locator('[data-action="start-goal"][data-goal="social"]').click();
   await none.page.locator('[data-action="start-next"]').click();
   await none.page.locator('.start-session-option[data-session="none"]').click();
@@ -149,6 +234,9 @@ try {
   const noneState = await none.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')));
   assert.equal(noneState.backstage.charter.protectHeadliner, false);
   assert.equal(noneState.sessions.some((s) => s.featured), false);
+  assert.equal(noneState.backstage.beaconAuto, false);
+  assert.equal(noneState.backstage.beacon.give, 'my custom offer');
+  assert.equal(noneState.backstage.beacon.ask, 'my custom request');
 
   assert.equal(await page.locator('#tabbar .tab').count(), 4);
   for (const id of ['today', 'people', 'meet', 'connect', 'agenda', 'pitch', 'backstage', 'report', 'receipts']) {
@@ -196,6 +284,10 @@ try {
   const layout = await freshPage(320);
   await assertLayout(layout.page, '320px start');
   await completeSocial(layout.page);
+  const socialState = await layout.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')));
+  assert.equal(socialState.backstage.beaconAuto, true);
+  assert.equal(socialState.backstage.beacon.give, 'community & belonging');
+  assert.equal(socialState.backstage.beacon.ask, 'wellbeing');
   await goTab(layout.page, 'people');
   await assertLayout(layout.page, '320px people');
   await layout.page.screenshot({ path: path.join(shots, 'four-tabs-320.png') });
@@ -227,6 +319,7 @@ try {
   }
   await context.close();
   await alternate.context.close();
+  await research.context.close();
   await none.context.close();
   await skip.context.close();
   await zoom.context.close();

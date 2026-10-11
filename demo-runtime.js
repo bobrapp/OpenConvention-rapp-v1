@@ -133,7 +133,10 @@
   const closeTour = (restore = true) => {
     tourDialog?.remove();
     tourDialog = null;
-    if (restore) opener?.focus();
+    if (restore) {
+      document.body.classList.remove('demo-tour-active');
+      opener?.focus();
+    }
   };
   const renderBanner = () => {
     if (document.querySelector('[data-demo-banner]')) return;
@@ -147,6 +150,7 @@
     banner.innerHTML = `<span class="demo-copy"><b>${locale().demo} · ${persona.name}</b>, ${persona.who[language()] || persona.who.en} · <span data-progress></span></span><button type="button" data-tour>${locale().tour}</button><a data-exit href="${exit.pathname}${exit.search}${exit.hash}">${locale().exit}</a>`;
     document.querySelector('.topbar')?.after(banner);
     banner.querySelector('[data-tour]').addEventListener('click', openTour);
+    banner.querySelector('[data-exit]').addEventListener('click', () => document.body.classList.remove('demo-tour-active'));
     banner.querySelector('[data-progress]').textContent = `${locale().tour} ${countDone()}/${steps.length}`;
   };
   const ensureSettingsEntry = () => {

@@ -131,8 +131,9 @@
   const GOAL_PRESETS = {
     social: { mode: 'open', interests: ['community & belonging', 'wellbeing'] },
     business: { mode: 'selective', interests: ['gtm & sales', 'ai & data'] },
-    research: { mode: 'heads-down', interests: ['ai governance', 'agentic ai'] },
+    research: { mode: 'selective', interests: ['ai governance', 'agentic ai'] },
   };
+  const maxPerHourLimit = (value) => value === true ? 2 : Number(value) || 0;
 
   const MY_AGENTS = [
     { id: 'cos', icon: '★', core: true, name: _('chief of staff'), job: _('runs your networking plan: picks who to meet, talks to other agents, and asks you before booking anything.') },
@@ -367,8 +368,14 @@
       threads: Array.isArray(state.backstage?.threads) ? state.backstage.threads : [],
     };
     if (DEMO_MODE) delete state.backstage.beacon.lengths;
-    if (!state.backstage.beacon.give) state.backstage.beacon.give = state.me.canOffer || state.me.interests?.[0] || '';
-    if (!state.backstage.beacon.ask) state.backstage.beacon.ask = state.me.lookingFor || state.me.interests?.[1] || state.me.interests?.[0] || '';
+    if (!state.backstage.beacon.give) {
+      state.backstage.beacon.give = state.me.canOffer || state.me.interests?.[0] || '';
+      state.backstage.beaconAuto ??= true;
+    }
+    if (!state.backstage.beacon.ask) {
+      state.backstage.beacon.ask = state.me.lookingFor || state.me.interests?.[1] || state.me.interests?.[0] || '';
+      state.backstage.beaconAuto ??= true;
+    }
   }
   const save = () => {
     if (DEMO_MODE) {
@@ -905,7 +912,7 @@
       const next = state.sessions.filter((s) => s.status === 'going' && (s.day > today || (s.day === today && toMin(s.end) > nowM)))
         .sort((a, b) => a.day - b.day || toMin(a.start) - toMin(b.start))[0];
       return `<section class="goal-hero card"><p class="goal-kicker">${t('your focus time is protected')}</p>
-        <p class="goal-mode">${t(BK().beacon.mode)}</p>
+        <p class="goal-mode">${t(BK().beacon.mode)} · ${t('quiet after')} ${esc(BK().charter.quietAfter)}</p>
         ${next ? `<h1>${esc(next.title)}</h1><p>${dayN(next.day)} · ${fmtTime(next.start)}</p>` : ''}
         <button class="btn" data-action="go" data-tab="backstage">${t('open agent')}</button></section>`;
     }
@@ -1323,7 +1330,7 @@
           if (overlapsHeadliner) continue;
           const overlapsThread = activeThreads().some((other) => other.id !== th?.id && other.day === day && other.start && start < toMin(other.start) + other.minutes && end > toMin(other.start));
           if (overlapsThread) continue;
-          const maxPerHour = Number(BK().charter.maxPerHour) || 0;
+          const maxPerHour = maxPerHourLimit(BK().charter.maxPerHour);
           if (maxPerHour > 0) {
             const nearby = BK().threads.filter((other) => other.id !== th?.id
               && !['declined', 'blocked'].includes(other.stage)
@@ -1922,7 +1929,8 @@
     const charter = BK().charter;
     const autonomyLabels = { ask: 'ask me', suggest: 'suggest', act: 'act' };
     const charterChip = (enabled, label) => `<span class="chip ${enabled ? 'good' : 'bad'}">${enabled ? '✓' : '⊘'} ${t(label)}</span>`;
-    const maxLabel = charter.maxPerHour > 0 ? t('max {n} moments an hour', { n: charter.maxPerHour }) : t('no hourly limit');
+    const maxPerHour = maxPerHourLimit(charter.maxPerHour);
+    const maxLabel = maxPerHour > 0 ? t('max {n} moments an hour', { n: maxPerHour }) : t('no hourly limit');
     const receiptCount = ui.receiptVerification?.count ?? 0;
     const receiptStatus = ui.receiptVerification?.ok === false ? t('{count} signed receipts · chain needs attention', { count: receiptCount }) : t('{count} signed receipts · chain intact', { count: receiptCount });
     return `<h1 class="page-title">${t('backstage')}</h1><p class="page-sub">${t('what your agent is doing for you right now. every other agent here is simulated.')}</p>
@@ -1939,7 +1947,7 @@
       ${declined.length ? `<button class="card decline-summary" data-action="toggle-declines">${t(declined.length === 1 ? '1 polite no absorbed for you' : '{n} polite no’s absorbed for you', { n: declined.length })}<span>${ui.declinesExpanded ? '−' : '+'}</span></button>${ui.declinesExpanded ? `<div class="decline-list">${declined.map(threadCard).join('')}</div>` : ''}` : ''}
       ${closed.map(threadCard).join('') || (!declined.length ? `<div class="card empty small">${t('no closed threads yet.')}</div>` : '')}
       <div class="card charter-card"><div class="row between"><h3>${t('your charter')}</h3><button class="btn ghost sm" data-action="open-charter">${t('edit')}</button></div>
-        <div class="chips">${charterChip(charter.hideNameUntilYes, 'hide my name until yes')}${charterChip(charter.shareTopicsOnly, 'share topics only')}${charter.maxPerHour > 0 ? `<span class="chip good">✓ ${maxLabel}</span>` : `<span class="chip bad">⊘ ${maxLabel}</span>`}${charterChip(charter.protectHeadliner, 'protect the headliner')}</div>
+        <div class="chips">${charterChip(charter.hideNameUntilYes, 'hide my name until yes')}${charterChip(charter.shareTopicsOnly, 'share topics only')}${maxPerHour > 0 ? `<span class="chip good">✓ ${maxLabel}</span>` : `<span class="chip bad">⊘ ${maxLabel}</span>`}${charterChip(charter.protectHeadliner, 'protect the headliner')}</div>
         <div class="small muted" style="margin-top:8px">${t('autonomy')}: ${t(autonomyLabels[BK().autonomy])} · ${t('quiet after')} ${charter.quietAfter}</div></div>
       <div class="card story-card"><h3>${t('story of your day')}</h3><p>${esc(story)}</p></div>
       <details class="classic-tools card tight"><summary><b>${t('classic agent tools')}</b></summary>${viewAgents()}</details>`;
@@ -2007,10 +2015,13 @@
     state.me.goal = goal;
     state.me.interests = [...new Set([...preset.interests, ...(Array.isArray(state.me.interests) ? state.me.interests : [])])];
     BK().beacon.mode = preset.mode;
-    if (!BK().beacon.give) BK().beacon.give = state.me.canOffer || preset.interests[0];
-    if (!BK().beacon.ask) BK().beacon.ask = state.me.lookingFor || preset.interests[1];
+    if (BK().beaconAuto !== false) {
+      BK().beacon.give = state.me.canOffer || preset.interests[0];
+      BK().beacon.ask = state.me.lookingFor || preset.interests[1];
+    }
   }
-  function startAgent(settings) {
+  function startAgent(settings, userEditedBeacon = false) {
+    if (userEditedBeacon) BK().beaconAuto = false;
     recordReceipt(null, 'inventory.trust.changed', 'charter.updated', settings, 'charter settings saved');
     Object.assign(BK().beacon, { give: settings.give, ask: settings.ask });
     BK().charter.quietAfter = settings.quietAfter;
@@ -2024,12 +2035,7 @@
   function startSheet() {
     ui.startSession ??= headliner()?.id || 'none';
     const sessions = state.sessions.filter((s) => s.status === 'going').sort((a, b) => a.day - b.day || toMin(a.start) - toMin(b.start));
-    const listed = sessions.slice(0, 8);
-    const featured = headliner();
-    if (featured && !listed.some((s) => s.id === featured.id)) {
-      listed.splice(7, 1, featured);
-      listed.sort((a, b) => a.day - b.day || toMin(a.start) - toMin(b.start));
-    }
+    const listed = sessions;
     const choices = [
       ['social', _('meet people'), _('low-pressure company and new friends')],
       ['business', _('find business'), _('clients, partners and pipeline')],
@@ -2067,6 +2073,7 @@
   }
   function finishStart() {
     applyGoal(ui.startGoal);
+    if (ui.startGoal === 'research') BK().charter.maxPerHour = true;
     if (ui.startSession === 'none') {
       BK().charter.protectHeadliner = false;
       state.sessions.forEach((s) => { s.featured = false; });
@@ -2535,7 +2542,7 @@
   const F = {
     charter: (fd) => {
       const settings = { give: fd.get('give').trim(), ask: fd.get('ask').trim(), quietAfter: fd.get('quietAfter') || '21:00' };
-      startAgent(settings);
+      startAgent(settings, true);
     },
     icebreaker: (fd, form) => {
       const th = threadById(form.dataset.id); if (!th) return;

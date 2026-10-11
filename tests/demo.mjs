@@ -245,6 +245,7 @@ try {
       await page.waitForFunction((expected) => window.__demoStepResult?.index === expected && window.__demoStepResult?.target, step);
       assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), `tour ${step + 1}/${stepCount}`, `${id}: banner advances after Show Me step ${step + 1}`);
       assert.equal(await page.locator('#alert-root').evaluate((root) => getComputedStyle(root).display), 'none', `${id}: demo countdown alert is suppressed while showing a tour step`);
+      if (step === 0) await page.evaluate(() => document.querySelector('#alert-root')?.replaceChildren());
       const stepResult = await page.evaluate(() => window.__demoStepResult);
       assert.equal(stepResult.usedFallback, false, `${id}: show-me step ${step} resolves mapped selector ${stepResult.selector}`);
       assert.ok(await page.locator('.demo-tour-target').count(), `${id}: show-me step ${step} highlights a real target`);
@@ -253,6 +254,36 @@ try {
         const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
         return Boolean(hit && (hit === el || el.contains(hit)));
       }), true, `${id}: step ${step + 1} target is unobscured at its center`);
+      if (index === 0 && step === 0) {
+        assert.equal(await page.evaluate(() => document.body.classList.contains('demo-tour-active')), true, 'show step keeps the tour-active class');
+        const featureSheet = page.locator('#sheet-root .sheet');
+        if (await featureSheet.count()) await closeFeatureSheet(page);
+        assert.equal(await featureSheet.count(), 0, 'no sheet is open while testing tour alert routing');
+        const firePreview = () => page.evaluate((demoId) => {
+          const state = JSON.parse(localStorage.getItem(`r4-networking-v2-demo-${demoId}`));
+          const button = document.createElement('button');
+          button.dataset.action = 'alert-preview';
+          button.dataset.id = state.sessions.find((session) => session.featured)?.id;
+          document.body.append(button);
+          button.click();
+          button.remove();
+        }, id);
+        await firePreview();
+        await page.waitForFunction(() => document.querySelector('#toast')?.classList.contains('show'));
+        assert.equal(await page.locator('.alert-pop').count(), 0, 'an alert during a tour is a toast');
+        await page.locator('.demo-banner [data-tour]').click();
+        await page.locator('.demo-tour [data-close]').click();
+        assert.equal(await page.evaluate(() => document.body.classList.contains('demo-tour-active')), false, 'closing the tour removes its active class');
+        await firePreview();
+        await page.locator('.alert-pop').waitFor();
+        await page.locator('[data-action="alert-close"]').click();
+        await page.locator('#alert-root .alert-pop').waitFor({ state: 'detached' });
+        await page.locator('.demo-banner [data-tour]').click();
+        await page.evaluate(() => document.body.classList.add('demo-tour-active'));
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('.demo-tour'));
+        assert.equal(await page.evaluate(() => document.body.classList.contains('demo-tour-active')), false, 'Escape removes the tour-active class');
+      }
       if (stepResult.selector === '.receipt-row') {
         assert.ok(await page.locator('.receipt-explanation').filter({ hasText: 'Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.' }).count());
       }
@@ -283,7 +314,11 @@ try {
       .map((element) => { const rect = element.getBoundingClientRect(); return [rect.width, rect.height]; }));
     assert.ok(scaledTargets.every(([width, height]) => width >= 44 && height >= 44), `${id}: 200% demo targets remain at least 44px`);
     assert.ok(await page.locator('.demo-banner').evaluate((element) => element.scrollWidth <= element.clientWidth), `${id}: 200% banner wraps without horizontal overflow`);
-    await page.locator('.demo-tour [data-close]').click();
+    await page.evaluate(() => {
+      document.querySelector('.demo-banner [data-exit]').addEventListener('click', (event) => event.preventDefault(), { capture: true, once: true });
+    });
+    await page.locator('.demo-tour [data-exit]').click();
+    assert.equal(await page.evaluate(() => document.body.classList.contains('demo-tour-active')), false, `${id}: exiting clears the tour-active class`);
     await page.locator('.demo-banner [data-exit]').click();
     await page.waitForFunction(() => !new URL(location.href).searchParams.has('demo'));
     assert.equal(await page.evaluate(() => localStorage.getItem('r4-networking-v2')), realBefore.state, `${id}: exiting preserves real state`);
@@ -359,7 +394,7 @@ try {
     assert.deepEqual(consoleErrors, [], `${id}: no console errors`);
     await context.close();
   }
-  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; every mapped feature target; exit/reset; axe; 44px controls at 390px and 200% text');
+  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; tour class cleanup/alert routing; every mapped feature target; exit/reset; axe; 44px controls at 390px and 200% text');
 } finally {
   await browser.close();
 }
