@@ -64,7 +64,7 @@
         steps: ['Prepárate con un objetivo personal', 'Vista de Hoy y agente entre bastidores', 'Personas, conexión mutua y seguimiento', 'Agenda y la conferencia de Oprah', 'Agentes y propuesta que requiere tu atención', 'Red de conexiones y grupos comunitarios', 'Ronda de presentaciones y cronómetro en vivo', 'Resumen del día e informe del equipo', 'Recibos firmados y confianza sin conexión', 'Diseño e idioma de Slalom / AiGovOps'],
       },
       diego: {
-        descriptor: 'networker de ventas',
+        descriptor: 'profesional de ventas y alianzas',
         quote: 'Cinco conversaciones reales con clientes y dos ventas conjuntas con socios.',
         steps: ['Prioridades de clientes potenciales y socios', 'Empareja ofertas y pedidos con presentaciones cálidas', 'Aprobaciones pendientes y reuniones confirmadas', 'Negociación del agente y rechazos gestionados', 'Comparte la tarjeta del agente por QR y enlace', 'Ensayo de presentación, cronómetro y duración', 'Borradores y secuencias de seguimiento', 'Informe por persona y exportación', 'Verifica y exporta recibos firmados', 'Perfil de ventas y objetivos'],
       },
@@ -81,7 +81,7 @@
         steps: ['Prepare-se com um objetivo pessoal', 'Visão de Hoje e agente nos bastidores', 'Pessoas, conexão mútua e acompanhamento', 'Agenda e a palestra principal de Oprah', 'Agentes e proposta que precisa da sua atenção', 'Rede de conexões e grupos da comunidade', 'Rodada de apresentações e cronômetro ao vivo', 'Resumo do dia e relatório da equipe', 'Recibos assinados e confiança offline', 'Design e idioma do Slalom / AiGovOps'],
       },
       diego: {
-        descriptor: 'networker de vendas',
+        descriptor: 'profissional de vendas e parcerias',
         quote: 'Cinco conversas reais com clientes e duas vendas conjuntas com parceiros.',
         steps: ['Prioridades de clientes e parceiros qualificados', 'Combine ofertas e pedidos com apresentações calorosas', 'Aprovações que precisam de você e reuniões confirmadas', 'Negociação do agente e recusas absorvidas', 'Compartilhe o cartão do agente por QR e link', 'Ensaio da apresentação, cronômetro e duração', 'Rascunhos e sequências de acompanhamento', 'Relatório por persona e exportação', 'Verifique e exporte recibos assinados', 'Perfil de vendas e metas'],
       },
@@ -112,11 +112,11 @@
   const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
   const style = document.createElement('style');
   style.textContent = `
-    [data-demo-banner] { position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 8px 12px; background: var(--blue, #0c62fb); color: white; }
+    [data-demo-banner] { position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 12px; background: var(--blue, #0c62fb); color: white; }
     [data-demo-copy] { min-width: 0; max-width: 100%; font-size: 14px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     [data-demo-copy][data-demo-wrap="true"] { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
-    [data-demo-controls] { min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    [data-demo-banner] a, [data-demo-banner] button { flex: 0 0 auto; min-width: 44px; min-height: 44px; color: inherit; }
+    [data-demo-controls] { min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+    [data-demo-banner] a, [data-demo-banner] button { box-sizing: border-box; flex: 0 0 auto; min-width: 44px; min-height: 44px; color: inherit; }
     [data-demo-banner] button { border: 0; border-radius: 24px; background: white; color: #0c2bd8; padding: 8px 16px; font: inherit; font-weight: 700; }
     [data-demo-banner] a { display: inline-flex; align-items: center; justify-content: center; padding: 8px 10px; }
     [data-demo-tour] { position: fixed; inset: 0; z-index: 100; display: grid; place-items: end center; background: rgb(8 16 40 / 55%); padding: 12px; }

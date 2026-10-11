@@ -13,7 +13,7 @@ const personas = [
   {
     id: 'diego', name: 'Diego Alvarez', descriptor: 'sales networker', quote: 'Five real client conversations and two partner co-sells.',
     people: 10, agenda: 6, goals: ['five client conversations', 'two partner co-sells'], shots: [2, 5],
-    copy: { es: { descriptor: 'networker de ventas', quote: 'Cinco conversaciones reales con clientes y dos ventas conjuntas con socios.', done: '✓ hecho' }, pt: { descriptor: 'networker de vendas', quote: 'Cinco conversas reais com clientes e duas vendas conjuntas com parceiros.', done: '✓ concluído' } },
+    copy: { es: { descriptor: 'profesional de ventas y alianzas', quote: 'Cinco conversaciones reales con clientes y dos ventas conjuntas con socios.', done: '✓ hecho' }, pt: { descriptor: 'profissional de vendas e parcerias', quote: 'Cinco conversas reais com clientes e duas vendas conjuntas com parceiros.', done: '✓ concluído' } },
   },
   {
     id: 'priya', name: 'Dr. Priya Natarajan', descriptor: 'academic researcher', quote: 'Four practitioner interviews without wrecking my focus.',
@@ -52,8 +52,8 @@ for (const persona of personas) {
     const banner = document.querySelector('[data-demo-banner]');
     const copy = banner.querySelector('[data-demo-copy]');
     const fontSize = Number.parseFloat(getComputedStyle(copy).fontSize);
-    return banner.getBoundingClientRect().height <= 100 && fontSize >= 14 && fontSize <= 15;
-  }), `${persona.id} demo banner exceeds 100px or is not 14–15px at 390px normal text`);
+    return banner.getBoundingClientRect().height <= 56 && fontSize >= 14 && fontSize <= 15;
+  }), `${persona.id} demo banner exceeds 56px or is not 14–15px at 390px normal text`);
   const stateKey = `r4-networking-v1-demo-${persona.id}`;
   const demoState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), stateKey);
   const minute = (time) => {
@@ -111,6 +111,7 @@ for (const persona of personas) {
     await page.reload();
     await page.getByRole('region', { name: 'demo mode' }).waitFor();
     await page.getByRole('dialog').waitFor();
+    assert.ok(await page.locator('[data-demo-banner]').evaluate((banner) => banner.getBoundingClientRect().height <= 56), `${persona.id}: ${language} banner exceeds 56px at 390px`);
     const banner = await page.locator('[data-demo-copy]').textContent();
     assert.ok(banner.includes(persona.copy[language].descriptor), `${persona.id}: ${language} banner has its translated descriptor`);
     assert.ok(!banner.includes(persona.descriptor), `${persona.id}: ${language} banner falls back to its English descriptor`);
