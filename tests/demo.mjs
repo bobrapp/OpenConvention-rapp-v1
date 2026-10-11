@@ -210,6 +210,12 @@ try {
     assert.equal(await page.locator('.demo-tour [data-show]').count(), 11, `${id}: full mode shows all 11 features`);
     assert.equal(await page.locator('.demo-tour [data-mode-toggle]').textContent(), 'show 2-minute tour');
     assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), 'tour 5/11', `${id}: full progress carries over quick completions`);
+    if (id === 'diego') {
+      await page.locator('.demo-tour [data-close]').click();
+      await page.locator('.tab[data-tab="backstage"]').click();
+      await page.locator('[data-action="fast-forward"]').click();
+      assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo.tourMode, `r4-networking-v2-demo-${id}`), 'full', 'Diego full mode survives an app save');
+    }
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!document.querySelector('.demo-banner [data-tour]'));
     assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo.tourMode, `r4-networking-v2-demo-${id}`), 'full', `${id}: full mode survives reload`);
@@ -388,6 +394,41 @@ try {
     });
     await page.locator('.demo-tour [data-exit]').click();
     assert.equal(await page.evaluate(() => document.body.classList.contains('demo-tour-active')), false, `${id}: exiting clears the tour-active class`);
+    if (id === 'priya') {
+      const demoKey = `r4-networking-v2-demo-${id}`;
+      await page.evaluate((key) => {
+        const state = JSON.parse(localStorage.getItem(key));
+        const thread = state.backstage.threads.find((item) => item.stage === 'needs-you');
+        thread.expiresAt = 1;
+        state.demo.tourMode = 'quick';
+        state.demo.tourOpened = true;
+        localStorage.setItem(key, JSON.stringify(state));
+      }, demoKey);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key)).backstage.threads.some((item) => item.stage === 'needs-you'), demoKey);
+      assert.ok(await page.locator('.needs-you-card').count(), 'Priya expired demo approval remains visible');
+      const persistedApproval = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).backstage.threads.find((item) => item.stage === 'needs-you'), demoKey);
+      assert.equal(persistedApproval.demoSeed, true, 'Priya approval is marked as a demo seed');
+      await page.locator('.demo-banner [data-tour]').click();
+      await page.locator('.demo-tour [data-show="8"]').click();
+      await page.waitForFunction(() => window.__demoStepResult?.index === 8 && window.__demoStepResult.target);
+      assert.ok(await page.locator('.demo-tour-target.needs-you-card').count(), 'Priya quick approval step highlights the needs-you card');
+      const statuses = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).people.map((person) => person.status), demoKey);
+      await page.evaluate((key) => {
+        const state = JSON.parse(localStorage.getItem(key));
+        state.backstage.threads = state.backstage.threads.filter((item) => item.stage !== 'needs-you');
+        state.backstage.beacon.mode = 'heads-down';
+        state.demo.tourOpened = true;
+        localStorage.setItem(key, JSON.stringify(state));
+      }, demoKey);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key)).backstage.threads.some((item) => item.stage === 'needs-you'), demoKey);
+      const reseeded = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), demoKey);
+      assert.equal(reseeded.backstage.beacon.mode, 'heads-down', 'Priya remains heads-down while reseeding');
+      assert.ok(reseeded.backstage.threads.some((item) => item.stage === 'needs-you' && item.demoSeed), 'Priya gets a demo approval seed in heads-down mode');
+      assert.deepEqual(reseeded.people.map((person) => person.status), statuses, 'Priya seed does not mutate person statuses');
+      if (await page.locator('.demo-tour').count()) await page.locator('.demo-tour [data-close]').click();
+    }
     await page.locator('.demo-banner [data-exit]').click();
     await page.waitForFunction(() => !new URL(location.href).searchParams.has('demo'));
     assert.equal(await page.evaluate(() => localStorage.getItem('r4-networking-v2')), realBefore.state, `${id}: exiting preserves real state`);

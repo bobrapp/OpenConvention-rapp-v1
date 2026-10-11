@@ -381,7 +381,14 @@
     if (DEMO_MODE) {
       try {
         const currentDemo = JSON.parse(localStorage.getItem(KEY) || '{}').demo || {};
-        state.demo = { ...currentDemo, ...(state.demo || {}), tour: { ...(currentDemo.tour || {}), ...(state.demo?.tour || {}) } };
+        const demo = state.demo || {};
+        state.demo = {
+          ...currentDemo,
+          ...demo,
+          tourMode: currentDemo.tourMode || demo.tourMode || 'quick',
+          tourOpened: currentDemo.tourOpened ?? demo.tourOpened,
+          tour: { ...(currentDemo.tour || {}), ...(demo.tour || {}) },
+        };
       } catch {}
     }
     localStorage.setItem(KEY, JSON.stringify(state));
@@ -1374,9 +1381,9 @@
     }
     return { topic, complement };
   }
-  function openThread() {
+  function openThread({ force = false, demoSeed = false } = {}) {
     const p = nextThreadPerson();
-    if (!p || activeThreads().length >= 4 || BK().beacon.mode === 'heads-down') return null;
+    if (!p || activeThreads().length >= 4 || (!force && BK().beacon.mode === 'heads-down')) return null;
     const serial = BK().stats.agents + 1;
     const inbound = hash(`${p.id}${BK().seed}`) < 0.25;
     const usedIds = new Set(BK().threads.flatMap((x) => x.personIds));
@@ -1389,6 +1396,7 @@
       hook: '', hookData: null, opener: '', exitLine: 'i have to get to my next session, but glad we met.', expiresAt: 0,
       youSaid: null, theySaid: null, revealed: false, icebreaker: { index: 0, mine: '' },
       outcome: null, msgs: [], createdAt: Date.now(), seed: BK().seed,
+      ...(demoSeed ? { demoSeed: true } : {}),
     };
     th.icebreaker.index = Math.floor(hash(th.id) * ICEBREAKERS.length);
     BK().seed += 1; BK().stats.agents += 1; BK().threads.push(th);
@@ -1490,7 +1498,7 @@
     return true;
   }
   function expireOffers() {
-    const expired = BK().threads.filter((x) => x.stage === 'needs-you' && x.expiresAt && Date.now() >= x.expiresAt);
+    const expired = BK().threads.filter((x) => x.stage === 'needs-you' && !x.demoSeed && x.expiresAt && Date.now() >= x.expiresAt);
     expired.forEach((th) => {
       th.stage = 'declined'; th.outcome = 'nofit';
       threadLog(th, 'mine', 'offer expired, your agent let them know.', {}, { status: 'expired' });
@@ -3328,10 +3336,7 @@
     state.demo = { ...(state.demo || {}), agentsSimulated: true };
     const mode = BK().beacon.mode;
     BK().beacon.mode = 'selective';
-    const statuses = state.people.map((person) => person.status);
-    state.people.forEach((person) => { person.status = 'want'; });
     const [needsYou, confirmed, declined, blocked] = Array.from({ length: 4 }, () => openThread());
-    state.people.forEach((person, index) => { person.status = statuses[index]; });
     if (needsYou) {
       needsYou.stage = 'needs-you'; needsYou.theySaid = 'yes'; needsYou.expiresAt = Date.now() + 9 * 60 * 1000;
       threadLog(needsYou, 'peer', 'the other person is open to meeting. this choice is yours.', {}, { status: 'needs-you', humanDecision: 'yes' });
@@ -3357,17 +3362,24 @@
     save();
     render();
   }
-  if (DEMO_MODE && DEMO_ID === 'priya' && !BK().threads.some((thread) => thread.stage === 'needs-you')) {
-    const statuses = state.people.map((person) => person.status);
-    state.people.forEach((person) => { person.status = 'want'; });
-    const approval = openThread();
-    state.people.forEach((person, index) => { person.status = statuses[index]; });
-    if (approval) {
-      approval.stage = 'needs-you'; approval.theySaid = 'yes'; approval.expiresAt = Date.now() + 9 * 60 * 1000;
-      threadLog(approval, 'peer', 'the other person is open to meeting. this choice is yours.', {}, { status: 'needs-you', humanDecision: 'yes' });
-      save();
-      render();
+  if (DEMO_MODE && DEMO_ID === 'priya') {
+    let changed = expireOffers();
+    const needsYou = BK().threads.find((thread) => thread.stage === 'needs-you');
+    if (needsYou) {
+      if (!needsYou.demoSeed || needsYou.expiresAt) {
+        needsYou.demoSeed = true;
+        needsYou.expiresAt = 0;
+        changed = true;
+      }
+    } else {
+      const approval = openThread({ force: true, demoSeed: true });
+      if (approval) {
+        approval.stage = 'needs-you'; approval.theySaid = 'yes'; approval.expiresAt = 0;
+        threadLog(approval, 'peer', 'the other person is open to meeting. this choice is yours.', {}, { status: 'needs-you', humanDecision: 'yes' });
+        changed = true;
+      }
     }
+    if (changed) { save(); render(); }
   }
   handleAgentHash();
   handleMeetHash();

@@ -277,14 +277,18 @@
     if (step[3] === 'open-session') document.querySelector('#view .t-card[data-action="session"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 80));
     const selector = step[2];
-    const target = [...document.querySelectorAll(selector)].find((el) => el.getClientRects().length) ||
-      document.querySelector('#sheet-root .sheet, #view .card:not(.empty), #view button');
-    if (target) {
-      target.classList.add('demo-tour-target');
-      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-      target.tabIndex = target.tabIndex < 0 ? -1 : target.tabIndex;
-      target.focus({ preventScroll: true });
+    const target = [...document.querySelectorAll(selector)].find((el) => el.getClientRects().length);
+    if (!target) {
+      updateProgress();
+      document.dispatchEvent(new CustomEvent('r4-demo-step', { detail: {
+        index, title: stepTitle(index), target: false, selector, usedFallback: false,
+      } }));
+      return;
     }
+    target.classList.add('demo-tour-target');
+    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    target.tabIndex = target.tabIndex < 0 ? -1 : target.tabIndex;
+    target.focus({ preventScroll: true });
     storeDone(index);
     updateProgress();
     document.dispatchEvent(new CustomEvent('r4-demo-step', { detail: {
