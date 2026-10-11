@@ -189,6 +189,12 @@
     closeAppSheet();
     if (item.tab) document.querySelector(`#tabs [data-act="tab"][data-tab="${item.tab}"]`)?.click();
     await wait();
+    if (item.tab === 'people') {
+      const mode = item.open === 'agentsCard' ? 'agents' : 'people';
+      const control = document.querySelector(`#view [data-act="mode"][data-mode="${mode}"]`);
+      if (control?.getAttribute('aria-pressed') !== 'true') control?.click();
+      await wait();
+    }
     if (item.open === 'settings') document.querySelector('#settings-trigger')?.click();
     if (item.open === 'quickAdd') document.querySelector('#view [data-act="quickAdd"]')?.click();
     if (item.open === 'importAgenda') document.querySelector('#view [data-act="importOpen"][data-kind="agenda"]')?.click();
@@ -197,8 +203,6 @@
     if (item.open === 'session') document.querySelector('#view [data-act="editSession"]')?.click();
     if (item.open === 'person') document.querySelector('#view [data-act="viewPerson"]')?.click();
     if (item.open === 'agentsCard') {
-      document.querySelector('#view [data-act="mode"][data-mode="agents"]')?.click();
-      await wait();
       document.querySelector('#view [data-act="showCard"]')?.click();
     }
     await wait();

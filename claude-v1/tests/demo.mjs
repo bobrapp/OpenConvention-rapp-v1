@@ -89,6 +89,26 @@ try {
       });
       await page.locator('#sheet').waitFor({state:'hidden'});
     }
+    for(let index=stepCount-1;index>=0;index--){
+      if(!(await page.getByRole('dialog').count())){
+        await page.locator('.demo-banner [data-demo-tour]').click();
+        await page.getByRole('dialog').waitFor();
+      }
+      const step=page.getByRole('dialog').getByRole('button',{name:'show me'}).nth(index);
+      const title=await step.locator('xpath=..').locator('strong').textContent();
+      await step.click();
+      await page.waitForFunction((expected)=>window.__demoLastStep?.title===expected&&window.__demoLastStep.target&&!document.querySelector('.demo-tour')&&!document.querySelector('.demo-tour-scrim'),title);
+      const target=await page.evaluate(()=>{
+        const result=window.__demoLastStep;
+        const element=result&&document.querySelector(result.selector);
+        return {found:!!result?.target,visible:!!element?.getClientRects().length,selector:result?.selector};
+      });
+      assert.ok(target.found&&target.visible,`${id}: reverse Show Me step ${index+1} resolves ${target.selector}`);
+      await page.evaluate(()=>{
+        if(!document.querySelector('#sheet')?.hidden)document.querySelector('#sheet-foot [data-act="closeSheet"]')?.click();
+      });
+      await page.locator('#sheet').waitFor({state:'hidden'});
+    }
     await page.locator('.demo-banner [data-demo-tour]').click();
     await page.getByRole('dialog').waitFor();
     const axe=await page.evaluate(async()=>{
