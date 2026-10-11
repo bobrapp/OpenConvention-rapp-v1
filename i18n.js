@@ -2,6 +2,8 @@
 // spanish + portuguese strings; english keys are the source text in app.js
 window.R4_I18N = {
  "es": {
+  "try a demo persona": "prueba una persona de demo",
+  "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Basado en governance-as-code de AiGovOps Foundation: recibos Beacon en el formato de evidencia OVERT, verificables sin conexión.",
   "executive sponsor": "patrocinador ejecutivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "un directivo sénior que piensa en resultados, riesgo e inversión",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negocio claros, perspectivas de pares, formas de empezar con poco riesgo",
@@ -516,6 +518,8 @@ window.R4_I18N = {
   "that agent link did not work": "ese enlace de agente no funcionó"
  },
  "pt": {
+  "try a demo persona": "experimente uma persona de demonstração",
+  "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Desenvolvido com governance-as-code da AiGovOps Foundation: recibos Beacon no formato de evidência OVERT, verificáveis offline.",
   "executive sponsor": "patrocinador executivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "um executivo sênior que pensa em resultados, risco e investimento",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negócio claros, perspectivas de pares, formas de começar com pouco risco",

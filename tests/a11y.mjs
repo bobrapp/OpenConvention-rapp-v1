@@ -52,7 +52,7 @@ await page.screenshot({ path: '/Users/devin/shots/muse-brand/settings-aigovops.p
 assert.deepEqual(await severeFindings(), []);
 assert.deepEqual(await checkTargets(), []);
 const close = page.getByRole('button', { name: 'close' });
-const lastSettingsControl = page.getByRole('button', { name: 'start fresh (empty)' });
+const lastSettingsControl = page.getByRole('link', { name: 'Dr. Priya Natarajan' });
 await lastSettingsControl.focus();
 await page.keyboard.press('Tab');
 assert.equal(await close.evaluate((el) => document.activeElement === el), true);
