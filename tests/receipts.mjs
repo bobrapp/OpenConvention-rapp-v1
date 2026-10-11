@@ -197,8 +197,9 @@ await recoveryPage.evaluate(async () => {
     request.onerror = () => reject(request.error);
   });
   await new Promise((resolve, reject) => {
-    const tx = db.transaction('receipts', 'readwrite');
+    const tx = db.transaction(['receipts', 'keys'], 'readwrite');
     tx.objectStore('receipts').clear();
+    tx.objectStore('keys').delete('head');
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
   });
@@ -215,5 +216,79 @@ assert.equal(recoveryAction.seq, 2);
 assert.equal((await recoveryPage.evaluate(() => R4Receipts.verify())).ok, true);
 await recoveryContext.close();
 console.log('interrupted first launch recovery ok: key.created seq 1; action seq 2; verify ok');
+
+const mirrorContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const mirrorPage = await mirrorContext.newPage();
+await mirrorPage.goto(base);
+await mirrorPage.waitForFunction(() => window.R4Receipts);
+const committed = await mirrorPage.evaluate(async () => {
+  await R4Receipts.init();
+  await R4Receipts.record('test.before-crash', 'muse.before-crash', {}, { ok: true });
+  const entries = await R4Receipts.list();
+  return { entries, head: JSON.parse(localStorage.getItem('r4-beacon-head-muse')) };
+});
+await mirrorPage.evaluate(() => localStorage.removeItem('r4-beacon-head-muse'));
+const persistedHead = await mirrorPage.evaluate(async () => {
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open('r4-beacon-muse');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  return await new Promise((resolve, reject) => {
+    const request = db.transaction('keys').objectStore('keys').get('head');
+    request.onsuccess = () => resolve(request.result?.value);
+    request.onerror = () => reject(request.error);
+  });
+});
+assert.deepEqual(persistedHead, committed.head);
+await mirrorPage.reload();
+await mirrorPage.waitForFunction(() => window.R4Receipts);
+await mirrorPage.evaluate(() => R4Receipts.init());
+assert.deepEqual(
+  await mirrorPage.evaluate(() => JSON.parse(localStorage.getItem('r4-beacon-head-muse'))),
+  committed.head,
+);
+const afterMirrorRecovery = await mirrorPage.evaluate(async () => {
+  const action = await R4Receipts.record('test.after-crash', 'muse.after-crash', {}, { ok: true });
+  return { action, entries: await R4Receipts.list(), verification: await R4Receipts.verify() };
+});
+assert.equal(afterMirrorRecovery.action.seq, committed.entries.length + 1);
+assert.ok(afterMirrorRecovery.entries.some((entry) => entry.id === afterMirrorRecovery.action.id));
+assert.deepEqual(afterMirrorRecovery.entries.map((entry) => entry.seq), afterMirrorRecovery.entries.map((_entry, index) => index + 1));
+assert.equal(afterMirrorRecovery.verification.ok, true);
+await mirrorContext.close();
+console.log('interrupted head mirror recovery ok: IDB head restored; next action contiguous; verify ok');
+
+const legacyContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const legacyPage = await legacyContext.newPage();
+await legacyPage.goto(base);
+await legacyPage.waitForFunction(() => window.R4Receipts);
+await legacyPage.evaluate(async () => {
+  await R4Receipts.init();
+  await R4Receipts.record('test.legacy', 'muse.legacy', {}, { ok: true });
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open('r4-beacon-muse');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('keys', 'readwrite');
+    tx.objectStore('keys').delete('head');
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  localStorage.removeItem('r4-beacon-head-muse');
+});
+await legacyPage.reload();
+await legacyPage.waitForFunction(() => window.R4Receipts);
+const legacy = await legacyPage.evaluate(async () => ({
+  entries: await R4Receipts.list(),
+  verification: await R4Receipts.verify(),
+}));
+assert.equal(legacy.verification.ok, false);
+assert.equal(legacy.verification.reason, 'head-missing');
+assert.equal(legacy.entries.length, 2);
+await legacyContext.close();
+console.log('legacy head check ok: receipts with no IndexedDB or localStorage head remain head-missing');
 await browser.close();
 console.log(`Muse receipts ok: ${result.rows.length} signed records; tamper seq ${tampered.firstBadSeq}; truncation seq ${truncated.firstBadSeq}; storage isolated`);
