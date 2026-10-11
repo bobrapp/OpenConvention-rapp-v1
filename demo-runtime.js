@@ -63,8 +63,6 @@
   const tr = (key, vars = {}) => (strings[locale()][key] || strings.en[key]).replace(/\{(\w+)\}/g, (_match, name) => vars[name] || '');
 
   const stateKey = `r4-networking-v1-demo-${id}`;
-  const dbName = `r4-beacon-muse-demo-${id}`;
-  const headKey = `r4-beacon-head-muse-demo-${id}`;
   const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
   const style = document.createElement('style');
   style.textContent = `
@@ -178,12 +176,11 @@
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     });
     dialog.querySelector('button')?.focus();
-    dialog.querySelector('[data-demo-reset]').addEventListener('click', () => {
+    dialog.querySelector('[data-demo-reset]').addEventListener('click', async () => {
       if (!confirm(tr('confirm'))) return;
+      await window.R4Receipts.clearDemo();
       localStorage.removeItem(stateKey);
-      localStorage.removeItem(headKey);
-      const request = indexedDB.deleteDatabase(dbName);
-      request.onsuccess = request.onerror = request.onblocked = () => location.reload();
+      location.reload();
     });
   };
 

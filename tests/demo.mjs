@@ -113,8 +113,33 @@ for (const persona of personas) {
     ids: (await R4Receipts.list()).map((receipt) => receipt.id),
     key: (await R4Receipts.keyInfo()).keyFpr,
   }));
+  await page.evaluate(() => {
+    const clear = R4Receipts.clearDemo;
+    R4Receipts.clearDemo = async () => {
+      await clear();
+      const demoId = new URLSearchParams(location.search).get('demo');
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open(`r4-beacon-muse-demo-${demoId}`);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const tx = db.transaction(['receipts', 'keys'], 'readonly');
+      const read = (store, operation) => new Promise((resolve, reject) => {
+        const request = operation === 'count' ? tx.objectStore(store).count() : tx.objectStore(store).get(operation);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const [receipts, head, device, signing] = await Promise.all([
+        read('receipts', 'count'), read('keys', 'head'), read('keys', 'device'), read('keys', 'signing'),
+      ]);
+      sessionStorage.setItem('r4-demo-reset-records', JSON.stringify({ receipts, head: !!head, device: !!device, signing: !!signing }));
+      db.close();
+    };
+  });
   page.once('dialog', (dialog) => dialog.accept());
+  const reloaded = page.waitForEvent('load');
   await page.locator('[data-demo-reset]').click();
+  await reloaded;
   await page.getByRole('region', { name: 'demo mode' }).waitFor();
   await page.waitForFunction((key) => !!localStorage.getItem(key), stateKey);
   await page.waitForFunction(async () => window.R4Receipts && (await R4Receipts.list()).length > 0, null, { timeout: 5000 });
@@ -123,6 +148,9 @@ for (const persona of personas) {
     verification: await R4Receipts.verify(),
     key: (await R4Receipts.keyInfo()).keyFpr,
   }));
+  assert.deepEqual(JSON.parse(await page.evaluate(() => sessionStorage.getItem('r4-demo-reset-records'))), {
+    receipts: 0, head: false, device: false, signing: false,
+  }, 'reset clears demo receipts, IDB head and signing key in the persona database');
   assert.equal(afterReset.verification.ok, true);
   assert.equal(afterReset.entries[0].action, 'key.created');
   assert.equal(afterReset.entries.filter((receipt) => receipt.action === 'key.created').length, 1);
