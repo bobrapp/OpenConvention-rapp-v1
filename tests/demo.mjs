@@ -130,18 +130,35 @@ for (const persona of personas) {
   assert.ok(await page.evaluate(() => document.querySelector('[data-demo-banner]').getBoundingClientRect().height <= 100), `${persona.id} demo banner should return to <=100px at 100% text`);
   await page.locator('[data-demo-close]').click();
 
-  for (let index = 0; index < 10; index++) {
-    const count = persona.id === 'priya' ? 9 : 10;
-    if (index >= count) break;
-    if (!(await page.locator('[data-demo-tour]').count())) await page.locator('[data-demo-tour-button]').click();
+  const stepCount = persona.id === 'priya' ? 9 : 10;
+  for (let index = 0; index < stepCount; index++) {
+    if (!(await page.locator('[data-demo-tour]').count())) {
+      await page.locator('[data-demo-tour-button]').evaluate((button) => button.click());
+    }
+    if (index === 0) {
+      await page.evaluate(() => {
+        const alert = document.createElement('div');
+        alert.className = 'alert-pop';
+        alert.dataset.demoTestAlert = 'true';
+        document.querySelector('#alert-root').replaceChildren(alert);
+      });
+    }
     await page.locator(`[data-demo-show="${index}"]`).click();
     await page.waitForFunction((i) => window.__r4DemoStep?.index === i, index, { timeout: 5000 });
+    const progress = await page.locator('[data-demo-copy]').textContent();
+    assert.ok(progress.endsWith(`tour ${index + 1}/${stepCount}`), `${persona.id}: banner advances after Show Me step ${index + 1}`);
+    assert.equal(await page.locator('#alert-root').evaluate((root) => getComputedStyle(root).display), 'none', `${persona.id}: demo countdown alert is suppressed while showing a tour step`);
     const targetInfo = await page.evaluate(() => window.__r4DemoStep);
     assert.equal(targetInfo.fallback, false, `${persona.id} step ${index + 1} fell back (${targetInfo.selector})`);
     const target = page.locator(targetInfo.selector).first();
     await target.waitFor({ state: 'visible', timeout: 5000 });
     const hasContent = await target.evaluate((el) => Boolean((el.innerText || '').trim() || el.innerHTML.trim()));
     assert.equal(hasContent, true, `${persona.id} step ${index + 1} target is empty (${targetInfo.selector})`);
+    assert.equal(await target.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return Boolean(hit && (hit === el || el.contains(hit)));
+    }), true, `${persona.id} step ${index + 1} target is unobscured at its center`);
     if (persona.shots.includes(index)) {
       const shotIndex = persona.shots.indexOf(index) + 1;
       const path = new URL(`../docs/demo/muse/${persona.id}-${String(shotIndex).padStart(2, '0')}.png`, import.meta.url).pathname;

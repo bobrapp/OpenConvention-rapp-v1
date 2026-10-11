@@ -82,6 +82,7 @@
     [data-demo-tour] li { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
     [data-demo-tour] button { max-width: 100%; min-width: 44px; min-height: 44px; padding: 8px 14px; white-space: normal; overflow-wrap: anywhere; }
     .demo-feature-highlight { outline: 4px solid #ffc23d !important; outline-offset: 3px !important; border-radius: 12px; }
+    .demo-tour-active #alert-root{display:none!important}
     @media (max-width: 480px) { [data-demo-tour] { padding: 0; } [data-demo-tour] .demo-sheet { max-height: 92vh; border-radius: 22px 22px 0 0; } }
   `;
   document.head.append(style);
@@ -167,6 +168,7 @@
       markDone(index);
       dialog.remove();
       updateProgress(banner);
+      document.body.classList.add('demo-tour-active');
       await routeStep(persona.steps[index], index);
     }));
     const close = () => dialog.remove();
