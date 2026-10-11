@@ -5,9 +5,9 @@ import { chromium } from 'playwright-core';
 const base = process.env.BASE_URL || 'http://127.0.0.1:60804/R4%20Muse%20V1';
 const executablePath = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const personas = [
-  { id: 'maya', name: 'Maya Torres', people: 8, agenda: 6, shots: [2, 4] },
-  { id: 'diego', name: 'Diego Alvarez', people: 10, agenda: 5, shots: [2, 5] },
-  { id: 'priya', name: 'Dr. Priya Natarajan', people: 8, agenda: 10, shots: [0, 7] },
+  { id: 'maya', name: 'Maya Torres', people: 8, agenda: 7, goals: ['dinner crew', 'birds-of-a-feather', 'oprah keynote'], shots: [2, 4] },
+  { id: 'diego', name: 'Diego Alvarez', people: 10, agenda: 6, goals: ['five client conversations', 'two partner co-sells'], shots: [2, 5] },
+  { id: 'priya', name: 'Dr. Priya Natarajan', people: 8, agenda: 11, goals: ['practitioner interviews', 'writing block', 'research trend notes'], shots: [0, 7] },
 ];
 const browser = await chromium.launch({ headless: true, executablePath });
 
@@ -44,6 +44,10 @@ for (const persona of personas) {
   }), `${persona.id} demo banner exceeds 100px or is not 14–15px at 390px normal text`);
   const stateKey = `r4-networking-v1-demo-${persona.id}`;
   const demoState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), stateKey);
+  const minute = (time) => {
+    const [hour, minutes] = time.split(':').map(Number);
+    return hour * 60 + minutes;
+  };
   assert.equal(demoState.me.name, persona.name);
   assert.equal(demoState.people.length, persona.people);
   assert.equal(demoState.sessions.length, persona.agenda);
@@ -51,6 +55,27 @@ for (const persona of personas) {
   assert.equal(demoState.me.brand, 'slalom');
   assert.ok(demoState.agents.proposals.some((proposal) => proposal.status === 'pending'));
   assert.ok(demoState.agents.proposals.some((proposal) => proposal.status === 'booked'));
+  assert.ok(persona.goals.every((goal) => demoState.goals.some((item) => item.text.toLowerCase().includes(goal))), `${persona.id} goals are not persona-specific`);
+  assert.ok(demoState.pitches.some((pitch) => pitch.name === persona.name), `${persona.id} pitch is not owned by the persona`);
+  assert.ok(demoState.pitchDraft.trim(), `${persona.id} pitch draft is empty`);
+  const serializedState = JSON.stringify(demoState).toLowerCase();
+  assert.ok(!serializedState.includes('bob'), `${persona.id} demo state contains Bob`);
+  assert.ok(!serializedState.includes('this r4 networking app'), `${persona.id} demo state contains the default pitch`);
+  assert.equal(demoState.backstage.charter, undefined, `${persona.id} demo state contains unenforced charter fields`);
+  assert.equal(demoState.backstage.beacon.lengths, undefined, `${persona.id} demo state contains unenforced meeting lengths`);
+  for (const proposal of demoState.agents.proposals) {
+    const linked = proposal.status === 'booked' ? demoState.sessions.find((session) => session.id === proposal.sessionId) : null;
+    if (proposal.status === 'booked') {
+      assert.ok(linked, `${persona.id} booked proposal has no session`);
+      assert.equal(linked.day, proposal.day);
+      assert.equal(linked.start, proposal.start);
+      assert.equal(linked.end, proposal.end);
+    }
+    for (const session of demoState.sessions) {
+      if (session.id === linked?.id || session.day !== proposal.day) continue;
+      assert.ok(minute(proposal.start) >= minute(session.end) || minute(proposal.end) <= minute(session.start), `${persona.id} proposal overlaps ${session.title}`);
+    }
+  }
   assert.ok(demoState.agents.log.some((message) => message.json.status === 'declined'));
   assert.ok(demoState.agents.log.some((message) => message.json.status === 'blocked-injection'));
   const realSentinels = await page.evaluate(() => {
@@ -135,6 +160,42 @@ for (const persona of personas) {
   }
   assert.equal(await page.evaluate((key) => Object.values(JSON.parse(localStorage.getItem(key)).demo.tour).filter(Boolean).length, stateKey), persona.id === 'priya' ? 9 : 10);
 
+  await page.locator('[data-action="go"][data-tab="agents"]').click();
+  const clipboardHooked = await page.evaluate(() => {
+    try {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (text) => { window.__demoCopiedCardLink = text; } },
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  assert.ok(clipboardHooked, `${persona.id} could not intercept the demo card copy`);
+  await page.locator('[data-action="agent-copy-link"]').click();
+  await page.waitForFunction(() => Boolean(window.__demoCopiedCardLink), null, { timeout: 5000 });
+  const cardLink = await page.evaluate(() => window.__demoCopiedCardLink);
+  const cardUrl = new URL(cardLink);
+  assert.equal(cardUrl.searchParams.get('demo'), persona.id);
+  const card = JSON.parse(Buffer.from(cardUrl.hash.slice('#agent='.length), 'base64url').toString('utf8'));
+  assert.equal(card.demo, true);
+  const realState = structuredClone(demoState);
+  realState.me.name = 'Real attendee';
+  delete realState.demo;
+  const beforePeople = realState.people;
+  const beforeStoredState = JSON.stringify(realState);
+  await page.evaluate((value) => localStorage.setItem('r4-networking-v1', value), beforeStoredState);
+  const realPage = await context.newPage();
+  realPage.on('pageerror', (error) => errors.push(error.message));
+  await realPage.goto(`${base}?keep=1${cardUrl.hash}`);
+  await realPage.getByText('this is a demo card — open it from a demo', { exact: true }).waitFor();
+  const afterStoredState = await realPage.evaluate(() => localStorage.getItem('r4-networking-v1'));
+  assert.deepEqual(JSON.parse(afterStoredState).people, beforePeople, `${persona.id} demo card changed real people`);
+  assert.equal(afterStoredState, beforeStoredState, `${persona.id} demo card changed real storage`);
+  await realPage.close();
+  await page.evaluate(() => localStorage.setItem('r4-networking-v1', 'real-state-sentinel'));
+
   await page.locator('#sheet-root [data-action="close-sheet"]').click().catch(() => {});
   await page.locator('[data-demo-tour-button]').click();
   const beforeReset = await page.evaluate(async () => ({
@@ -201,4 +262,4 @@ for (const persona of personas) {
   await context.close();
 }
 await browser.close();
-console.log('Muse persona demo ok: isolated state/receipts, 8/10/8 people, 6/5/10 agenda items, every real tour target, exit/reset, axe, and 44px banner/tour controls at 390px');
+console.log('Muse persona demo ok: isolated state/receipts, 8/10/8 people, booked session links/times, persona-specific goals/pitches, blocked demo-card import, every real tour target, exit/reset, axe, and 44px banner/tour controls at 390px');

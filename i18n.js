@@ -514,6 +514,7 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "lo siento, {me} no puede. intercambiemos tarjetas y hagamos seguimiento después de {event}.",
   "link copied": "enlace copiado",
   "that is your own agent card": "esa es tu propia tarjeta de agente",
+  "this is a demo card — open it from a demo": "esta es una tarjeta de demo; ábrela desde una demo",
   "{name}'s agent card added": "tarjeta de agente de {name} añadida",
   "that agent link did not work": "ese enlace de agente no funcionó"
  },
@@ -1030,6 +1031,7 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "desculpe, {me} não consegue. vamos trocar cartões e fazer follow-up depois do {event}.",
   "link copied": "link copiado",
   "that is your own agent card": "esse é o seu próprio cartão de agente",
+  "this is a demo card — open it from a demo": "este é um cartão de demonstração — abra-o a partir de uma demonstração",
   "{name}'s agent card added": "cartão de agente de {name} adicionado",
   "that agent link did not work": "esse link de agente não funcionou"
  }
