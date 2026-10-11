@@ -512,6 +512,7 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "lo siento, {me} no puede. intercambiemos tarjetas y hagamos seguimiento después de {event}.",
   "link copied": "enlace copiado",
   "that is your own agent card": "esa es tu propia tarjeta de agente",
+  "this is a demo card — open it from a demo": "esta es una tarjeta de demo; ábrela desde una demo",
   "{name}'s agent card added": "tarjeta de agente de {name} añadida",
   "that agent link did not work": "ese enlace de agente no funcionó",
   "+1, count me in.": "+1, cuenta conmigo.",
@@ -1290,6 +1291,7 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "desculpe, {me} não consegue. vamos trocar cartões e fazer follow-up depois do {event}.",
   "link copied": "link copiado",
   "that is your own agent card": "esse é o seu próprio cartão de agente",
+  "this is a demo card — open it from a demo": "este é um cartão de demonstração — abra-o a partir de uma demonstração",
   "{name}'s agent card added": "cartão de agente de {name} adicionado",
   "that agent link did not work": "esse link de agente não funcionou",
   "+1, count me in.": "+1, conte comigo.",
@@ -1640,6 +1642,7 @@ Object.assign(window.R4_I18N.es, {
  "set up your agent": "configura tu agente",
  "your agent is ready.": "tu agente está listo.",
  "open backstage": "abrir entre bambalinas",
+ "open agent": "abrir agente",
  "meet your agent": "conoce a tu agente",
  "you choose what your agent can do. all peer agents are simulated.": "tú decides qué puede hacer tu agente. todos los agentes de otras personas son simulados.",
  "hide my name until we both say yes": "ocultar mi nombre hasta que ambos digamos que sí",
@@ -1782,6 +1785,7 @@ Object.assign(window.R4_I18N.pt, {
  "set up your agent": "configure seu agente",
  "your agent is ready.": "seu agente está pronto.",
  "open backstage": "abrir bastidores",
+ "open agent": "abrir agente",
  "meet your agent": "conheça seu agente",
  "you choose what your agent can do. all peer agents are simulated.": "você decide o que seu agente pode fazer. todos os agentes de outras pessoas são simulados.",
  "hide my name until we both say yes": "ocultar meu nome até ambos aceitarem",
@@ -1924,7 +1928,7 @@ Object.assign(window.R4_I18N.es, {
  "this offer expired. your agent will keep looking.": "esta oferta venció. tu agente seguirá buscando.",
  "missed": "no se realizó",
  "unrated": "sin calificar",
- "open source (MIT)": "código abierto (MIT)",
+ "source available · non-commercial (PolyForm NC 1.0.0)": "código disponible · uso no comercial (PolyForm NC 1.0.0)",
  "about": "acerca de",
  "source repository": "repositorio de código"
 });
@@ -1947,7 +1951,151 @@ Object.assign(window.R4_I18N.pt, {
  "this offer expired. your agent will keep looking.": "esta oferta expirou. seu agente continuará procurando.",
  "missed": "não aconteceu",
  "unrated": "sem avaliação",
- "open source (MIT)": "código aberto (MIT)",
+ "source available · non-commercial (PolyForm NC 1.0.0)": "código disponível · uso não comercial (PolyForm NC 1.0.0)",
  "about": "sobre",
  "source repository": "repositório do código"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "design": "diseño",
+ "choose a visual identity": "elige una identidad visual"
+});
+Object.assign(window.R4_I18N.pt, {
+ "design": "design",
+ "choose a visual identity": "escolha uma identidade visual"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "dialog": "diálogo", "agent receipts": "recibos del agente", "view your signed activity chain": "ver tu registro firmado de actividad",
+ "{count} signed receipts · chain intact": "{count} recibos firmados · cadena intacta",
+ "{count} signed receipts · chain needs attention": "{count} recibos firmados · la cadena requiere atención",
+ "chain verified": "cadena verificada", "chain needs attention": "la cadena requiere atención",
+ "{count} receipts": "{count} recibos", "{count} signed receipts": "{count} recibos firmados", "signing key unavailable": "clave de firma no disponible",
+ "verify chain": "verificar cadena", "export NDJSON": "exportar NDJSON", "public key PEM": "clave pública PEM",
+ "export bundle": "exportar paquete", "This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger.": "Este registro permite detectar cambios o registros faltantes en este dispositivo. No es un registro inmutable en un servidor.",
+ "copy fingerprint": "copiar huella", "copy json": "copiar JSON",
+  "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Basado en la gobernanza como código de AiGovOps Foundation: recibos Beacon en el formato de evidencia OVERT, verificables sin conexión.",
+  "no receipts yet": "todavía no hay recibos", "receipt detail": "detalle del recibo", "parent receipt": "recibo anterior",
+ "view receipt": "ver recibo", "receipt export failed": "falló la exportación del recibo",
+ "a2a.message": "mensaje entre agentes", "charter.injection-blocked": "solicitud insegura bloqueada",
+ "charter.check": "revisión de la carta", "consent.mutual": "consentimiento mutuo",
+ "followup.drafted": "seguimiento redactado", "charter.updated": "carta actualizada",
+ "key.created": "clave de firma creada", "bundle.exported": "exportación firmada creada",
+ "language": "idioma", "primary navigation": "navegación principal"
+});
+Object.assign(window.R4_I18N.pt, {
+ "dialog": "diálogo", "agent receipts": "recibos do agente", "view your signed activity chain": "ver sua cadeia de atividades assinada",
+ "{count} signed receipts · chain intact": "{count} recibos assinados · cadeia íntegra",
+ "{count} signed receipts · chain needs attention": "{count} recibos assinados · a cadeia precisa de atenção",
+ "chain verified": "cadeia verificada", "chain needs attention": "a cadeia precisa de atenção",
+ "{count} receipts": "{count} recibos", "{count} signed receipts": "{count} recibos assinados", "signing key unavailable": "chave de assinatura indisponível",
+ "verify chain": "verificar cadeia", "export NDJSON": "exportar NDJSON", "public key PEM": "chave pública PEM",
+ "export bundle": "exportar pacote", "This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger.": "Este registro permite detectar alterações ou registros ausentes neste dispositivo. Não é um livro-razão imutável em servidor.",
+ "copy fingerprint": "copiar impressão digital", "copy json": "copiar JSON",
+  "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Construído sobre governança como código da AiGovOps Foundation: recibos Beacon no formato de evidência OVERT, verificáveis offline.",
+  "no receipts yet": "ainda não há recibos", "receipt detail": "detalhes do recibo", "parent receipt": "recibo anterior",
+ "view receipt": "ver recibo", "receipt export failed": "falha ao exportar recibo",
+ "a2a.message": "mensagem entre agentes", "charter.injection-blocked": "solicitação insegura bloqueada",
+ "charter.check": "verificação da carta", "consent.mutual": "consentimento mútuo",
+ "followup.drafted": "acompanhamento redigido", "charter.updated": "carta atualizada",
+ "key.created": "chave de assinatura criada", "bundle.exported": "exportação assinada criada",
+ "language": "idioma", "primary navigation": "navegação principal"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "agents exchanged a message": "los agentes intercambiaron un mensaje", "charter check passed": "verificación de la carta aprobada",
+ "blocked a prompt injection": "se bloqueó una inyección de instrucciones", "you both said yes": "ambos dijeron que sí",
+ "follow-up drafted": "seguimiento redactado", "charter changed": "carta modificada",
+ "signing key created": "clave de firma creada", "receipts exported": "recibos exportados",
+ "non-extractable browser key": "clave de navegador no extraíble", "software key": "clave de software"
+});
+Object.assign(window.R4_I18N.pt, {
+ "agents exchanged a message": "os agentes trocaram uma mensagem", "charter check passed": "verificação da carta aprovada",
+ "blocked a prompt injection": "uma injeção de prompt foi bloqueada", "you both said yes": "vocês dois disseram sim",
+ "follow-up drafted": "acompanhamento redigido", "charter changed": "carta alterada",
+ "signing key created": "chave de assinatura criada", "receipts exported": "recibos exportados",
+ "non-extractable browser key": "chave de navegador não extraível", "software key": "chave de software"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "what are you here for?": "¿A qué has venido?", "meet people": "Conocer gente",
+ "low-pressure company and new friends": "Conocer gente nueva en un ambiente relajado",
+ "find business": "Impulsar mi negocio", "clients, partners and pipeline": "Clientes, socios y oportunidades",
+ "learn & research": "Aprender e investigar", "trends, experts and focus time": "Tendencias, especialistas y tiempo de concentración",
+ "which session can't you miss?": "¿Qué sesión no te puedes perder?", "how much can your agent do?": "¿Cuánto puede hacer tu agente?",
+ "check with me first: it asks before reaching out": "Consúltame primero: preguntará antes de contactar",
+ "suggest, i approve: it negotiates, you say yes": "Propón y yo apruebo: negocia y tú decides",
+ "book for me: it confirms good fits on its own": "Reserva por mí: confirma buenos encuentros por su cuenta",
+ "more agent rules": "Más reglas del agente", "skip, set up later": "Omitir y configurar más tarde",
+ "get started": "Empecemos", "{step} of {total}": "{step} de {total}", "back": "Atrás",
+ "section navigation": "Navegación de sección", "agent": "Agente", "web": "Web",
+ "your next moment": "Tu próximo encuentro",
+ "your agent is finding someone to walk with": "Tu agente está buscando con quién dar un paseo",
+ "{n} ready for your ok": "{n} esperan tu aprobación",
+ "your agent is negotiating {n} intros": "Tu agente está negociando {n} presentaciones",
+ "review first approval": "Revisar la primera aprobación",
+ "your focus time is protected": "Tu tiempo de concentración está protegido",
+ "first recommendation": "Primera recomendación", "why: {topics}": "Por qué: {topics}",
+ "no shared topics yet": "Aún no hay temas en común",
+ "community & belonging": "comunidad y pertenencia", "wellbeing": "bienestar",
+ "gtm & sales": "comercial y ventas", "ai & data": "IA y datos",
+ "ai governance": "gobernanza de IA", "agentic ai": "IA agéntica", "none": "ninguno"
+});
+Object.assign(window.R4_I18N.pt, {
+ "what are you here for?": "O que você veio fazer?", "meet people": "Conhecer pessoas",
+ "low-pressure company and new friends": "Conhecer gente nova sem pressão",
+ "find business": "Fazer negócios", "clients, partners and pipeline": "Clientes, parceiros e oportunidades",
+ "learn & research": "Aprender e pesquisar", "trends, experts and focus time": "Tendências, especialistas e tempo de foco",
+ "which session can't you miss?": "Qual sessão você não pode perder?", "how much can your agent do?": "O que seu agente pode fazer?",
+ "check with me first: it asks before reaching out": "Consulte comigo primeiro: pergunte antes de entrar em contato",
+ "suggest, i approve: it negotiates, you say yes": "Sugira, eu aprovo: negocie e eu confirmo",
+ "book for me: it confirms good fits on its own": "Agende por mim: confirme boas combinações por conta própria",
+ "more agent rules": "Mais regras do agente", "skip, set up later": "Pular e configurar depois",
+ "get started": "Vamos começar", "{step} of {total}": "{step} de {total}", "back": "Voltar",
+ "section navigation": "Navegação da seção", "agent": "Agente", "web": "Rede",
+ "your next moment": "Seu próximo encontro",
+ "your agent is finding someone to walk with": "Seu agente está procurando alguém para caminhar com você",
+ "{n} ready for your ok": "{n} aguardam sua aprovação",
+ "your agent is negotiating {n} intros": "Seu agente está negociando {n} apresentações",
+ "review first approval": "Revisar primeira aprovação",
+ "your focus time is protected": "Seu tempo de foco está protegido",
+ "first recommendation": "Primeira recomendação", "why: {topics}": "Por quê: {topics}",
+ "no shared topics yet": "Ainda não há assuntos em comum",
+ "community & belonging": "comunidade e pertencimento", "wellbeing": "bem-estar",
+ "gtm & sales": "negócios e vendas", "ai & data": "IA e dados",
+ "ai governance": "governança de IA", "agentic ai": "IA agêntica", "none": "nenhum"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "looking for good fits": "buscando buenas coincidencias",
+ "happening now": "en curso"
+});
+Object.assign(window.R4_I18N.pt, {
+ "looking for good fits": "procurando boas conexões",
+ "happening now": "em andamento"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "show all {n} features": "ver las {n} funciones",
+ "show 2-minute tour": "ver recorrido de 2 minutos",
+ "Today: business focus and first recommendation": "Hoy: prioridades comerciales y primera recomendación",
+ "Today: protected focus and next session": "Hoy: concentración protegida y próxima sesión",
+ "Needs-you approval: decide on a promising connection": "Aprobación pendiente: decide sobre una conexión prometedora",
+ "Receipts: verify and export": "Recibos: verificar y exportar",
+ "I need the next step to move my pipeline forward, not just add another meeting.": "Necesito que el próximo paso impulse mis oportunidades, no que solo sume otra reunión.",
+ "Protected focus matters only if I can still make room for useful conversations.": "Proteger mi concentración solo importa si aún puedo hacer espacio para conversaciones útiles.",
+ "I want my agent to find a promising connection, but the final yes is mine.": "Quiero que mi agente encuentre una conexión prometedora, pero el sí final es mío.",
+ "I want proof my agent kept my boundaries and the choices I made.": "Quiero comprobar que mi agente respetó mis límites y las decisiones que tomé."
+});
+Object.assign(window.R4_I18N.pt, {
+ "show all {n} features": "ver todos os {n} recursos",
+ "show 2-minute tour": "ver visita de 2 minutos",
+ "Today: business focus and first recommendation": "Hoje: foco comercial e primeira recomendação",
+ "Today: protected focus and next session": "Hoje: foco protegido e próxima sessão",
+ "Needs-you approval: decide on a promising connection": "Aprovação pendente: decida sobre uma conexão promissora",
+ "Receipts: verify and export": "Recibos: verificar e exportar",
+ "I need the next step to move my pipeline forward, not just add another meeting.": "Preciso que o próximo passo avance minhas oportunidades, não apenas acrescente outra reunião.",
+ "Protected focus matters only if I can still make room for useful conversations.": "Proteger meu foco só importa se eu ainda puder abrir espaço para conversas úteis.",
+ "I want my agent to find a promising connection, but the final yes is mine.": "Quero que meu agente encontre uma conexão promissora, mas o sim final é meu.",
+ "I want proof my agent kept my boundaries and the choices I made.": "Quero confirmar que meu agente respeitou meus limites e as escolhas que fiz."
 });

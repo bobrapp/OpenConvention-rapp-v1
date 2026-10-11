@@ -19,8 +19,8 @@
   .top { display:flex; align-items:center; justify-content:space-between; }
   .mark { width:48px; height:48px; border-radius:14px; display:grid; place-items:center; color:#fff; font-weight:800; font-size:20px; }
   .pill { font-size:12px; font-weight:700; padding:5px 10px; border-radius:999px; }
-  .pill.live { background:#e3f6ee; color:var(--ok); }
-  .pill.soon { background:#fff1dc; color:var(--soon); }
+  .pill.live { background:#e3f6ee; color:#0b6547; }
+  .pill.soon { background:#fff1dc; color:#744100; }
   .card h2 { margin:0; font-size:22px; }
   .card .branch { color:var(--blue); font:13px ui-monospace, SFMono-Regular, Menlo, monospace; text-decoration:none; margin-top:-6px; }
   .card .branch:hover { text-decoration:underline; }
@@ -44,6 +44,30 @@
   .share-qr { width:164px; height:164px; padding:8px; border-radius:12px; background:#fff; }
   .share-qr svg { width:100%; height:100%; }
   .share-qr[hidden], .copy-feedback[hidden] { display:none; }
+  .demo-section { margin-top:24px; }
+  .demo-section > h2, .content-panel h2 { margin:0; font-size:24px; line-height:1.25; letter-spacing:-.01em; }
+  .section-intro { margin:10px 0 0; color:var(--muted); line-height:1.5; }
+  .demo-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-top:16px; }
+  .persona-card, .content-panel { min-width:0; background:#fff; border:1px solid var(--line); border-radius:20px; box-shadow:0 10px 30px rgba(12,47,168,.08); }
+  .persona-card { display:flex; flex-direction:column; gap:10px; padding:20px; }
+  .persona-card h3 { margin:0; font-size:20px; line-height:1.3; }
+  .persona-descriptor { margin:-8px 0 0; color:var(--blue); font-size:14px; font-weight:700; }
+  .persona-summary { margin:0; color:var(--muted); font-size:15px; line-height:1.5; }
+  .demo-links, .guide-links { display:grid; gap:8px; margin:4px 0 0; padding:0; list-style:none; }
+  .demo-links a, .guide-links a { display:flex; min-height:44px; align-items:center; justify-content:center; padding:10px 12px; border-radius:14px; text-align:center; text-decoration:none; font-weight:700; overflow-wrap:anywhere; }
+  .demo-links a { background:var(--blue); color:#fff; }
+  .demo-links a:hover { background:var(--blue-2); }
+  .demo-links a:focus-visible, .guide-links a:focus-visible { outline:3px solid var(--ink); outline-offset:2px; }
+  .reason-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; margin-top:16px; }
+  .content-panel { padding:22px; }
+  .content-panel p { margin:12px 0 0; color:var(--muted); line-height:1.55; }
+  .content-panel ul:not(.guide-links) { margin:14px 0 0; padding-left:20px; color:var(--muted); line-height:1.5; }
+  .content-panel li + li { margin-top:10px; }
+  .content-panel h3 { margin:18px 0 0; font-size:16px; }
+  .guide-links { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .guide-links a { justify-content:flex-start; border:1px solid var(--line); color:var(--blue); line-height:1.3; }
+  .guide-links a:hover { background:#f4f6fb; }
+  .trust-panel { margin-top:16px; }
   footer { text-align:center; color:var(--muted); font-size:13px; padding:8px 16px 40px; line-height:1.8; overflow-wrap:anywhere; }
   footer a { color:var(--blue); font-weight:600; }
   @media (max-width:520px) {
@@ -52,6 +76,7 @@
     .share-layout { grid-template-columns:1fr; }
     .share-qr { margin:auto; }
     .card-url { align-items:flex-start; }
+    .reason-grid, .guide-links { grid-template-columns:1fr; }
   }
 </style>
 </head>
@@ -75,16 +100,87 @@
         </div>
         <div id="share-feedback" class="copy-feedback" role="status" aria-live="polite" hidden></div>
       </div>
-      <div id="share-qr" class="share-qr" aria-label="QR code for the Devin app" hidden></div>
+      <div id="share-qr" class="share-qr" role="img" aria-label="QR code for the Devin app" hidden></div>
     </div>
   </section>
   <div class="grid" id="grid"></div>
+  <section class="demo-section" aria-labelledby="demos-title">
+    <h2 id="demos-title">Try a demo</h2>
+    <p class="section-intro">Pick an attendee and an app. Each demo loads that person's day into separate demo storage, with a guided tour of every feature. Your own data is never touched.</p>
+    <div class="demo-grid">
+      <article class="persona-card">
+        <h3>Maya Torres</h3>
+        <p class="persona-descriptor">social first-timer</p>
+        <p class="persona-summary">Wants low-pressure company and a dinner crew. Open mode; her agent acts for her.</p>
+        <ul class="demo-links">
+          <li><a href="devin/?demo=maya">Maya in Devin</a></li>
+          <li><a href="claude/?demo=maya">Maya in Claude</a></li>
+          <li><a href="muse/?demo=maya">Maya in Muse</a></li>
+        </ul>
+      </article>
+      <article class="persona-card">
+        <h3>Diego Alvarez</h3>
+        <p class="persona-descriptor">sales networker</p>
+        <p class="persona-summary">Wants qualified client conversations and partner co-sells. Selective mode; he approves every ask.</p>
+        <ul class="demo-links">
+          <li><a href="devin/?demo=diego">Diego in Devin</a></li>
+          <li><a href="claude/?demo=diego">Diego in Claude</a></li>
+          <li><a href="muse/?demo=diego">Diego in Muse</a></li>
+        </ul>
+      </article>
+      <article class="persona-card">
+        <h3>Dr. Priya Natarajan</h3>
+        <p class="persona-descriptor">academic researcher</p>
+        <p class="persona-summary">Studies how organizations govern AI agents. Heads-down mode, one meeting an hour, focus blocks protected.</p>
+        <ul class="demo-links">
+          <li><a href="devin/?demo=priya">Dr. Priya Natarajan in Devin</a></li>
+          <li><a href="claude/?demo=priya">Dr. Priya Natarajan in Claude</a></li>
+          <li><a href="muse/?demo=priya">Dr. Priya Natarajan in Muse</a></li>
+        </ul>
+      </article>
+    </div>
+  </section>
+  <div class="reason-grid">
+    <section class="content-panel" aria-labelledby="event-better-title">
+      <h2 id="event-better-title">Why it makes the event better</h2>
+      <ul>
+        <li>More real connections, less social cost: agents do the searching, asking, declining and scheduling backstage; people only see mutual, short moments.</li>
+        <li>Time is protected: keynotes, focus blocks, quiet hours and hourly caps are respected.</li>
+        <li>Conversations turn into outcomes: follow-up drafts, recaps and team reports.</li>
+        <li>Privacy by design: data stays on the device, names are revealed only after mutual consent, and agents share topics, not contact details.</li>
+      </ul>
+    </section>
+    <section class="content-panel" aria-labelledby="sponsor-better-title">
+      <h2 id="sponsor-better-title">Why it represents the sponsor better</h2>
+      <p>A generic event app shows a schedule. These apps show the sponsor's values in action: human-centred, privacy-aware AI that does real work and can prove what it did. The design switch shows the same experience in Slalom style or AiGovOps Foundation style.</p>
+      <ul>
+        <li>Devin — your agent works backstage, you get the moments.</li>
+        <li>Claude — the AI notebook for the event: agendas, badge lists and hallway notes become people, sessions and follow-ups.</li>
+        <li>Muse — prep to recap, with a network of agents coordinating meetings for you.</li>
+      </ul>
+    </section>
+  </div>
+  <section class="content-panel trust-panel" aria-labelledby="trust-title">
+    <h2 id="trust-title">Trust</h2>
+    <p>Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline. (<a href="https://www.aigovops-foundation.com/overt.html">About OVERT</a>)</p>
+    <p>Every AI call and agent action writes a signed, hash-chained receipt that anyone can export and verify offline. This is not a certification, and the log is tamper-evident on the device, not a server-side immutable ledger.</p>
+    <h3>Demo guides</h3>
+    <ul class="guide-links">
+      <li><a href="https://github.com/bobrapp/OpenConvention-rapp-v1/blob/Devin-v1/DEMO.md">Devin demo guide</a></li>
+      <li><a href="https://github.com/bobrapp/OpenConvention-rapp-v1/blob/Claude-v1/claude-v1/DEMO.md">Claude demo guide</a></li>
+      <li><a href="https://github.com/bobrapp/OpenConvention-rapp-v1/blob/muse-v1/DEMO.md">Muse demo guide</a></li>
+    </ul>
+    <h3>Personas</h3>
+    <ul class="guide-links">
+      <li><a href="https://github.com/bobrapp/OpenConvention-rapp-v1/blob/Devin-v1/docs/personas.md">Persona guide on Devin</a></li>
+    </ul>
+  </section>
 </main>
 <footer>
   <a href="https://github.com/bobrapp/OpenConvention-rapp-v1">source on github</a> ·
   <a href="https://github.com/bobrapp/OpenConvention-rapp-v1/tree/Devin-v1/Rapp-Prompts">rapp-prompts</a><br>
   each version keeps its own data in your browser.<br>
-  © 2026 AiGovOps Foundation · open source (MIT) ·
+  © 2026 AiGovOps Foundation · Bob Rapp &amp; Ken Johnston · source available, non-commercial (PolyForm Noncommercial 1.0.0) ·
   <a href="https://www.aigovops-foundation.com" target="_blank" rel="noopener">www.aigovops-foundation.com</a>
 </footer>
 <script>
@@ -96,7 +192,7 @@
   const EXTRA = { Claude: { href: 'examples/load.html', label: 'open with example data' } };
   const COLOR = { Devin: '#0c2fa8', Claude: '#c15f3c', Muse: '#7a3cc1' };
   const REPO = 'https://github.com/bobrapp/OpenConvention-rapp-v1';
-  const FALLBACK = [{"branch":"Devin-v1","maker":"Devin","path":"devin/","live":true,"sha":"4d49d96","date":"2026-10-09"},{"branch":"Claude-v1","maker":"Claude","path":"claude/","live":true,"sha":"46db62c","date":"2026-10-06"},{"branch":"muse-v1","maker":"Muse","path":"muse/","live":true,"sha":"451a2ad","date":"2026-10-09"}];
+  const FALLBACK = [{"branch":"Devin-v1","maker":"Devin","path":"devin/","live":true,"sha":"2cd8d1d","date":"2026-10-11"},{"branch":"Claude-v1","maker":"Claude","path":"claude/","live":true,"sha":"c98e4ea","date":"2026-10-11"},{"branch":"muse-v1","maker":"Muse","path":"muse/","live":true,"sha":"db54788","date":"2026-10-11"}];
   const v2Url = new URL('devin/', location.href).href;
   document.getElementById('v2-url').href = v2Url;
   document.getElementById('v2-url').textContent = v2Url;

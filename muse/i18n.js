@@ -2,6 +2,8 @@
 // spanish + portuguese strings; english keys are the source text in app.js
 window.R4_I18N = {
  "es": {
+  "try a demo persona": "prueba una persona de demo",
+  "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Basado en governance-as-code de AiGovOps Foundation: recibos Beacon en el formato de evidencia OVERT, verificables sin conexión.",
   "executive sponsor": "patrocinador ejecutivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "un directivo sénior que piensa en resultados, riesgo e inversión",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negocio claros, perspectivas de pares, formas de empezar con poco riesgo",
@@ -512,10 +514,13 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "lo siento, {me} no puede. intercambiemos tarjetas y hagamos seguimiento después de {event}.",
   "link copied": "enlace copiado",
   "that is your own agent card": "esa es tu propia tarjeta de agente",
+  "this is a demo card — open it from a demo": "esta es una tarjeta de demo; ábrela desde una demo",
   "{name}'s agent card added": "tarjeta de agente de {name} añadida",
   "that agent link did not work": "ese enlace de agente no funcionó"
  },
  "pt": {
+  "try a demo persona": "experimente uma persona de demonstração",
+  "Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.": "Desenvolvido com governance-as-code da AiGovOps Foundation: recibos Beacon no formato de evidência OVERT, verificáveis offline.",
   "executive sponsor": "patrocinador executivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "um executivo sênior que pensa em resultados, risco e investimento",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negócio claros, perspectivas de pares, formas de começar com pouco risco",
@@ -1026,6 +1031,7 @@ window.R4_I18N = {
   "sorry, {me} cannot make it. let us swap cards and follow up after {event}.": "desculpe, {me} não consegue. vamos trocar cartões e fazer follow-up depois do {event}.",
   "link copied": "link copiado",
   "that is your own agent card": "esse é o seu próprio cartão de agente",
+  "this is a demo card — open it from a demo": "este é um cartão de demonstração — abra-o a partir de uma demonstração",
   "{name}'s agent card added": "cartão de agente de {name} adicionado",
   "that agent link did not work": "esse link de agente não funcionou"
  }
