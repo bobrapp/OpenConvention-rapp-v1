@@ -36,6 +36,12 @@ for (const persona of personas) {
   await page.goto(`${base}?demo=${persona.id}&keep=1#persona`);
   await page.getByRole('region', { name: 'demo mode' }).waitFor();
   await page.getByRole('dialog').waitFor();
+  assert.ok(await page.evaluate(() => {
+    const banner = document.querySelector('[data-demo-banner]');
+    const copy = banner.querySelector('[data-demo-copy]');
+    const fontSize = Number.parseFloat(getComputedStyle(copy).fontSize);
+    return banner.getBoundingClientRect().height <= 100 && fontSize >= 14 && fontSize <= 15;
+  }), `${persona.id} demo banner exceeds 100px or is not 14–15px at 390px normal text`);
   const stateKey = `r4-networking-v1-demo-${persona.id}`;
   const demoState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), stateKey);
   assert.equal(demoState.me.name, persona.name);
@@ -66,10 +72,14 @@ for (const persona of personas) {
     const elements = [document.documentElement, ...document.body.querySelectorAll('*')];
     const sizes = elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize));
     elements.forEach((element, index) => {
-      if (Number.isFinite(sizes[index]) && sizes[index] > 0) element.style.setProperty('font-size', `${sizes[index] * 2}px`, 'important');
+      if (Number.isFinite(sizes[index]) && sizes[index] > 0) {
+        element.dataset.demoFontOriginal = JSON.stringify([element.style.getPropertyValue('font-size'), element.style.getPropertyPriority('font-size')]);
+        element.style.setProperty('font-size', `${sizes[index] * 2}px`, 'important');
+      }
     });
   });
   assert.ok(await page.evaluate((size) => Number.parseFloat(getComputedStyle(document.documentElement).fontSize) >= size * 1.99, baseFont), `${persona.id} text did not scale to 200%`);
+  await page.waitForFunction(() => document.querySelector('[data-demo-copy]')?.dataset.demoWrap === 'true');
   assert.ok(await page.evaluate(() => {
     const banner = document.querySelector('[data-demo-banner]');
     const sheet = document.querySelector('[data-demo-tour] .demo-sheet');
@@ -82,6 +92,17 @@ for (const persona of personas) {
     }).map((el) => `${el.outerHTML} ${el.getBoundingClientRect().width}x${el.getBoundingClientRect().height}`));
   assert.deepEqual(await smallTargets(), [], `${persona.id} banner/tour controls are below 44px`);
   assert.deepEqual(await smallTargets(), [], `${persona.id} banner/tour controls are below 44px at 200% text`);
+  await page.evaluate(() => {
+    for (const element of [document.documentElement, ...document.body.querySelectorAll('*')]) {
+      if (!element.dataset.demoFontOriginal) continue;
+      const [value, priority] = JSON.parse(element.dataset.demoFontOriginal);
+      if (value) element.style.setProperty('font-size', value, priority);
+      else element.style.removeProperty('font-size');
+      delete element.dataset.demoFontOriginal;
+    }
+  });
+  await page.waitForFunction(() => document.querySelector('[data-demo-copy]')?.dataset.demoWrap === 'false');
+  assert.ok(await page.evaluate(() => document.querySelector('[data-demo-banner]').getBoundingClientRect().height <= 100), `${persona.id} demo banner should return to <=100px at 100% text`);
   await page.locator('[data-demo-close]').click();
 
   for (let index = 0; index < 10; index++) {
@@ -101,6 +122,13 @@ for (const persona of personas) {
       const path = new URL(`../docs/demo/muse/${persona.id}-${String(shotIndex).padStart(2, '0')}.png`, import.meta.url).pathname;
       fs.mkdirSync(new URL('../docs/demo/muse/', import.meta.url).pathname, { recursive: true });
       assert.equal(await page.evaluate(() => document.documentElement.dataset.brand), 'slalom');
+      await page.evaluate(() => {
+        const toast = document.querySelector('#toast');
+        if (toast) {
+          toast.classList.remove('show');
+          toast.textContent = '';
+        }
+      });
       await page.screenshot({ path, fullPage: false });
     }
     await page.locator('#sheet-root [data-action="close-sheet"]').click().catch(() => {});

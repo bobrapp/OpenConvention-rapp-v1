@@ -18,9 +18,12 @@
 
 ## Trust: AiGovOps Foundation, Beacon and OVERT
 
-- **Beacon receipts.** Every agent action writes a receipt in AiGovOps Beacon's receipt format: ULID id, SHA-256 hashes of prompt/result (content-free), Ed25519 signature over RFC 8785 canonical JSON, hash-chained to the previous receipt. The receipts screen lets anyone verify the chain, see tampering or deletion detected, and export NDJSON / bundle / public key for offline verification.
-- **OVERT.** Beacon's receipt envelope follows OVERT (Observable Verification Evidence for Runtime Trust), an open standard for independently verifiable runtime evidence that declared governance controls actually executed, including AI agents' tool calls, without exporting protected content. Say "follows the OVERT envelope via Beacon"; no certification or conformance claim is made. [AiGovOps Foundation OVERT evidence](https://www.aigovops-foundation.com/overt.html).
-- **The seal.** Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline. A stranger can verify what happened, offline, without an account and without trusting us. Receipts are tamper-evident on this device, not a server-side immutable ledger.
+**Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline.** ([About OVERT](https://www.aigovops-foundation.com/overt.html))
+
+- **Beacon receipts.** Every AI call and agent action in this app writes a signed receipt. Each receipt has a ULID id, SHA-256 hashes of the prompt and result (never the text itself), an Ed25519 signature over RFC 8785 canonical JSON, a sequence number, and the hash of the previous receipt. The Receipts screen verifies the whole chain and points to the first receipt that was edited or is missing. It exports NDJSON, a signed bundle and the public key, so anyone can check them offline, without an account and without trusting the app. The exports pass Beacon's reference verifier (`beacon_verify.py`).
+- **OVERT.** OVERT (Observable Verification Evidence for Runtime Trust) is an open specification for independently verifiable evidence that governance policies, security controls and oversight actions actually ran, including AI agents' tool calls, without exporting protected content. OVERT 1.1 was published on 11 June 2026 under a royalty-free covenant, and Glacis Technologies maintains it. The AiGovOps Foundation and the Coalition for Health AI (CHAI) have signed a co-stewardship agreement, which overt.is lists as not yet in effect. Sources: https://overt.is/ and https://www.aigovops-foundation.com/overt.html.
+- **What the mark means.** "Governance-as-code inside" means the app uses the Foundation's open Beacon receipt format and verification approach. It is not a certification. Neither the AiGovOps Foundation nor the OVERT maintainers have certified or tested this app, and no OVERT conformance test has been run.
+- **Honest limit.** This log makes edits or missing records detectable on this device. It is not a server-side immutable ledger. Clearing the browser's storage deletes it, so export any receipts you want to keep.
 
 ## Personas
 

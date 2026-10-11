@@ -67,9 +67,10 @@
   const style = document.createElement('style');
   style.textContent = `
     [data-demo-banner] { position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 8px 12px; background: var(--blue, #0c62fb); color: white; }
-    [data-demo-copy], [data-demo-controls] { min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    [data-demo-copy] { overflow-wrap: anywhere; }
-    [data-demo-banner] a, [data-demo-banner] button { min-width: 44px; min-height: 44px; color: inherit; }
+    [data-demo-copy] { min-width: 0; max-width: 100%; font-size: 14px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    [data-demo-copy][data-demo-wrap="true"] { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+    [data-demo-controls] { min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    [data-demo-banner] a, [data-demo-banner] button { flex: 0 0 auto; min-width: 44px; min-height: 44px; color: inherit; }
     [data-demo-banner] button { border: 0; border-radius: 24px; background: white; color: #0c2bd8; padding: 8px 16px; font: inherit; font-weight: 700; }
     [data-demo-banner] a { display: inline-flex; align-items: center; justify-content: center; padding: 8px 10px; }
     [data-demo-tour] { position: fixed; inset: 0; z-index: 100; display: grid; place-items: end center; background: rgb(8 16 40 / 55%); padding: 12px; }
@@ -134,7 +135,11 @@
   const updateProgress = (banner) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || '{}');
     const done = Object.values(state.demo?.tour || {}).filter(Boolean).length;
-    banner.querySelector('[data-demo-progress]').textContent = `${done}/${persona.steps.length}`;
+    const copy = banner.querySelector('[data-demo-copy]');
+    const text = `demo · ${persona.name}, ${persona.descriptor} · ${tr('tour')} ${done}/${persona.steps.length}`;
+    copy.textContent = text;
+    copy.title = text;
+    copy.setAttribute('aria-label', text);
   };
   const markDone = (index) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || '{}');
@@ -192,9 +197,16 @@
     banner.setAttribute('aria-label', 'demo mode');
     const exitUrl = new URL(location.href);
     exitUrl.searchParams.delete('demo');
-    banner.innerHTML = `<div data-demo-copy><strong>demo · ${persona.name}</strong><span> · ${persona.descriptor} · ${tr('tour')} <b data-demo-progress>0/${persona.steps.length}</b></span></div><div data-demo-controls><button type="button" data-demo-tour-button>${tr('tour')}</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>${tr('exit')}</a></div>`;
+    banner.innerHTML = `<div data-demo-copy></div><div data-demo-controls><button type="button" data-demo-tour-button>${tr('tour')}</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>${tr('exit')}</a></div>`;
     document.body.prepend(banner);
     updateProgress(banner);
+    const copy = banner.querySelector('[data-demo-copy]');
+    const updateCopyWrap = () => {
+      copy.dataset.demoWrap = Number.parseFloat(getComputedStyle(copy).fontSize) > 16 ? 'true' : 'false';
+    };
+    updateCopyWrap();
+    new ResizeObserver(updateCopyWrap).observe(copy);
+    new MutationObserver(updateCopyWrap).observe(copy, { attributes: true, attributeFilter: ['style'] });
     banner.querySelector('[data-demo-tour-button]').addEventListener('click', () => openTour(banner));
     if (!JSON.parse(localStorage.getItem(stateKey) || '{}').demo?.tourOpened) setTimeout(() => openTour(banner), 300);
   };
@@ -207,5 +219,6 @@
     if (exit) exit.textContent = tr('exit');
     const tour = banner.querySelector('[data-demo-tour-button]');
     if (tour) tour.textContent = tr('tour');
+    updateProgress(banner);
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 })();
