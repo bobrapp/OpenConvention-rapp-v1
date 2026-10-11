@@ -132,7 +132,7 @@
       step('People, priorities and follow-ups','people','#view [data-act="viewPerson"]','Keep high-priority client and partner conversations connected to a next step.'),
       step('Agent card and consent-aware handoffs','people','#sheet-body .quote','Share a readable agent card and keep contact permission visible.','agentsCard'),
       step('Goals by persona','today','#view .goal','Measure qualified conversations, co-sells and follow-up meetings.'),
-      step('Protect client work blocks','agenda','#view [data-act="editBlock"]','Keep immovable client calls visible beside event sessions.','block'),
+      step('Protect client work blocks','agenda','#sheet-body #f-title','Keep immovable client calls visible beside event sessions.','block'),
       step('Pitch fest queue and timer','pitch','#view #timer','Rehearse a short pitch and move through the queue.'),
       step('Connection web and introductions','web','#view .webbox','Spot shared topics and useful introductions across accounts and partners.'),
       step('Report outcomes to the team','report','#view [data-act="copyReport"]','Share outcomes and next steps rather than attendee tracking.'),
@@ -206,13 +206,16 @@
     window.__demoLastStep = {title:item.title,target:!!target,selector:item.target,tab:item.tab || ''};
     return target;
   };
-  const closeTour = () => {
+  const closeTour = (restore = true, preserveHighlight = false) => {
     if (!dialog) return;
     dialog.remove();
     dialog = null;
-    const target = window.__demoLastStep?.selector && document.querySelector(window.__demoLastStep.selector);
-    target?.removeAttribute('data-demo-highlight');
-    banner.querySelector('[data-demo-tour]').focus();
+    document.querySelector('.demo-tour-scrim')?.remove();
+    if (!preserveHighlight) {
+      const target = window.__demoLastStep?.selector && document.querySelector(window.__demoLastStep.selector);
+      target?.removeAttribute('data-demo-highlight');
+    }
+    if (restore) banner.querySelector('[data-demo-tour]').focus();
   };
   const showTour = () => {
     if (dialog) return;
@@ -234,6 +237,10 @@
         dialog.querySelector(`[data-demo-done="${index}"]`).textContent = ' ✓ shown';
         const completed = [...dialog.querySelectorAll('[data-demo-done]')].filter((node)=>node.textContent).length;
         banner.querySelector('[data-demo-progress]').textContent = `${completed}/${steps.length}`;
+        closeTour(false, true);
+        if (!target.matches('a,button,input,select,textarea,[tabindex]')) target.tabIndex = -1;
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
       }
     }));
     dialog.querySelector('[data-demo-close]').addEventListener('click', closeTour);

@@ -49,22 +49,37 @@ try {
     await page.addScriptTag({path:axePath});
     const tour=page.getByRole('dialog');
     await tour.waitFor();
-    const steps=await tour.getByRole('button',{name:'show me'}).all();
-    assert.ok(steps.length>=7,`${id}: the tour covers multiple real app features`);
+    const stepCount=await tour.getByRole('button',{name:'show me'}).count();
+    assert.ok(stepCount>=7,`${id}: the tour covers multiple real app features`);
     const imageIndexes=shotIndexes[id];
     let screenshotIndex=0;
-    for(let index=0;index<steps.length;index++){
-      await steps[index].click();
-      await page.waitForFunction((expected)=>window.__demoLastStep?.title===expected&&window.__demoLastStep.target,await steps[index].locator('xpath=..').locator('strong').textContent());
+    for(let index=0;index<stepCount;index++){
+      if(!(await page.getByRole('dialog').count())){
+        await page.locator('.demo-banner [data-demo-tour]').click();
+        await page.getByRole('dialog').waitFor();
+      }
+      const step=page.getByRole('dialog').getByRole('button',{name:'show me'}).nth(index);
+      const title=await step.locator('xpath=..').locator('strong').textContent();
+      await step.click();
+      await page.waitForFunction((expected)=>window.__demoLastStep?.title===expected&&window.__demoLastStep.target&&!document.querySelector('.demo-tour')&&!document.querySelector('.demo-tour-scrim'),title);
       const feature=await page.evaluate(()=>{
         const target=document.querySelector('[data-demo-highlight]');
         if(!target)return null;
         const rect=target.getBoundingClientRect();
-        return {name:window.__demoLastStep.title,width:rect.width,height:rect.height,visible:!!target.getClientRects().length};
+        const hit=document.elementFromPoint(rect.left+rect.width/2,rect.top+rect.height/2);
+        return {
+          name:window.__demoLastStep.title,
+          width:rect.width,
+          height:rect.height,
+          visible:!!target.getClientRects().length,
+          tourClosed:!document.querySelector('.demo-tour')&&!document.querySelector('.demo-tour-scrim'),
+          featureUncovered:!!hit&&(hit===target||target.contains(hit)),
+        };
       });
-      assert.ok(feature&&feature.visible&&feature.width>0&&feature.height>0,`${id}: show-me step ${index+1} highlights a visible feature`);
+      assert.ok(feature&&feature.visible&&feature.width>0&&feature.height>0&&feature.tourClosed&&feature.featureUncovered,`${id}: show-me step ${index+1} leaves the highlighted feature visible and unobscured: ${JSON.stringify(feature)}`);
       if(imageIndexes.includes(index)){
         const imagePath=path.join(screenshotDir,`${id}-${String(++screenshotIndex).padStart(2,'0')}.png`);
+        assert.equal(await page.locator('.demo-tour, .demo-tour-scrim').count(),0,`${id}: screenshot ${screenshotIndex} is captured after Show Me closes the tour`);
         await page.screenshot({path:imagePath,scale:'css'});
         assert.ok(statSync(imagePath).size<=150*1024,`${imagePath} should be reasonably small`);
       }
@@ -73,8 +88,10 @@ try {
       });
       await page.locator('#sheet').waitFor({state:'hidden'});
     }
+    await page.locator('.demo-banner [data-demo-tour]').click();
+    await page.getByRole('dialog').waitFor();
     const axe=await page.evaluate(async()=>{
-      const report=await axe.run([document.querySelector('[data-demo-banner]'),document.querySelector('[data-demo-tour]')],{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']}});
+      const report=await axe.run([document.querySelector('[data-demo-banner]'),document.querySelector('.demo-tour')],{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']}});
       return report.violations.filter((item)=>['serious','critical'].includes(item.impact)).map((item)=>`${item.id}: ${item.nodes.map(node=>node.target.join(' ')).join(', ')}`);
     });
     assert.deepEqual(axe,[],`${id}: demo banner and tour have no serious or critical axe findings`);
