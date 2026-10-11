@@ -2065,3 +2065,37 @@ Object.assign(window.R4_I18N.pt, {
  "gtm & sales": "negócios e vendas", "ai & data": "IA e dados",
  "ai governance": "governança de IA", "agentic ai": "IA agêntica", "none": "nenhum"
 });
+
+Object.assign(window.R4_I18N.es, {
+ "looking for good fits": "buscando buenas coincidencias",
+ "happening now": "en curso"
+});
+Object.assign(window.R4_I18N.pt, {
+ "looking for good fits": "procurando boas conexões",
+ "happening now": "em andamento"
+});
+
+Object.assign(window.R4_I18N.es, {
+ "show all {n} features": "ver las {n} funciones",
+ "show 2-minute tour": "ver recorrido de 2 minutos",
+ "Today: business focus and first recommendation": "Hoy: prioridades comerciales y primera recomendación",
+ "Today: protected focus and next session": "Hoy: concentración protegida y próxima sesión",
+ "Needs-you approval: decide on a promising connection": "Aprobación pendiente: decide sobre una conexión prometedora",
+ "Receipts: verify and export": "Recibos: verificar y exportar",
+ "I need the next step to move my pipeline forward, not just add another meeting.": "Necesito que el próximo paso impulse mis oportunidades, no que solo sume otra reunión.",
+ "Protected focus matters only if I can still make room for useful conversations.": "Proteger mi concentración solo importa si aún puedo hacer espacio para conversaciones útiles.",
+ "I want my agent to find a promising connection, but the final yes is mine.": "Quiero que mi agente encuentre una conexión prometedora, pero el sí final es mío.",
+ "I want proof my agent kept my boundaries and the choices I made.": "Quiero comprobar que mi agente respetó mis límites y las decisiones que tomé."
+});
+Object.assign(window.R4_I18N.pt, {
+ "show all {n} features": "ver todos os {n} recursos",
+ "show 2-minute tour": "ver visita de 2 minutos",
+ "Today: business focus and first recommendation": "Hoje: foco comercial e primeira recomendação",
+ "Today: protected focus and next session": "Hoje: foco protegido e próxima sessão",
+ "Needs-you approval: decide on a promising connection": "Aprovação pendente: decida sobre uma conexão promissora",
+ "Receipts: verify and export": "Recibos: verificar e exportar",
+ "I need the next step to move my pipeline forward, not just add another meeting.": "Preciso que o próximo passo avance minhas oportunidades, não apenas acrescente outra reunião.",
+ "Protected focus matters only if I can still make room for useful conversations.": "Proteger meu foco só importa se eu ainda puder abrir espaço para conversas úteis.",
+ "I want my agent to find a promising connection, but the final yes is mine.": "Quero que meu agente encontre uma conexão promissora, mas o sim final é meu.",
+ "I want proof my agent kept my boundaries and the choices I made.": "Quero confirmar que meu agente respeitou meus limites e as escolhas que fiz."
+});

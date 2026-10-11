@@ -327,7 +327,7 @@
     };
     state.headlinerSeeded = true;
     state.cosSeeded = true;
-    state.demo = { id: DEMO_ID, tour: {} };
+    state.demo = { id: DEMO_ID, tour: {}, tourMode: 'quick' };
     localStorage.setItem(KEY, JSON.stringify(state));
   }
   function migrate() {
@@ -348,7 +348,7 @@
       state.cosSeeded = true;
     }
     state.agents = { ...freshAgents(), ...(state.agents || {}) };
-    state.me = { role: '', company: '', linkedin: '', email: '', phone: '', lookingFor: '', canOffer: '', discoverable: true, brand: 'slalom', goal: '', ...state.me };
+    state.me = { role: '', company: '', linkedin: '', email: '', phone: '', lookingFor: '', canOffer: '', discoverable: true, brand: 'slalom', goal: '', startSkipped: false, ...state.me };
     if (!Object.hasOwn(GOAL_PRESETS, state.me.goal)) state.me.goal = '';
     if (!['slalom', 'aigovops'].includes(state.me.brand)) state.me.brand = 'slalom';
     state.passport = { scans: 0, coffee: false, ...(state.passport || {}) }; state.passport.stamps = state.passport.stamps || {};
@@ -949,7 +949,9 @@
       <div class="stats">
         <div class="stat"><b>${metToday}</b><span>${t('met today')}</span></div>
         <div class="stat"><b>${due.length}</b><span>${t('follow-ups open')}</span></div>
-        <div class="stat"><b>${nextIn === null ? '—' : isEventDay() ? fmtDur(nextIn) : fmtTime(items[0].start)}</b><span>${isEventDay() ? t('until next up') : t('first up')}</span></div>
+        <div class="stat">${isEventDay() && items[0] && toMin(items[0].start) <= nowM
+          ? `<b>${t('now')}</b><span>${t('happening now')}</span>`
+          : `<b>${nextIn === null ? '—' : isEventDay() ? fmtDur(nextIn) : fmtTime(items[0].start)}</b><span>${isEventDay() ? t('until next up') : t('first up')}</span>`}</div>
       </div>
       ${agentTodayCard()}${meetTodayCard()}
       <div class="row" style="gap:8px">
@@ -1985,7 +1987,7 @@
     const needs = activeThreads().filter((x) => x.stage === 'needs-you' || x.draftPending).length;
     const next = activeThreads().filter((x) => x.stage === 'confirmed').sort((a, b) => threadStartMs(a) - threadStartMs(b))[0];
     const negotiating = activeThreads().filter((x) => ['discover', 'overlap', 'propose', 'negotiate'].includes(x.stage)).length;
-    const status = !BK().live ? t('paused') : BK().beacon.mode === 'heads-down' ? t('heads-down') : needs ? t(needs === 1 ? '1 moment needs you' : '{n} moments need you', { n: needs }) : next ? t('next moment {time} · {left}', { time: fmtTime(next.start), left: cdShort({ day: next.day, start: next.start }) }) : eventDatesOver() ? t('your event dates are over. change them in settings to see new moments.') : t('negotiating with {n}', { n: negotiating });
+    const status = !BK().live ? t('paused') : BK().beacon.mode === 'heads-down' ? t('heads-down') : needs ? t(needs === 1 ? '1 moment needs you' : '{n} moments need you', { n: needs }) : next ? t('next moment {time} · {left}', { time: fmtTime(next.start), left: cdShort({ day: next.day, start: next.start }) }) : eventDatesOver() ? t('your event dates are over. change them in settings to see new moments.') : negotiating ? t('negotiating with {n}', { n: negotiating }) : t('looking for good fits');
     const ledger = BK().threads.slice(-3).reverse().map((th) => `<div class="island-ledger">${esc(th.stage === 'declined' ? t('declined politely for you') : th.stage === 'blocked' ? t('agent blocked') : `${t(ISLAND_STAGE_LABELS[th.stage] || th.stage)} · ${hookText(th)}`)}</div>`).join('');
     return `<div class="agent-island-wrap"><button class="agent-island" data-action="island-toggle"><span class="island-dot ${BK().live ? 'pulse' : ''}"></span><b>${esc(status)}</b><span>${activeThreads().length}</span></button>
       ${ui.islandOpen ? `<div class="island-expanded">${ledger || `<div class="island-ledger">${t('your agent is ready.')}</div>`}<button class="btn ghost sm" data-action="go" data-tab="backstage">${t('open backstage')}</button></div>` : ''}</div>`;
@@ -2072,6 +2074,7 @@
     $('#sheet-root .sheet')?.classList.add('start-sheet');
   }
   function finishStart() {
+    state.me.startSkipped = false;
     applyGoal(ui.startGoal);
     if (ui.startGoal === 'research') BK().charter.maxPerHour = true;
     if (ui.startSession === 'none') {
@@ -2316,7 +2319,7 @@
       publishHeight();
     }
     requestAnimationFrame(() => document.querySelector('#tabbar .tab.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'auto' }));
-    if (!BK().onboarded && ['today', 'backstage'].includes(ui.tab) && !ui.charterAsked) { ui.charterAsked = true; setTimeout(startSheet, 0); }
+    if (!BK().onboarded && !state.me.startSkipped && ['today', 'backstage'].includes(ui.tab) && !ui.charterAsked) { ui.charterAsked = true; setTimeout(startSheet, 0); }
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
   }
@@ -2332,7 +2335,10 @@
     'start-autonomy': (el) => { ui.startAutonomy = el.dataset.value; startSheet(); },
     'start-next': () => { ui.startStep = Math.min(3, ui.startStep + 1); startSheet(); },
     'start-back': () => { ui.startStep = Math.max(1, ui.startStep - 1); startSheet(); },
-    'start-skip': () => { ui.charterAsked = true; ui.startStep = 1; closeSheet(); render(); },
+    'start-skip': () => {
+      if (!DEMO_MODE) { state.me.startSkipped = true; save(); }
+      ui.charterAsked = true; ui.startStep = 1; closeSheet(); render();
+    },
     'start-finish': finishStart,
     'more-agent-rules': charterSheet,
     'fast-forward': fastForward,
@@ -3350,6 +3356,18 @@
     BK().beacon.mode = mode;
     save();
     render();
+  }
+  if (DEMO_MODE && DEMO_ID === 'priya' && !BK().threads.some((thread) => thread.stage === 'needs-you')) {
+    const statuses = state.people.map((person) => person.status);
+    state.people.forEach((person) => { person.status = 'want'; });
+    const approval = openThread();
+    state.people.forEach((person, index) => { person.status = statuses[index]; });
+    if (approval) {
+      approval.stage = 'needs-you'; approval.theySaid = 'yes'; approval.expiresAt = Date.now() + 9 * 60 * 1000;
+      threadLog(approval, 'peer', 'the other person is open to meeting. this choice is yours.', {}, { status: 'needs-you', humanDecision: 'yes' });
+      save();
+      render();
+    }
   }
   handleAgentHash();
   handleMeetHash();

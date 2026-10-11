@@ -33,20 +33,30 @@
 
 ## Feature map
 
-| feature | persona | tour step |
-|---|---|---|
-| Today: headliner countdown, prep and agent island | Maya | Today: moments and agent island |
-| Backstage: live graph, charter, needs-you and confirmed moments | Maya | Backstage: needs-you and confirmed moments |
-| Backstage: absorbed declines and blocked injection | Diego | Declines absorbed on your behalf |
-| People: consent reveal, follow-up queue and priorities | Maya | People: mutual connections and follow-ups |
-| Meet: agent card, QR, profile and community pods | Diego | Agent card, QR and share |
-| Agenda: sessions, BOFs, social plans, notes and work blocks | Priya | Take notes and talk takeaways |
-| Connect: web, shared topics, trios and group size | Maya | Connect: trios and conversation starters |
-| Confirmed moment action, timer and polite exit | Maya | Confirmed moment and polite exit |
-| Pitch queue, studio and timer | Diego | Pitch studio and live timer |
-| Recap, team outcomes and report | Priya | Recap and report |
-| Signed receipts, verification and offline export | Priya | Signed receipts and offline verification |
-| Slalom/AiGovOps brand and language settings | Diego | Brand switch and profile |
+| feature | persona | full-tour step | quick-tour order |
+|---|---|---|---|
+| Today: social goal hero and agent island | Maya | Today: moments and agent island | 1 |
+| Backstage: live graph, charter, needs-you and confirmed moments | Maya | Backstage: needs-you and confirmed moments | 2 |
+| Backstage: absorbed declines and blocked injection | Diego | Declines absorbed on your behalf | — |
+| People: consent reveal, follow-up queue and priorities | Maya | People: mutual connections and follow-ups | — |
+| Meet: agent card, QR, profile and community pods | Diego | Agent card, QR and share | — |
+| Agenda: sessions, BOFs, social plans, notes and work blocks | Priya | Take notes and talk takeaways | — |
+| Connect: web, shared topics, trios and group size | Maya | Connect: trios and conversation starters | 3 |
+| Confirmed moment action, timer and polite exit | Maya | Confirmed moment and polite exit | 4 |
+| Signed receipts, verification and offline export | Maya | Receipts: verify and export | 5 |
+| Today: business goal and first recommendation | Diego | Today: business focus and first recommendation | 1 |
+| Backstage: graph and agent-to-agent negotiation | Diego | Backstage graph and A2A negotiation | 2 |
+| Needs-you approvals | Diego | Needs-you approvals | 4 |
+| Pitch queue, studio and timer | Diego | Pitch studio and live timer | 3 |
+| Follow-up drafts | Diego | Follow-up drafts | — |
+| Signed receipts, verification and offline export | Diego | Receipts: verify and export | 5 |
+| Today: protected focus and next session | Priya | Today: protected focus and next session | 1 |
+| Backstage: research charter and hourly cap | Priya | Heads-down charter and hourly cap | 2 |
+| Connection web and shared research topics | Priya | Connection web: spot topic themes | 3 |
+| Needs-you approval for a promising connection | Priya | Needs-you approval: decide on a promising connection | 4 |
+| Signed receipts, verification and offline export | Priya | Signed receipts and offline verification | 5 |
+| Recap, team outcomes and report | Priya | Recap and report | — |
+| Slalom/AiGovOps brand and language settings | Diego | Brand switch and profile | — |
 
 ## Demo scripts
 
@@ -54,17 +64,50 @@ Use `?demo=maya`, `?demo=diego`, or `?demo=priya` to open an isolated persona to
 
 ### Maya Torres
 
-1. Review her charter and needs-you moments. ![Maya today](docs/demo/devin/maya-01.png)
-2. Find people and a dinner/BOF plan. ![Maya people](docs/demo/devin/maya-02.png)
+Full tour: **11 steps**. Quick-tour steps are marked ★ in their order.
+
+1. ★ Quick 1/5 — Today: moments and agent island. ![Maya today](docs/demo/devin/maya-01.png)
+2. Open charter and choose act mode.
+3. ★ Quick 2/5 — Backstage: needs-you and confirmed moments.
+4. People: mutual connections and follow-ups. ![Maya people](docs/demo/devin/maya-02.png)
+5. Meet: share a card and start a pod.
+6. Agenda: BOF and social plans.
+7. ★ Quick 3/5 — Connect: trios and conversation starters.
+8. ★ Quick 4/5 — Confirmed moment and polite exit.
+9. Report: recap and team outcomes.
+10. ★ Quick 5/5 — Receipts: verify and export.
+11. Switch language and brand.
 
 ### Diego Alvarez
 
-1. Inspect backstage negotiation and agent cards. ![Diego backstage](docs/demo/devin/diego-01.png)
-2. Rehearse a pitch and inspect follow-ups. ![Diego pitch](docs/demo/devin/diego-02.png)
+Full tour: **11 steps**. Quick-tour steps are marked ★ in their order.
+
+1. ★ Quick 1/5 — Today: business focus and first recommendation.
+2. ★ Quick 4/5 — Needs-you approvals.
+3. ★ Quick 2/5 — Backstage graph and A2A negotiation. ![Diego backstage](docs/demo/devin/diego-01.png)
+4. Declines absorbed on your behalf.
+5. Give/ask pairing and prospect priorities.
+6. Agent card, QR and share.
+7. ★ Quick 3/5 — Pitch studio and live timer. ![Diego pitch](docs/demo/devin/diego-02.png)
+8. Follow-up drafts.
+9. Report by persona.
+10. ★ Quick 5/5 — Receipts: verify and export.
+11. Brand switch and profile.
 
 ### Dr. Priya Natarajan
 
-1. Set a heads-down charter and focus window. ![Priya charter](docs/demo/devin/priya-01.png)
-2. Verify signed receipts and the offline evidence story. ![Priya receipts](docs/demo/devin/priya-02.png)
+Full tour: **11 steps**. Quick-tour steps are marked ★ in their order.
+
+1. ★ Quick 1/5 — Today: protected focus and next session.
+2. ★ Quick 2/5 — Heads-down charter and hourly cap. ![Priya charter](docs/demo/devin/priya-01.png)
+3. Agent protects a writing block.
+4. Take notes and talk takeaways.
+5. ★ Quick 3/5 — Connection web: spot topic themes.
+6. Practitioner interviews and follow-ups.
+7. Meet: researcher card and contact tools.
+8. Recap and report.
+9. ★ Quick 4/5 — Needs-you approval: decide on a promising connection.
+10. ★ Quick 5/5 — Signed receipts and offline verification. ![Priya receipts](docs/demo/devin/priya-02.png)
+11. Language, brand and profile settings.
 
 source available under PolyForm Noncommercial 1.0.0. © AiGovOps Foundation, Bob Rapp, Ken Johnston.

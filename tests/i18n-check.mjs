@@ -18,6 +18,13 @@ const DYNAMIC_KEYS = [
   'followup.drafted', 'charter.updated', 'key.created', 'bundle.exported',
   'agents exchanged a message', 'charter check passed', 'blocked a prompt injection',
   'you both said yes', 'follow-up drafted', 'charter changed', 'signing key created', 'receipts exported',
+  'looking for good fits', 'happening now', 'show all {n} features', 'show 2-minute tour',
+  'Today: business focus and first recommendation', 'Today: protected focus and next session',
+  'Needs-you approval: decide on a promising connection', 'Receipts: verify and export',
+  'I need the next step to move my pipeline forward, not just add another meeting.',
+  'Protected focus matters only if I can still make room for useful conversations.',
+  'I want my agent to find a promising connection, but the final yes is mine.',
+  'I want proof my agent kept my boundaries and the choices I made.',
   'they want {ask}; you offer {give}', 'you want {ask}; they offer {give}',
 ];
 for (const key of DYNAMIC_KEYS) keys.add(key);
