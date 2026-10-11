@@ -251,6 +251,7 @@ for (const persona of personas) {
   assert.equal(demoState.backstage.charter, undefined, `${persona.id} demo state contains unenforced charter fields`);
   assert.equal(demoState.backstage.beacon.lengths, undefined, `${persona.id} demo state contains unenforced meeting lengths`);
   assert.equal(demoState.demo.tourMode, 'quick', `${persona.id}: quick mode is the default`);
+  assert.equal(demoState.demo.tourVersion, 2, `${persona.id}: current tour version is stored`);
   for (const proposal of demoState.agents.proposals) {
     const linked = proposal.status === 'booked' ? demoState.sessions.find((session) => session.id === proposal.sessionId) : null;
     if (proposal.status === 'booked') {
@@ -283,10 +284,25 @@ for (const persona of personas) {
       await page.locator('[data-demo-tour-button]').click();
       await page.getByRole('dialog').waitFor();
     }
+    if (persona.id === 'maya' && index === 5) {
+      await page.locator('[data-demo-close]').click();
+      await page.locator('[data-action="go"][data-tab="agenda"]').click();
+      await page.locator('[data-action="pick-day"][data-key="day"][data-day="1"]').click();
+      await page.locator('[data-action="seg"][data-key="agendaSeg"][data-val="bof"]').click();
+      await page.locator('[data-demo-tour-button]').click();
+      await page.getByRole('dialog').waitFor();
+    }
     assert.equal(await page.locator(`[data-demo-show="${index}"]`).count(), 1, `${persona.id}: quick step ${index} is listed`);
     await page.locator(`[data-demo-show="${index}"]`).click();
     await page.waitForFunction((expected) => window.__r4DemoStep?.index === expected, index);
     assert.equal((await page.evaluate(() => window.__r4DemoStep)).fallback, false, `${persona.id}: quick target ${index} resolves`);
+    if (persona.id === 'maya' && index === 5) {
+      const belonging = demoState.sessions.find((session) => session.type === 'bof' && /belonging/i.test(session.title));
+      assert.ok(belonging, 'Maya has a seeded belonging BOF session');
+      assert.ok((await page.locator(`[data-action="pick-day"][data-key="day"][data-day="${belonging.day}"]`).getAttribute('class')).includes('on'), 'Maya tour selects the belonging session day');
+      assert.ok((await page.locator('[data-action="seg"][data-key="agendaSeg"][data-val="timeline"]').getAttribute('class')).includes('on'), 'Maya tour selects the timeline segment');
+      assert.match(await page.locator('.demo-feature-highlight').textContent(), /design for belonging/i, 'Maya tour highlights the seeded belonging card');
+    }
     assert.ok((await page.locator('[data-demo-copy]').textContent()).endsWith(`tour ${order + 1}/5`), `${persona.id}: quick progress is ${order + 1}/5`);
     await closeSheetIfVisible(page);
   }
@@ -302,6 +318,7 @@ for (const persona of personas) {
   assert.equal(await page.evaluate(() => document.activeElement.matches('[data-demo-tour-button]')), true, `${persona.id}: closing tour returns focus`);
   await page.reload();
   await page.getByRole('region', { name: 'demo mode' }).waitFor();
+  assert.ok((await page.locator('[data-demo-copy]').textContent()).endsWith(`tour 5/${persona.stepCount}`), `${persona.id}: saved progress is shown on banner creation`);
   await page.locator('[data-demo-tour-button]').click();
   await page.getByRole('dialog').waitFor();
   assert.equal(await page.locator('[data-demo-show]').count(), persona.stepCount, `${persona.id}: full mode survives reload`);
@@ -556,6 +573,18 @@ for (const persona of personas) {
   });
   assert.deepEqual(resetSentinels, ['real-state-sentinel', 'legacy-state-sentinel', 'null']);
   assert.deepEqual(await page.evaluate(() => window.__realTouches), []);
+  await page.evaluate((key) => {
+    const state = JSON.parse(localStorage.getItem(key));
+    state.demo = { ...(state.demo || {}), tourMode: 'quick', tourOpened: true, tour: { 0: true, 1: true } };
+    delete state.demo.tourVersion;
+    localStorage.setItem(key, JSON.stringify(state));
+  }, stateKey);
+  await page.reload();
+  await page.getByRole('region', { name: 'demo mode' }).waitFor();
+  assert.ok((await page.locator('[data-demo-copy]').textContent()).endsWith('tour 0/5'), `${persona.id}: old unversioned progress resets on load`);
+  const guardedTour = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo, stateKey);
+  assert.equal(guardedTour.tourVersion, 2);
+  assert.deepEqual(guardedTour.tour, {});
   await page.locator('[data-demo-exit]').click();
   await page.waitForFunction(() => !new URL(location.href).searchParams.has('demo'));
   assert.equal(new URL(page.url()).searchParams.get('keep'), '1');
