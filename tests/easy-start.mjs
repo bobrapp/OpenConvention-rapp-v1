@@ -275,11 +275,54 @@ try {
   await page.evaluate(() => document.querySelector('[data-action="alert-preview"]')?.click());
   assert.equal(await page.locator('.alert-pop').count(), 0, 'an open sheet suppresses the alert modal');
 
+  const fallback = await freshPage();
+  await fallback.page.evaluate(() => {
+    const key = 'r4-networking-v2';
+    const state = JSON.parse(localStorage.getItem(key));
+    const today = new Date();
+    state.me.eventStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    state.me.days = 3;
+    state.backstage.onboarded = true;
+    state.backstage.live = true;
+    state.backstage.threads = [];
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await fallback.page.reload({ waitUntil: 'domcontentloaded' });
+  await fallback.page.waitForSelector('#agent-island .agent-island');
+  assert.match(await fallback.page.locator('#agent-island .agent-island').innerText(), /looking for good fits/i);
+
+  const inProgress = await freshPage();
+  await inProgress.page.evaluate(() => {
+    const key = 'r4-networking-v2';
+    const state = JSON.parse(localStorage.getItem(key));
+    const today = new Date();
+    const nowM = today.getHours() * 60 + today.getMinutes();
+    const time = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+    state.me.eventStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    state.me.days = 3;
+    state.me.startSkipped = true;
+    state.backstage.onboarded = true;
+    state.backstage.threads = [];
+    state.sessions.forEach((session) => { session.status = 'maybe'; });
+    Object.assign(state.sessions[0], { day: 0, start: time(Math.max(0, nowM - 5)), end: time(nowM + 15), status: 'going' });
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await inProgress.page.reload({ waitUntil: 'domcontentloaded' });
+  await inProgress.page.waitForSelector('.stats .stat:nth-child(3)');
+  assert.match(await inProgress.page.locator('.stats .stat:nth-child(3)').innerText(), /now\s+happening now/i);
+
   const skip = await freshPage();
   await skip.page.locator('[data-action="start-skip"]').click();
   assert.equal(await skip.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).backstage.onboarded), false);
+  assert.equal(await skip.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')).me.startSkipped), true);
+  await skip.page.reload({ waitUntil: 'domcontentloaded' });
+  await skip.page.waitForSelector('#agent-island .setup-island');
+  assert.equal(await skip.page.locator('#sheet-root .sheet').count(), 0, 'skipped onboarding stays closed after reload');
   await skip.page.locator('[data-action="open-charter"]').click();
   assert.ok(await skip.page.locator('[data-action="start-goal"]').count(), 'island reopens start sheet');
+  await completeSocial(skip.page);
+  const completedSkip = await skip.page.evaluate(() => JSON.parse(localStorage.getItem('r4-networking-v2')));
+  assert.equal(completedSkip.me.startSkipped, false, 'finishing setup clears the skip flag');
 
   const layout = await freshPage(320);
   await assertLayout(layout.page, '320px start');
@@ -322,6 +365,8 @@ try {
   await research.context.close();
   await none.context.close();
   await skip.context.close();
+  await fallback.context.close();
+  await inProgress.context.close();
   await zoom.context.close();
   console.log(`easy-start ok: business onboarding, 5 taps, goal state/receipt, four grouped tabs, skip/reopen, responsive 44px targets/overflow, axe, screenshots`);
 } finally {

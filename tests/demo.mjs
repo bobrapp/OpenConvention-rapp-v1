@@ -9,7 +9,9 @@ import { chromium } from 'playwright-core';
 const require = createRequire(import.meta.url);
 const axePath = require.resolve('axe-core/axe.min.js');
 const shotDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../docs/demo/devin');
+const requestedShotDir = '/Users/devin/design-review/devin-build';
 mkdirSync(shotDir, { recursive: true });
+mkdirSync(requestedShotDir, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -21,6 +23,7 @@ const personas = [
   ['diego', 'Diego Alvarez', 10, 9, ['five client conversations', 'two partner co-sells']],
   ['priya', 'Dr. Priya Natarajan', 8, 10, ['practitioner interviews', 'writing block', 'research trend notes']],
 ];
+const quickIndices = { maya: [0, 2, 6, 7, 9], diego: [0, 2, 6, 1, 9], priya: [0, 1, 4, 8, 9] };
 const crcTable = Uint32Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
@@ -114,11 +117,16 @@ try {
     await page.waitForFunction((key) => !!localStorage.getItem(key), `r4-networking-v2-demo-${id}`);
     await page.waitForFunction(() => !!document.querySelector('.demo-tour[role="dialog"]'));
     const demoState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), `r4-networking-v2-demo-${id}`);
+    const quickSequence = quickIndices[id];
+    assert.equal(demoState.demo.tourMode, 'quick', `${id}: quick tour is the default persisted mode`);
+    assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), 'tour 0/5', `${id}: quick progress starts at zero`);
+    assert.deepEqual(await page.locator('.demo-tour [data-show]').evaluateAll((buttons) => buttons.map((button) => Number(button.dataset.show))), quickSequence, `${id}: quick list uses the selected full-tour indices`);
     const minute = (time) => {
       const [hour, minutes] = time.split(':').map(Number);
       return hour * 60 + minutes;
     };
     assert.equal(demoState.me.name, name);
+    assert.equal(demoState.me.startSkipped, false, `${id}: demo onboarding state is unchanged`);
     assert.equal(demoState.people.length, count);
     assert.equal(demoState.sessions.filter((session) => !session.agentBooked).length, agendaCount, `${id}: exact attendee agenda count is seeded`);
     assert.ok(goalLabels.every((label) => demoState.goals.some((goal) => goal.text.toLowerCase().includes(label))), `${id}: goals are persona-specific`);
@@ -129,6 +137,7 @@ try {
       ['blocked', 'confirmed', 'declined', 'needs-you'].sort(),
       `${id}: backstage seeds every toured agent outcome`,
     );
+    if (id === 'priya') assert.ok(demoState.backstage.threads.some((thread) => thread.stage === 'needs-you'), 'Priya has a real needs-you approval target');
     for (const thread of demoState.backstage.threads.filter((item) => item.stage === 'confirmed')) {
       const session = demoState.sessions.find((item) => item.id === thread.momentId);
       assert.ok(session, `${id}: confirmed thread has no linked meeting`);
@@ -167,6 +176,11 @@ try {
         await page.locator('.demo-banner [data-tour]').click();
         assert.equal(await page.locator('.demo-tour [data-show]').first().textContent(), lang === 'en' ? 'show me' : 'mostrar');
         assert.ok(await page.getByText(firstStep, { exact: true }).count(), `${lang}: persona tour title is translated`);
+        assert.equal(await page.locator('.demo-tour [data-mode-toggle]').textContent(), lang === 'es' ? 'ver las 11 funciones' : lang === 'pt' ? 'ver todos os 11 recursos' : 'show all 11 features');
+        await page.locator('.demo-tour [data-mode-toggle]').click();
+        assert.equal(await page.locator('.demo-tour [data-show]').count(), 11, `${lang}: full tour toggle shows all features`);
+        assert.equal(await page.locator('.demo-tour [data-mode-toggle]').textContent(), lang === 'es' ? 'ver recorrido de 2 minutos' : lang === 'pt' ? 'ver visita de 2 minutos' : 'show 2-minute tour');
+        await page.locator('.demo-tour [data-mode-toggle]').click();
         await page.locator('.demo-tour [data-close]').click();
       };
       await testLanguage('es', 'recorrido', 'Hoy: momentos y agente');
@@ -178,6 +192,59 @@ try {
     const realAfter = await snapshot(page);
     assert.equal(realAfter.head, realBefore.head, `${id}: real receipt head stays isolated`);
     assert.deepEqual(realAfter.entries, realBefore.entries, `${id}: real receipt DB stays isolated`);
+
+    for (const [position, fullIndex] of quickSequence.entries()) {
+      if (!(await page.locator('.demo-tour[role="dialog"]').count())) await page.locator('.demo-banner [data-tour]').evaluate((button) => button.click());
+      assert.deepEqual(await page.locator('.demo-tour [data-show]').evaluateAll((buttons) => buttons.map((button) => Number(button.dataset.show))), quickSequence, `${id}: quick mode remains selected`);
+      await page.locator(`.demo-tour [data-show="${fullIndex}"]`).click();
+      await page.waitForFunction((expected) => window.__demoStepResult?.index === expected && window.__demoStepResult?.target, fullIndex);
+      assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), `tour ${position + 1}/5`, `${id}: quick progress advances to ${position + 1}/5`);
+      const quickResult = await page.evaluate(() => window.__demoStepResult);
+      assert.equal(quickResult.usedFallback, false, `${id}: quick step ${position + 1} resolves ${quickResult.selector}`);
+      assert.ok(await page.locator('.demo-tour-target').count(), `${id}: quick step ${position + 1} highlights a real target`);
+    }
+    assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), 'tour 5/5', `${id}: quick tour completion is counted`);
+    await page.locator('.demo-banner [data-tour]').evaluate((button) => button.click());
+    await page.locator('.demo-tour [data-mode-toggle]').click();
+    assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo.tourMode, `r4-networking-v2-demo-${id}`), 'full');
+    assert.equal(await page.locator('.demo-tour [data-show]').count(), 11, `${id}: full mode shows all 11 features`);
+    assert.equal(await page.locator('.demo-tour [data-mode-toggle]').textContent(), 'show 2-minute tour');
+    assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), 'tour 5/11', `${id}: full progress carries over quick completions`);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!document.querySelector('.demo-banner [data-tour]'));
+    assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).demo.tourMode, `r4-networking-v2-demo-${id}`), 'full', `${id}: full mode survives reload`);
+    assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), 'tour 5/11');
+    await page.locator('.demo-banner [data-tour]').click();
+    await page.locator('.demo-tour [data-close]').waitFor();
+    assert.equal(await page.locator('.demo-tour [data-show]').count(), 11, `${id}: reloaded dialog keeps full mode`);
+    if (id === 'diego') {
+      await page.locator('.demo-tour [data-mode-toggle]').click();
+      await page.waitForTimeout(1000);
+      await page.screenshot({ path: path.join(requestedShotDir, 'quick-tour-diego-en.png') });
+      await page.evaluate((key) => {
+        const state = JSON.parse(localStorage.getItem(key));
+        state.me.lang = 'es';
+        localStorage.setItem(key, JSON.stringify(state));
+      }, `r4-networking-v2-demo-${id}`);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => document.querySelector('.demo-banner [data-tour]')?.textContent === 'recorrido');
+      await page.locator('.demo-banner [data-tour]').click();
+      await page.locator('.demo-tour [data-close]').waitFor();
+      assert.equal(await page.locator('.demo-tour [data-mode-toggle]').textContent(), 'ver las 11 funciones');
+      await page.waitForTimeout(1000);
+      await page.screenshot({ path: path.join(requestedShotDir, 'quick-tour-diego-es.png') });
+      await page.evaluate((key) => {
+        const state = JSON.parse(localStorage.getItem(key));
+        state.me.lang = 'en';
+        state.demo.tourMode = 'full';
+        localStorage.setItem(key, JSON.stringify(state));
+      }, `r4-networking-v2-demo-${id}`);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => document.querySelector('.demo-banner [data-tour]')?.textContent === 'tour');
+      await page.locator('.demo-banner [data-tour]').click();
+      await page.locator('.demo-tour [data-close]').waitFor();
+    }
+    await page.locator('.demo-tour [data-close]').click();
 
     if (await page.locator('.demo-tour [data-close]').count()) await page.locator('.demo-tour [data-close]').click();
     await page.locator('.tab[data-tab="backstage"]').click();
@@ -226,8 +293,9 @@ try {
     assert.ok(targetSizes.every(({ width, height }) => width >= 44 && height >= 44), `${id}: undersized demo controls ${JSON.stringify(targetSizes)}`);
     const showButtons = page.locator('.demo-tour [data-show]');
     const stepCount = await showButtons.count();
-    assert.ok(stepCount >= 8, `${id}: expected full tour coverage`);
-    const screenshotSteps = { maya: [0, 3], diego: [0, 5], priya: [0, 7] }[id];
+    assert.equal(stepCount, 11, `${id}: full tour exposes all 11 steps`);
+    const screenshotSteps = { maya: [0, 3], diego: [2, 6], priya: [1, 9] }[id];
+    const completedIndices = new Set(quickSequence);
     for (let step = 0; step < stepCount; step++) {
       if (!(await page.locator('.demo-tour[role="dialog"]').count())) {
         await closeFeatureSheet(page);
@@ -243,7 +311,8 @@ try {
       }
       await page.locator(`.demo-tour [data-show="${step}"]`).click();
       await page.waitForFunction((expected) => window.__demoStepResult?.index === expected && window.__demoStepResult?.target, step);
-      assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), `tour ${step + 1}/${stepCount}`, `${id}: banner advances after Show Me step ${step + 1}`);
+      completedIndices.add(step);
+      assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), `tour ${completedIndices.size}/${stepCount}`, `${id}: full progress counts completed indices`);
       assert.equal(await page.locator('#alert-root').evaluate((root) => getComputedStyle(root).display), 'none', `${id}: demo countdown alert is suppressed while showing a tour step`);
       if (step === 0) await page.evaluate(() => document.querySelector('#alert-root')?.replaceChildren());
       const stepResult = await page.evaluate(() => window.__demoStepResult);
@@ -394,7 +463,7 @@ try {
     assert.deepEqual(consoleErrors, [], `${id}: no console errors`);
     await context.close();
   }
-  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; tour class cleanup/alert routing; every mapped feature target; exit/reset; axe; 44px controls at 390px and 200% text');
+  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; quick/full tour modes and progress; localized toggles; every mapped feature target; tour class cleanup/alert routing; exit/reset; axe; 44px controls at 390px and 200% text');
 } finally {
   await browser.close();
 }

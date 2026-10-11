@@ -39,24 +39,23 @@
   };
   const stepTitles = {
     es: [
-      ['Hoy: momentos y agente', 'Abre la carta y elige el modo actuar', 'Entre bastidores: aprobaciones y momentos confirmados', 'Personas: conexiones y seguimientos', 'Conoce: comparte tu tarjeta y únete a un grupo', 'Agenda: sesiones y planes sociales', 'Conecta: tríos y temas de conversación', 'Momento confirmado y salida amable', 'Informe: resumen y resultados del equipo', 'Cambia idioma y marca'],
-      ['Aprobaciones pendientes', 'Grafo de agentes y negociación A2A', 'Rechazos gestionados por tu agente', 'Empareja ofertas, pedidos y prioridades', 'Tarjeta del agente, QR y compartir', 'Estudio de presentaciones y temporizador', 'Borradores de seguimiento', 'Informe por persona', 'Recibos: verificar y exportar', 'Marca y perfil'],
-      ['Carta y límite por hora', 'Agenda: bloque de escritura protegido', 'Toma notas y registra conclusiones', 'Red de conexiones: temas en común', 'Entrevistas con profesionales y seguimientos', 'Conoce: tarjeta de investigadora', 'Resumen e informe', 'Recibos firmados y verificación offline', 'Idioma, marca y perfil'],
+      ['Hoy: momentos y agente', 'Abre la carta y elige el modo actuar', 'Entre bastidores: aprobaciones y momentos confirmados', 'Personas: conexiones y seguimientos', 'Conoce: comparte tu tarjeta y únete a un grupo', 'Agenda: sesiones y planes sociales', 'Conecta: tríos y temas de conversación', 'Momento confirmado y salida amable', 'Informe: resumen y resultados del equipo', 'Recibos: verificar y exportar', 'Cambia idioma y marca'],
+      ['Hoy: prioridades comerciales y primera recomendación', 'Aprobaciones pendientes', 'Grafo de agentes y negociación A2A', 'Rechazos gestionados por tu agente', 'Empareja ofertas, pedidos y prioridades', 'Tarjeta del agente, QR y compartir', 'Estudio de presentaciones y temporizador', 'Borradores de seguimiento', 'Informe por persona', 'Recibos: verificar y exportar', 'Marca y perfil'],
+      ['Hoy: concentración protegida y próxima sesión', 'Carta y límite por hora', 'Agenda: bloque de escritura protegido', 'Toma notas y registra conclusiones', 'Red de conexiones: temas en común', 'Entrevistas con profesionales y seguimientos', 'Conoce: tarjeta de investigadora', 'Resumen e informe', 'Aprobación pendiente: decide sobre una conexión prometedora', 'Recibos firmados y verificación offline', 'Idioma, marca y perfil'],
     ],
     pt: [
-      ['Hoje: momentos e agente', 'Abra a carta e escolha o modo agir', 'Bastidores: decisões e encontros confirmados', 'Pessoas: conexões e acompanhamentos', 'Conheça: compartilhe seu cartão e entre em um grupo', 'Agenda: sessões e planos sociais', 'Conexões: trios e temas de conversa', 'Encontro confirmado e saída cordial', 'Relatório: resumo e resultados da equipe', 'Idioma e marca'],
-      ['Aprovações pendentes', 'Grafo de agentes e negociação A2A', 'Recusas absorvidas pelo seu agente', 'Combine ofertas, pedidos e prioridades', 'Cartão do agente, QR e compartilhamento', 'Estúdio de apresentações e cronômetro', 'Rascunhos de acompanhamento', 'Relatório por persona', 'Recibos: verificar e exportar', 'Marca e perfil'],
-      ['Carta e limite por hora', 'Agenda: bloco de escrita protegido', 'Faça anotações e registre aprendizados', 'Rede de conexões: temas em comum', 'Entrevistas com profissionais e acompanhamentos', 'Conheça: cartão de pesquisadora', 'Resumo e relatório', 'Recibos assinados e verificação offline', 'Idioma, marca e perfil'],
+      ['Hoje: momentos e agente', 'Abra a carta e escolha o modo agir', 'Bastidores: decisões e encontros confirmados', 'Pessoas: conexões e acompanhamentos', 'Conheça: compartilhe seu cartão e entre em um grupo', 'Agenda: sessões e planos sociais', 'Conexões: trios e temas de conversa', 'Encontro confirmado e saída cordial', 'Relatório: resumo e resultados da equipe', 'Recibos: verificar e exportar', 'Idioma e marca'],
+      ['Hoje: foco comercial e primeira recomendação', 'Aprovações pendentes', 'Grafo de agentes e negociação A2A', 'Recusas absorvidas pelo seu agente', 'Combine ofertas, pedidos e prioridades', 'Cartão do agente, QR e compartilhamento', 'Estúdio de apresentações e cronômetro', 'Rascunhos de acompanhamento', 'Relatório por persona', 'Recibos: verificar e exportar', 'Marca e perfil'],
+      ['Hoje: foco protegido e próxima sessão', 'Carta e limite por hora', 'Agenda: bloco de escrita protegido', 'Faça anotações e registre aprendizados', 'Rede de conexões: temas em comum', 'Entrevistas com profissionais e acompanhamentos', 'Conheça: cartão de pesquisadora', 'Resumo e relatório', 'Aprovação pendente: decida sobre uma conexão promissora', 'Recibos assinados e verificação offline', 'Idioma, marca e perfil'],
     ],
   };
   const language = () => {
     try { return JSON.parse(localStorage.getItem(key) || '{}').me?.lang || 'en'; } catch { return 'en'; }
   };
   const locale = () => copy[language()] || copy.en;
-  const stepTitle = (index) => stepTitles[language()]?.[id === 'maya' ? 0 : id === 'diego' ? 1 : 2]?.[index] || steps[index][0];
   const steps = {
     maya: [
-      ['Today: moments and agent island', 'today', '.headliner, .agent-today'],
+      ['Today: moments and agent island', 'today', '.goal-hero'],
       ['Open charter and choose act mode', 'backstage', '.charter-form', 'open-charter'],
       ['Backstage: needs-you and confirmed moments', 'backstage', '.thread-card'],
       ['People: mutual connections and follow-ups', 'people', '#people-list .list-item'],
@@ -65,9 +64,11 @@
       ['Connect: trios and conversation starters', 'connect', '.group-card', 'connect-groups'],
       ['Confirmed moment and polite exit', 'backstage', '.thread-sheet [data-action="moment-start"]', 'confirmed-thread'],
       ['Report: recap and team outcomes', 'report', '.report'],
+      ['Receipts: verify and export', 'receipts', '.receipt-row', null, 'I want proof my agent kept my boundaries and the choices I made.'],
       ['Switch language and brand', 'settings', '.field .seg'],
     ],
     diego: [
+      ['Today: business focus and first recommendation', 'today', '.goal-hero', null, 'I need the next step to move my pipeline forward, not just add another meeting.'],
       ['Needs-you approvals', 'backstage', '.thread-card'],
       ['Backstage graph and A2A negotiation', 'backstage', '.backstage-graph'],
       ['Declines absorbed on your behalf', 'backstage', '.decline-summary'],
@@ -80,6 +81,7 @@
       ['Brand switch and profile', 'settings', '.design-picker'],
     ],
     priya: [
+      ['Today: protected focus and next session', 'today', '.goal-hero', null, 'Protected focus matters only if I can still make room for useful conversations.'],
       ['Heads-down charter and hourly cap', 'backstage', '.charter-form', 'open-charter'],
       ['Agent protects a writing block', 'agenda', '.timeline .t-card, .t-item'],
       ['Take notes and talk takeaways', 'agenda', '.sheet [data-form="session-notes"] textarea[name="takeaways"]', 'open-session'],
@@ -87,12 +89,51 @@
       ['Practitioner interviews and follow-ups', 'people', '#people-list .list-item'],
       ['Meet: researcher card and contact tools', 'meet', '.mycard'],
       ['Recap and report', 'report', '.report'],
+      ['Needs-you approval: decide on a promising connection', 'today', '.needs-you-card', null, 'I want my agent to find a promising connection, but the final yes is mine.'],
       ['Signed receipts and offline verification', 'receipts', '.receipt-row'],
       ['Language, brand and profile settings', 'settings', '.design-picker'],
     ],
   }[id];
+  const quick = {
+    maya: [0, 2, 6, 7, 9],
+    diego: [0, 2, 6, 1, 9],
+    priya: [0, 1, 4, 8, 9],
+  }[id];
+  const localized = (source) => (window.R4_I18N || {})[language()]?.[source] || source;
+  const stepTitle = (index) => {
+    const source = steps[index][0];
+    const translated = localized(source);
+    return translated !== source ? translated : stepTitles[language()]?.[id === 'maya' ? 0 : id === 'diego' ? 1 : 2]?.[index] || source;
+  };
+  const stepWhy = (index) => steps[index][4] ? localized(steps[index][4]) : `${locale().why} ${persona.name}.`;
+  const tourMode = () => {
+    try { return JSON.parse(localStorage.getItem(key) || '{}').demo?.tourMode === 'full' ? 'full' : 'quick'; } catch { return 'quick'; }
+  };
+  const modeIndices = () => tourMode() === 'quick' ? quick : steps.map((_step, index) => index);
   const countDone = () => {
-    try { return Object.values(JSON.parse(localStorage.getItem(key) || '{}').demo?.tour || {}).filter(Boolean).length; } catch { return 0; }
+    try {
+      const done = JSON.parse(localStorage.getItem(key) || '{}').demo?.tour || {};
+      return modeIndices().filter((index) => done[index]).length;
+    } catch { return 0; }
+  };
+  const updateProgress = () => {
+    if (banner) banner.querySelector('[data-progress]').textContent = `${locale().tour} ${countDone()}/${modeIndices().length}`;
+  };
+  const saveTourMode = (mode) => {
+    try {
+      const state = JSON.parse(localStorage.getItem(key) || '{}');
+      state.demo = { ...(state.demo || {}), tourMode: mode };
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch {}
+  };
+  const ensureTourMode = () => {
+    try {
+      const state = JSON.parse(localStorage.getItem(key) || '{}');
+      if (!['quick', 'full'].includes(state.demo?.tourMode)) {
+        state.demo = { ...(state.demo || {}), tourMode: 'quick' };
+        localStorage.setItem(key, JSON.stringify(state));
+      }
+    } catch {}
   };
   const storeDone = (index) => {
     try {
@@ -151,7 +192,7 @@
     document.querySelector('.topbar')?.after(banner);
     banner.querySelector('[data-tour]').addEventListener('click', openTour);
     banner.querySelector('[data-exit]').addEventListener('click', () => document.body.classList.remove('demo-tour-active'));
-    banner.querySelector('[data-progress]').textContent = `${locale().tour} ${countDone()}/${steps.length}`;
+    updateProgress();
   };
   const ensureSettingsEntry = () => {
     const body = document.querySelector('#sheet-root .sheet-body, #sheet-root .sheet-content, #sheet-root .sheet');
@@ -161,18 +202,33 @@
     section.innerHTML = `<h3>${locale().entry}</h3><p class="small muted">${locale().desc}</p>${Object.entries(personas).map(([pid, p]) => `<a class="btn secondary sm" href="${urlFor(pid)}">${p.name}</a>`).join('')}`;
     body.append(section);
   };
+  const renderTourContent = (backdrop, focusMode = false) => {
+    const dialog = backdrop.querySelector('.demo-tour');
+    const modeLabel = tourMode() === 'quick'
+      ? localized('show all {n} features').replace('{n}', steps.length)
+      : localized('show 2-minute tour');
+    dialog.innerHTML = `<h2 id="demo-tour-title">${persona.name}</h2><p>${persona.quote[language()] || persona.quote.en}</p><button type="button" data-mode-toggle>${modeLabel}</button><ol>${modeIndices().map((index) => `<li><b>${stepTitle(index)}</b><p>${stepWhy(index)}</p><button type="button" data-show="${index}">${locale().show}</button> <span data-done="${index}" aria-live="polite"></span></li>`).join('')}</ol><button type="button" data-reset>${locale().reset}</button> <button type="button" data-exit>${locale().exit}</button> <button type="button" data-close>${locale().close}</button>`;
+    dialog.querySelector('[data-mode-toggle]').addEventListener('click', () => {
+      saveTourMode(tourMode() === 'quick' ? 'full' : 'quick');
+      updateProgress();
+      renderTourContent(backdrop, true);
+    });
+    dialog.querySelectorAll('[data-show]').forEach((button) => button.addEventListener('click', () => showStep(Number(button.dataset.show))));
+    dialog.querySelector('[data-close]').addEventListener('click', () => closeTour());
+    dialog.querySelector('[data-exit]').addEventListener('click', () => { closeTour(false); banner.querySelector('[data-exit]').click(); });
+    dialog.querySelector('[data-reset]').addEventListener('click', resetDemo);
+    dialog.querySelector('[data-close]').focus();
+    if (focusMode) dialog.querySelector('[data-mode-toggle]').focus();
+  };
   const openTour = (event) => {
     opener = event?.currentTarget || banner?.querySelector('[data-tour]');
     closeTour(false);
     const backdrop = document.createElement('div');
     backdrop.className = 'demo-tour-backdrop';
-    backdrop.innerHTML = `<section class="demo-tour" role="dialog" aria-modal="true" aria-labelledby="demo-tour-title"><h2 id="demo-tour-title">${persona.name}</h2><p>${persona.quote[language()] || persona.quote.en}</p><ol>${steps.map((_step, index) => `<li><b>${stepTitle(index)}</b><p>${locale().why} ${persona.name}.</p><button type="button" data-show="${index}">${locale().show}</button> <span data-done="${index}" aria-live="polite"></span></li>`).join('')}</ol><button type="button" data-reset>${locale().reset}</button> <button type="button" data-exit>${locale().exit}</button> <button type="button" data-close>${locale().close}</button></section>`;
+    backdrop.innerHTML = '<section class="demo-tour" role="dialog" aria-modal="true" aria-labelledby="demo-tour-title"></section>';
     document.body.append(backdrop);
     tourDialog = backdrop;
-    backdrop.querySelectorAll('[data-show]').forEach((button) => button.addEventListener('click', () => showStep(Number(button.dataset.show))));
-    backdrop.querySelector('[data-close]').addEventListener('click', () => closeTour());
-    backdrop.querySelector('[data-exit]').addEventListener('click', () => { closeTour(false); banner.querySelector('[data-exit]').click(); });
-    backdrop.querySelector('[data-reset]').addEventListener('click', resetDemo);
+    renderTourContent(backdrop);
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeTour(); });
     backdrop.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); closeTour(); }
@@ -183,7 +239,6 @@
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     });
-    backdrop.querySelector('[data-close]').focus();
   };
   const tabGroups = {
     today: 'today',
@@ -231,7 +286,7 @@
       target.focus({ preventScroll: true });
     }
     storeDone(index);
-    if (banner) banner.querySelector('[data-progress]').textContent = `${locale().tour} ${countDone()}/${steps.length}`;
+    updateProgress();
     document.dispatchEvent(new CustomEvent('r4-demo-step', { detail: {
       index, title: stepTitle(index), target: !!target, selector,
       usedFallback: !!target && !target.matches(selector),
@@ -248,6 +303,7 @@
   };
   const boot = () => {
     addStyles();
+    ensureTourMode();
     renderBanner();
     const observer = new MutationObserver(ensureSettingsEntry);
     observer.observe(document.body, { childList: true, subtree: true });
