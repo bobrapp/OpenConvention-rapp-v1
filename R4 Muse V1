@@ -4433,9 +4433,9 @@ window.R4_I18N = {
     if (!DEMO_PERSONA && stored === null) {
       const legacy = localStorage.getItem('r4-networking-v1');
       const migrated = JSON.parse(legacy);
-      if (migrated && typeof migrated === 'object' && !Array.isArray(migrated)) {
+      if (migrated && typeof migrated === 'object' && !Array.isArray(migrated) && migrated.version === 1) {
         state = migrated;
-        localStorage.setItem(KEY, legacy);
+        try { localStorage.setItem(KEY, legacy); } catch {}
       }
     } else state = JSON.parse(stored);
   } catch { state = null; }
@@ -4576,7 +4576,7 @@ window.R4_I18N = {
         state.demo = { ...current, ...(state.demo || {}), tour: { ...(current.tour || {}), ...(state.demo?.tour || {}) } };
       } catch {}
     }
-    localStorage.setItem(KEY, JSON.stringify(state));
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
   };
 
   const ui = {
