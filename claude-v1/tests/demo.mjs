@@ -62,6 +62,7 @@ try {
       const title=await step.locator('xpath=..').locator('strong').textContent();
       await step.click();
       await page.waitForFunction((expected)=>window.__demoLastStep?.title===expected&&window.__demoLastStep.target&&!document.querySelector('.demo-tour')&&!document.querySelector('.demo-tour-scrim'),title);
+      assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`${index+1}/${stepCount}`,`${id}: banner advances after Show Me step ${index+1}`);
       const feature=await page.evaluate(()=>{
         const target=document.querySelector('[data-demo-highlight]');
         if(!target)return null;

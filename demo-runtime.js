@@ -176,6 +176,10 @@
   banner.innerHTML = `<div class="demo-banner__copy"><strong>demo · ${persona.name}</strong><span>${persona.role} · <span data-demo-progress>0/${steps.length}</span> tour steps</span></div><div class="demo-banner__controls"><button type="button" data-demo-tour>tour</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>exit demo</a></div>`;
   document.body.prepend(banner);
   let dialog;
+  const completedSteps = new Set();
+  const updateProgress = () => {
+    banner.querySelector('[data-demo-progress]').textContent = `${completedSteps.size}/${steps.length}`;
+  };
   const wait = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
   const closeAppSheet = () => {
     if (!document.querySelector('#sheet')?.hidden) document.querySelector('#sheet-foot [data-act="closeSheet"]')?.click();
@@ -230,13 +234,17 @@
     dialog.setAttribute('aria-labelledby','demo-tour-title');
     dialog.innerHTML = `<h2 id="demo-tour-title">${persona.name}: “${id === 'maya' ? "I want a dinner crew by tonight." : id === 'diego' ? "Five client conversations and two co-sells." : "Four practitioner interviews without losing focus."}”</h2><ol>${steps.map((item,index)=>`<li><strong>${item.title}</strong><p>${item.explanation}</p><button type="button" data-demo-show="${index}">show me</button><span data-demo-done="${index}" aria-live="polite"></span></li>`).join('')}</ol><div class="demo-tour__controls"><button type="button" data-demo-reset>reset this demo</button><button type="button" data-demo-close>close tour</button></div>`;
     document.body.append(scrim,dialog);
+    dialog.querySelectorAll('[data-demo-done]').forEach((node) => {
+      if (completedSteps.has(Number(node.dataset.demoDone))) node.textContent = ' ✓ shown';
+    });
+    updateProgress();
     dialog.querySelectorAll('[data-demo-show]').forEach((button) => button.addEventListener('click', async () => {
       const index = Number(button.dataset.demoShow);
       const target = await openStep(steps[index]);
       if (target) {
+        completedSteps.add(index);
         dialog.querySelector(`[data-demo-done="${index}"]`).textContent = ' ✓ shown';
-        const completed = [...dialog.querySelectorAll('[data-demo-done]')].filter((node)=>node.textContent).length;
-        banner.querySelector('[data-demo-progress]').textContent = `${completed}/${steps.length}`;
+        updateProgress();
         closeTour(false, true);
         if (!target.matches('a,button,input,select,textarea,[tabindex]')) target.tabIndex = -1;
         target.focus({ preventScroll: true });
