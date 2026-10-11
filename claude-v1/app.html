@@ -2604,8 +2604,10 @@ var qrcode = function() {
 <script>
 'use strict';
 (() => {
-  const DB_NAME = 'r4-beacon-claude' + (['maya','diego','priya'].includes(new URLSearchParams(location.search).get('demo')) ? '-demo-' + new URLSearchParams(location.search).get('demo') : '');
-  const HEAD_KEY = 'r4-beacon-head-claude' + (['maya','diego','priya'].includes(new URLSearchParams(location.search).get('demo')) ? '-demo-' + new URLSearchParams(location.search).get('demo') : '');
+  const DEMO_ID = new URLSearchParams(location.search).get('demo');
+  const DEMO_PERSONA = ['maya','diego','priya'].includes(DEMO_ID);
+  const DB_NAME = 'r4-beacon-claude' + (DEMO_PERSONA ? '-demo-' + DEMO_ID : '');
+  const HEAD_KEY = 'r4-beacon-head-claude' + (DEMO_PERSONA ? '-demo-' + DEMO_ID : '');
   const APP = 'claude';
   const ZERO = '0'.repeat(64);
   const encoder = new TextEncoder();
@@ -2843,13 +2845,33 @@ var qrcode = function() {
       bundle: JSON.stringify({ manifest: { format: 'r4-beacon-bundle.v1', app: APP, created: new Date().toISOString(), count: entries.length, head_sha256: verification.ok ? head?.sha256 || '' : '', public_key_pem: publicKeyPem, key_fpr: verification.keyFpr }, receipts: entries }, null, 2),
     };
   }
+  const clearDemo = async () => {
+    if (!DEMO_PERSONA) throw new Error('Demo receipts can only be cleared in demo mode');
+    await queue;
+    await withLock(async () => {
+      const db = await openDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(['receipts', 'keys'], 'readwrite');
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error('Beacon demo reset transaction aborted'));
+        tx.objectStore('receipts').clear();
+        tx.objectStore('keys').delete('head');
+        tx.objectStore('keys').delete('device');
+        tx.objectStore('keys').delete('signing');
+      });
+      localStorage.removeItem(HEAD_KEY);
+      keyPromise = null;
+      keyState.logged = false;
+    });
+  };
   window.R4Receipts = {
     init: () => withLock(ensureKey),
     append, record, jcs, sha256: (value) => sha(typeof value === 'string' ? value : jcs(value)),
     verify, list: fullReceipts,
     get: async (id) => (await fullReceipts()).find((item) => item.id === id || item.seq === Number(id)),
     keyInfo: () => withLock(async () => { const key = await ensureKey(); return { keyFpr: await fingerprint(key), keyKind: key.keyKind, publicKeyPem: await pem(key) }; }),
-    exportData,
+    exportData, clearDemo,
   };
 })();
 
@@ -4045,4 +4067,4 @@ async function boot(){
 boot();
 })();
 </script>
-<script src="demo-runtime.js"></script>
+<script src="../demo-runtime.js"></script>
