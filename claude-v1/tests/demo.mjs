@@ -15,6 +15,31 @@ mkdirSync(screenshotDir,{recursive:true});
 const personaRows = [['maya','Maya Torres',8,6],['diego','Diego Alvarez',10,9],['priya','Dr. Priya Natarajan',8,10]];
 const shotIndexes = {maya:[0,3],diego:[0,4],priya:[0,4]};
 const quickIndexes = {maya:[4,0,2,1,7],diego:[2,1,4,7,8],priya:[5,1,4,2,7]};
+const readBannerRole = (page) => page.locator('.demo-banner__copy > span').evaluate((element)=>{
+  const text=[...element.childNodes].find((node)=>node.nodeType===Node.TEXT_NODE)?.textContent || '';
+  return text.replace(/\s*·\s*$/,'').trim();
+});
+const applyTextZoom = (page) => page.evaluate(()=>{
+  const elements=[document.documentElement,...document.querySelectorAll('body *')].filter((element)=>element.dataset.demoZoomApplied!=='1');
+  const sizes=elements.map((element)=>Number.parseFloat(getComputedStyle(element).fontSize));
+  const before=Number.parseFloat(getComputedStyle(document.querySelector('#brand')).fontSize);
+  elements.forEach((element,index)=>{
+    element.dataset.demoZoomOriginal=JSON.stringify([element.style.getPropertyValue('font-size'),element.style.getPropertyPriority('font-size')]);
+    if(Number.isFinite(sizes[index]))element.style.setProperty('font-size',`${sizes[index]*2}px`,'important');
+    element.dataset.demoZoomApplied='1';
+  });
+  return {before,after:Number.parseFloat(getComputedStyle(document.querySelector('#brand')).fontSize)};
+});
+const resetTextZoom = (page) => page.evaluate(()=>{
+  for(const element of [document.documentElement,...document.querySelectorAll('body *')]){
+    if(!element.dataset.demoZoomOriginal)continue;
+    const [value,priority]=JSON.parse(element.dataset.demoZoomOriginal);
+    if(value)element.style.setProperty('font-size',value,priority);
+    else element.style.removeProperty('font-size');
+    delete element.dataset.demoZoomOriginal;
+    delete element.dataset.demoZoomApplied;
+  }
+});
 try {
   for (const [id,name,peopleCount,agendaCount] of personaRows) {
     const stepCount={maya:9,diego:9,priya:8}[id];
@@ -109,11 +134,28 @@ try {
     assert.equal(await page.getByRole('dialog').getByRole('button',{name:'show me'}).count(),stepCount,`${id}: full toggle shows N steps`);
     assert.equal(await page.locator('.demo-banner [data-demo-progress]').textContent(),`tour 5/${stepCount}`,`${id}: full progress carries quick completions`);
     assert.equal(await page.evaluate((key)=>JSON.parse(localStorage.getItem(key)).demo.tourMode,`r4companion.v1-demo-${id}`),'full',`${id}: full mode is stored on demo state`);
+    const englishRole=await readBannerRole(page);
+    const englishExplanations=(await page.locator('.demo-tour li p').allTextContents()).map((text)=>text.trim());
+    assert.equal(englishExplanations.length,stepCount,`${id}: English tour exposes every explanation`);
     for(const lang of ['es','pt']){
       await page.goto(`${base}?demo=${id}&lang=${lang}`,{waitUntil:'domcontentloaded'});
       await page.getByRole('region',{name:'demo mode'}).waitFor();
       await page.locator('.demo-banner [data-demo-tour]').click();
       await page.getByRole('dialog').waitFor();
+      const localizedRole=await readBannerRole(page);
+      assert.ok(localizedRole,`${id}: ${lang} banner role is non-empty`);
+      assert.notEqual(localizedRole,englishRole,`${id}: ${lang} banner role differs from English`);
+      const localizedExplanations=(await page.locator('.demo-tour li p').allTextContents()).map((text)=>text.trim());
+      assert.equal(localizedExplanations.length,stepCount,`${id}: ${lang} tour exposes every explanation`);
+      for(const [index,explanation] of localizedExplanations.entries()){
+        assert.ok(explanation,`${id}: ${lang} step ${index} explanation is non-empty`);
+        assert.notEqual(explanation,englishExplanations[index],`${id}: ${lang} step ${index} explanation differs from English`);
+      }
+      const localizedZoom=await applyTextZoom(page);
+      assert.ok(localizedZoom.after>=localizedZoom.before*1.99,`${id}: ${lang} 200% text doubles the header font size`);
+      const localizedWidth=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
+      assert.ok(localizedWidth.scroll<=390,`${id}: ${lang} banner and tour reflow at 200% text: ${JSON.stringify(localizedWidth)}`);
+      await resetTextZoom(page);
       const fullLabel=lang==='es'?'ver recorrido de 2 minutos':'ver visita de 2 minutos';
       const allLabel=lang==='es'?`ver las ${stepCount} funciones`:`ver todos os ${stepCount} recursos`;
       assert.equal(await page.getByRole('button',{name:fullLabel}).count(),1,`${id}: ${lang} full toggle is localized`);
@@ -267,27 +309,6 @@ try {
       return {text:element.textContent.trim(),width:rect.width,height:rect.height};
     }).filter((target)=>target.width<43.9||target.height<43.9));
     assert.deepEqual(small,[],`${id}: demo banner and tour controls meet 44px targets`);
-    const applyTextZoom=()=>page.evaluate(()=>{
-      const elements=[document.documentElement,...document.querySelectorAll('body *')].filter((element)=>element.dataset.demoZoomApplied!=='1');
-      const sizes=elements.map((element)=>Number.parseFloat(getComputedStyle(element).fontSize));
-      const before=Number.parseFloat(getComputedStyle(document.querySelector('#brand')).fontSize);
-      elements.forEach((element,index)=>{
-        element.dataset.demoZoomOriginal=JSON.stringify([element.style.getPropertyValue('font-size'),element.style.getPropertyPriority('font-size')]);
-        if(Number.isFinite(sizes[index]))element.style.setProperty('font-size',`${sizes[index]*2}px`,'important');
-        element.dataset.demoZoomApplied='1';
-      });
-      return {before,after:Number.parseFloat(getComputedStyle(document.querySelector('#brand')).fontSize)};
-    });
-    const resetTextZoom=()=>page.evaluate(()=>{
-      for(const element of [document.documentElement,...document.querySelectorAll('body *')]){
-        if(!element.dataset.demoZoomOriginal)continue;
-        const [value,priority]=JSON.parse(element.dataset.demoZoomOriginal);
-        if(value)element.style.setProperty('font-size',value,priority);
-        else element.style.removeProperty('font-size');
-        delete element.dataset.demoZoomOriginal;
-        delete element.dataset.demoZoomApplied;
-      }
-    });
     const headerOverlaps=()=>page.evaluate(()=>{
       const groups=[...document.querySelectorAll('.top-in,.brand')].map((parent)=>[...parent.children].filter((element)=>element.getClientRects().length));
       for(const group of groups)for(let i=0;i<group.length;i++)for(let j=i+1;j<group.length;j++){
@@ -296,15 +317,15 @@ try {
       }
       return false;
     });
-    const zoom=await applyTextZoom();
+    const zoom=await applyTextZoom(page);
     assert.ok(zoom.after>=zoom.before*1.99,`${id}: 200% text test doubles the computed header font size`);
     const demoWidth=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
     assert.ok(demoWidth.scroll<=390,`${id}: banner and tour reflow at 200% text: ${JSON.stringify(demoWidth)}`);
     await page.getByRole('button',{name:'close tour'}).click();
     for(const tab of ['today','people','agenda','web','pitch','report']){
-      await resetTextZoom();
+      await resetTextZoom(page);
       await page.locator(`#tabs [data-tab="${tab}"]`).click();
-      const tabZoom=await applyTextZoom();
+      const tabZoom=await applyTextZoom(page);
       assert.ok(tabZoom.after>=tabZoom.before*1.99,`${id}: ${tab} test doubles the computed header font size`);
       const width=await page.evaluate(()=>document.documentElement.scrollWidth);
       assert.ok(width<=390,`${id}: ${tab} stays within 390px at 200% text (scrollWidth ${width})`);
@@ -312,8 +333,8 @@ try {
       assert.equal(overlap,false,`${id}: ${tab} header controls do not overlap at 200% text`);
       if(tab==='people'){
         await page.locator('#view [data-act="mode"][data-mode="followups"]').click();
-        await resetTextZoom();
-        await applyTextZoom();
+        await resetTextZoom(page);
+        await applyTextZoom(page);
         const draftLayout=await page.evaluate(()=>{
           const draft=document.querySelector('#view .fu-draft');
           const copy=draft?.parentElement.querySelector('[data-act="copyFu"]');
@@ -330,15 +351,15 @@ try {
         assert.ok(draftLayout.copyHeight>=44,`${id}: copy-note control keeps a 44px target at 200% text: ${JSON.stringify(draftLayout)}`);
       }
     }
-    await resetTextZoom();
+    await resetTextZoom(page);
     await page.locator('#settings-trigger').click();
-    const settingsZoom=await applyTextZoom();
+    const settingsZoom=await applyTextZoom(page);
     assert.ok(settingsZoom.after>=settingsZoom.before*1.99,`${id}: settings test doubles the computed header font size`);
     const settingsWidth=await page.evaluate(()=>document.documentElement.scrollWidth);
     assert.ok(settingsWidth<=390,`${id}: settings stay within 390px at 200% text`);
     assert.equal(await headerOverlaps(),false,`${id}: settings header controls do not overlap at 200% text`);
     const beforeReset=await page.evaluate(async()=>({key:(await R4Receipts.keyInfo()).keyFpr,entries:await R4Receipts.list()}));
-    await resetTextZoom();
+    await resetTextZoom(page);
     await page.evaluate(()=>document.querySelector('#sheet-foot [data-act="closeSheet"]')?.click());
     await page.locator('#sheet').waitFor({state:'hidden'});
     await page.getByRole('button',{name:'tour'}).click();
