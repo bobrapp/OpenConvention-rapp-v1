@@ -176,7 +176,50 @@
   let banner;
   let tourDialog;
   let opener;
+  let stepHighlightObserver = null;
+  let stepHighlightFrame = null;
+  let stepHighlightSelector = '';
+  let stepHighlightTarget = null;
+  const disconnectStepHighlight = () => {
+    stepHighlightObserver?.disconnect();
+    stepHighlightObserver = null;
+    if (stepHighlightFrame !== null) cancelAnimationFrame(stepHighlightFrame);
+    stepHighlightFrame = null;
+    stepHighlightSelector = '';
+    stepHighlightTarget = null;
+  };
+  const resolveStepTarget = (selector) => [...document.querySelectorAll(selector)].find((el) => el.getClientRects().length);
+  const observeStepHighlight = (selector, target) => {
+    disconnectStepHighlight();
+    const root = document.querySelector('#view');
+    if (!root) return;
+    stepHighlightSelector = selector;
+    stepHighlightTarget = target;
+    stepHighlightObserver = new MutationObserver(() => {
+      if (stepHighlightFrame !== null) return;
+      stepHighlightFrame = requestAnimationFrame(() => {
+        stepHighlightFrame = null;
+        if (!document.body.classList.contains('demo-tour-active')) {
+          disconnectStepHighlight();
+          return;
+        }
+        const nextTarget = resolveStepTarget(stepHighlightSelector);
+        if (!nextTarget) {
+          stepHighlightTarget?.classList.remove('demo-tour-target');
+          stepHighlightTarget = null;
+          return;
+        }
+        if (nextTarget === stepHighlightTarget) return;
+        stepHighlightTarget?.classList.remove('demo-tour-target');
+        stepHighlightTarget = nextTarget;
+        nextTarget.classList.add('demo-tour-target');
+        nextTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+      });
+    });
+    stepHighlightObserver.observe(root, { childList: true, subtree: true });
+  };
   const closeTour = (restore = true) => {
+    if (restore) disconnectStepHighlight();
     tourDialog?.remove();
     tourDialog = null;
     if (restore) {
@@ -196,7 +239,10 @@
     banner.innerHTML = `<span class="demo-copy"><b>${locale().demo} · ${persona.name}</b>, ${persona.who[language()] || persona.who.en} · <span data-progress></span></span><button type="button" data-tour>${locale().tour}</button><a data-exit href="${exit.pathname}${exit.search}${exit.hash}">${locale().exit}</a>`;
     document.querySelector('.topbar')?.after(banner);
     banner.querySelector('[data-tour]').addEventListener('click', openTour);
-    banner.querySelector('[data-exit]').addEventListener('click', () => document.body.classList.remove('demo-tour-active'));
+    banner.querySelector('[data-exit]').addEventListener('click', () => {
+      disconnectStepHighlight();
+      document.body.classList.remove('demo-tour-active');
+    });
     updateProgress();
   };
   const ensureSettingsEntry = () => {
@@ -253,6 +299,7 @@
   };
   const tabFor = (id) => document.querySelector(`.tabbar .tab[data-tab="${tabGroups[id] || id}"]`);
   const showStep = async (index) => {
+    disconnectStepHighlight();
     const step = steps[index];
     document.body.classList.add('demo-tour-active');
     closeTour(false);
@@ -282,7 +329,7 @@
     if (step[3] === 'open-session') document.querySelector('#view .t-card[data-action="session"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 80));
     const selector = step[2];
-    const target = [...document.querySelectorAll(selector)].find((el) => el.getClientRects().length);
+    const target = resolveStepTarget(selector);
     if (!target) {
       updateProgress();
       document.dispatchEvent(new CustomEvent('r4-demo-step', { detail: {
@@ -296,6 +343,7 @@
     target.focus({ preventScroll: true });
     storeDone(index);
     updateProgress();
+    observeStepHighlight(selector, target);
     document.dispatchEvent(new CustomEvent('r4-demo-step', { detail: {
       index, title: stepTitle(index), target: !!target, selector,
       usedFallback: !!target && !target.matches(selector),
@@ -303,6 +351,7 @@
   };
   const resetDemo = async () => {
     if (!window.confirm(locale().confirm)) return;
+    disconnectStepHighlight();
     closeTour(false);
     await window.R4Receipts.clearDemo();
     localStorage.removeItem(key);

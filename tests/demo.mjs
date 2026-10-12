@@ -518,6 +518,56 @@ try {
     assert.deepEqual(consoleErrors, [], `${id}: no console errors`);
     await context.close();
   }
+  const highlightContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const highlightPage = await highlightContext.newPage();
+  await highlightPage.addInitScript(() => {
+    const nativeSetInterval = window.setInterval.bind(window);
+    window.setInterval = (callback, delay, ...args) => {
+      if (delay === 3000) {
+        window.__tickBackstage = callback;
+        return 0;
+      }
+      return nativeSetInterval(callback, delay, ...args);
+    };
+  });
+  const mayaKey = 'r4-networking-v2-demo-maya';
+  await highlightPage.goto(`${base}?demo=maya`, { waitUntil: 'domcontentloaded' });
+  await highlightPage.locator('.demo-tour [data-close]').waitFor();
+  await highlightPage.locator('.demo-tour [data-close]').click();
+  await highlightPage.evaluate((key) => {
+    const state = JSON.parse(localStorage.getItem(key));
+    state.backstage.threads = state.backstage.threads.filter((thread) => !['confirmed', 'live'].includes(thread.stage));
+    state.backstage.live = true;
+    state.backstage.onboarded = true;
+    state.backstage.autonomy = 'ask';
+    state.backstage.beacon.mode = 'open';
+    state.demo.tourOpened = true;
+    localStorage.setItem(key, JSON.stringify(state));
+  }, mayaKey);
+  await highlightPage.reload({ waitUntil: 'domcontentloaded' });
+  await highlightPage.getByRole('region', { name: 'demo mode' }).waitFor();
+  await highlightPage.waitForFunction(() => typeof window.__tickBackstage === 'function');
+  await highlightPage.locator('.demo-banner [data-tour]').click();
+  await highlightPage.locator('.demo-tour [data-show="0"]').click();
+  await highlightPage.locator('.goal-hero.demo-tour-target').waitFor();
+  assert.equal(await highlightPage.locator('.demo-banner [data-progress]').textContent(), 'tour 1/5');
+  await highlightPage.locator('.demo-banner [data-tour]').click();
+  await highlightPage.locator('.demo-tour [data-show="2"]').click();
+  await highlightPage.locator('.thread-card.demo-tour-target').waitFor();
+  assert.equal(await highlightPage.locator('.demo-banner [data-progress]').textContent(), 'tour 2/5');
+  await highlightPage.evaluate(() => {
+    window.__highlightBeforeTick = document.querySelector('.thread-card.demo-tour-target');
+    window.__tickBackstage();
+  });
+  await highlightPage.waitForFunction(() => {
+    const previous = window.__highlightBeforeTick;
+    const current = document.querySelector('.thread-card.demo-tour-target');
+    return previous && current && current !== previous;
+  });
+  assert.equal(await highlightPage.locator('.thread-card.demo-tour-target').count(), 1, 'Maya backstage highlight survives a tickBackstage rerender');
+  assert.equal(await highlightPage.locator('.demo-banner [data-progress]').textContent(), 'tour 2/5', 'rerender does not change tour progress');
+  await highlightContext.close();
+
   const prepareBackgroundReveal = async (tourActive) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
@@ -594,7 +644,7 @@ try {
   const idleState = await idleReveal.page.evaluate((key) => JSON.parse(localStorage.getItem(key)), idleReveal.key);
   assert.ok(idleState.backstage.threads.some((thread) => thread.stage === 'confirmed' && thread.revealed), 'a background reveal opens normally when no tour or sheet is active');
   await idleReveal.context.close();
-  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; quick/full tour modes and progress; localized toggles; every mapped feature target; background reveals do not interrupt tours; tour class cleanup/alert routing; exit/reset; axe; 44px controls at 390px and 200% text');
+  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; quick/full tour modes and progress; localized toggles; every mapped feature target; rerender-persistent tour highlights; background reveals do not interrupt tours; tour class cleanup/alert routing; exit/reset; axe; 44px controls at 390px and 200% text');
 } finally {
   await browser.close();
 }
