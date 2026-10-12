@@ -114,7 +114,17 @@
     location.reload();
     return;
   }
-  const parserNote = 'In the Claude artifact this step uses Claude; here it uses the local parser.';
+  const locale = () => {
+    const queryLanguage = new URLSearchParams(location.search).get('lang');
+    const language = queryLanguage || document.documentElement.lang || navigator.language || 'en';
+    return language.toLowerCase().startsWith('es') ? 'es' : language.toLowerCase().startsWith('pt') ? 'pt' : 'en';
+  };
+  const parserNotes = {
+    en:'In the Claude artifact this step uses Claude; here it uses the local parser.',
+    es:'En el artefacto de Claude, este paso usa Claude; aquí se procesa con el analizador local.',
+    pt:'No artefato do Claude, esta etapa usa Claude; aqui ela é processada pelo analisador local.',
+  };
+  const parserNote = parserNotes[locale()];
   const step = (title, tab, target, explanation, open = '', why = null) => ({title,tab,target,explanation,open,why});
   const tours = {
     maya:[
@@ -168,37 +178,104 @@
     diego:[2,1,4,7,8],
     priya:[5,1,4,2,7],
   }[id];
-  const locale = () => {
-    const queryLanguage = new URLSearchParams(location.search).get('lang');
-    const language = queryLanguage || document.documentElement.lang || navigator.language || 'en';
-    return language.toLowerCase().startsWith('es') ? 'es' : language.toLowerCase().startsWith('pt') ? 'pt' : 'en';
-  };
   const strings = {
-    en:{tour:'tour',exit:'exit demo',show:'show me',reset:'reset this demo',close:'close tour',confirm:'Reset this persona demo? Its demo data and receipts will be cleared.',done:'✓ shown',why:'Why this matters for {name}: it keeps the next step in your hands.',showAll:'show all {n} features',showQuick:'show 2-minute tour',
+    en:{tour:'tour',exit:'exit demo',show:'show me',reset:'reset this demo',close:'close tour',confirm:'Reset this persona demo? Its demo data and receipts will be cleared.',done:'✓ shown',why:'Why this matters for {name}: it keeps the next step in your hands.',showAll:'show all {n} features',showQuick:'show 2-minute tour',parserNote:parserNotes.en,
       quotes:{maya:'I want a dinner crew by tonight.',diego:'Five client conversations and two co-sells.',priya:'Four practitioner interviews without losing focus.'},
       steps:{
         maya:['Quick capture and AI parsing','People, follow-ups and event goals','Agenda and the belonging conversation','Connection web by shared subject','Progress toward a dinner crew','Recap and team report','Event profile and Slalom design','Beacon receipts and offline verification','Person summaries and follow-up drafts'],
         diego:['People, priorities and follow-ups','Agent card and consent-aware handoffs','Goals by persona','Protect client work blocks','Pitch fest queue and timer','Connection web and introductions','Report outcomes to the team','Review a follow-up draft before copying it','Verify and export receipts'],
         priya:['Agenda, notes and writing blocks','Parse an agenda or badge list','Quick capture after an interview','Person summaries and follow-up drafts','Connection web and research themes','Research goals and next interviews','Recap and report','Receipts, verification and offline export'],
       }},
-    es:{tour:'recorrido',exit:'salir de la demo',show:'ver',reset:'reiniciar esta demo',close:'cerrar recorrido',confirm:'¿Reiniciar esta demo? Se borrarán los datos y recibos de esta persona.',done:'✓ visto',why:'Por qué importa para {name}: mantiene el siguiente paso en tus manos.',showAll:'ver las {n} funciones',showQuick:'ver recorrido de 2 minutos',
+    es:{tour:'recorrido',exit:'salir de la demo',show:'ver',reset:'reiniciar esta demo',close:'cerrar recorrido',confirm:'¿Reiniciar esta demo? Se borrarán los datos y recibos de esta persona.',done:'✓ visto',why:'Por qué importa para {name}: mantiene el siguiente paso en tus manos.',showAll:'ver las {n} funciones',showQuick:'ver recorrido de 2 minutos',parserNote:parserNotes.es,
       quotes:{maya:'Quiero un grupo para cenar hoy.',diego:'Cinco conversaciones con clientes y dos ventas conjuntas.',priya:'Cuatro entrevistas con profesionales sin perder la concentración.'},
       steps:{
         maya:['Registro rápido y análisis con IA','Personas, seguimientos y objetivos del evento','Agenda y conversación sobre pertenencia','Red de conexiones por tema compartido','Avance hacia un grupo para cenar','Resumen e informe del equipo','Perfil del evento y diseño Slalom','Recibos Beacon y verificación sin conexión','Resúmenes y borradores de seguimiento'],
         diego:['Personas, prioridades y seguimientos','Tarjeta del agente y traspasos con consentimiento','Objetivos por persona','Protege los bloques de trabajo con clientes','Cola de Pitch Fest y cronómetro','Red de conexiones e introducciones','Resultados para el equipo','Revisa un borrador antes de copiarlo','Verifica y exporta recibos'],
         priya:['Agenda, notas y bloques de escritura','Analiza una agenda o lista de acreditaciones','Captura rápida después de una entrevista','Resúmenes y borradores de seguimiento','Red de conexiones y temas de investigación','Objetivos de investigación y próximas entrevistas','Resumen e informe','Recibos, verificación y exportación sin conexión'],
+      },
+      roles:{maya:'asistente primeriza que busca conectar',diego:'profesional de ventas y alianzas',priya:'investigadora académica'},
+      explanations:{
+        maya:[
+          `Registra la conversación mientras aún tienes frescos los detalles. ${parserNotes.es}`,
+          'Yo decido cuándo sale un seguimiento; el borrador permanece junto a la persona.',
+          'Consulta la ponencia principal, la sesión de intereses comunes y los planes sociales sin perder de vista tu agenda.',
+          'Encuentra a personas que comparten intereses en pertenencia, diseño y bienestar.',
+          'Sigue los objetivos que convierten tu primera asistencia en conexiones reales y te acercan a un grupo para cenar.',
+          'Lleva los seguimientos y resultados útiles más allá del evento.',
+          'Define el contexto del evento y cambia entre los diseños de Slalom y AiGovOps Foundation.',
+          'Revisa la evidencia firmada y las opciones de exportación sin conexión.',
+          'Claude puede escribir un resumen en el artefacto; aquí verás una plantilla local, sin llamadas a IA.',
+        ],
+        diego:[
+          'Mantén las conversaciones prioritarias de clientes y socios conectadas con un próximo paso.',
+          'Comparte una tarjeta de agente fácil de leer y deja claro si hay permiso para contactar.',
+          'Mide las oportunidades cualificadas, las ventas conjuntas y las reuniones de seguimiento.',
+          'Mantén visibles las llamadas inaplazables con clientes junto a las sesiones del evento.',
+          'Ensaya una presentación breve y avanza por la fila de participantes.',
+          'Encuentra temas compartidos y oportunidades de presentación entre cuentas y socios.',
+          'Comparte resultados y próximos pasos, no el seguimiento de asistentes.',
+          'No envíes a ciegas un seguimiento escrito por un agente: revisa el borrador y decide cuándo copiarlo.',
+          'Revisa la evidencia firmada y expórtala para verificarla sin conexión.',
+        ],
+        priya:[
+          'Anota lo aprendido en las charlas sin perder tus bloques protegidos de escritura.',
+          `Convierte el texto pegado en sesiones que puedes revisar. ${parserNotes.es}`,
+          `Registra una conversación con un profesional y confirma los datos estructurados. ${parserNotes.es}`,
+          'Claude puede escribir un resumen en el artefacto; aquí verás una plantilla local, sin llamadas a IA.',
+          'Agrupa a profesionales por gobernanza de IA, sistemas agénticos, plataformas de datos y transformación organizacional.',
+          'Sigue las charlas, las entrevistas con profesionales y los temas que van surgiendo.',
+          'Integra las conclusiones de las sesiones y los seguimientos en tu metodología de investigación.',
+          'Verifica la cadena de recibos firmados, sin datos de contenido, y exporta la evidencia.',
+        ],
       }},
-    pt:{tour:'tour',exit:'sair da demo',show:'ver',reset:'redefinir esta demo',close:'fechar tour',confirm:'Redefinir esta demo? Os dados e recibos desta pessoa serão apagados.',done:'✓ visto',why:'Por que isso importa para {name}: mantém o próximo passo nas suas mãos.',showAll:'ver todos os {n} recursos',showQuick:'ver visita de 2 minutos',
+    pt:{tour:'tour',exit:'sair da demo',show:'ver',reset:'redefinir esta demo',close:'fechar tour',confirm:'Redefinir esta demo? Os dados e recibos desta pessoa serão apagados.',done:'✓ visto',why:'Por que isso importa para {name}: mantém o próximo passo nas suas mãos.',showAll:'ver todos os {n} recursos',showQuick:'ver visita de 2 minutos',parserNote:parserNotes.pt,
       quotes:{maya:'Quero encontrar um grupo para jantar hoje.',diego:'Cinco conversas com clientes e duas vendas conjuntas.',priya:'Quatro entrevistas com profissionais sem perder o foco.'},
       steps:{
         maya:['Registro rápido e análise com IA','Pessoas, acompanhamentos e metas do evento','Agenda e conversa sobre pertencimento','Rede de conexões por assunto compartilhado','Progresso para encontrar um grupo para jantar','Resumo e relatório da equipe','Perfil do evento e design Slalom','Recibos Beacon e verificação offline','Resumos e rascunhos de acompanhamento'],
         diego:['Pessoas, prioridades e acompanhamentos','Cartão do agente e repasses com consentimento','Metas por persona','Proteja os blocos de trabalho com clientes','Fila do Pitch Fest e cronômetro','Rede de conexões e apresentações','Resultados para a equipe','Revise o rascunho antes de copiá-lo','Verifique e exporte recibos'],
         priya:['Agenda, notas e blocos de escrita','Analise uma agenda ou lista de crachás','Registro rápido após uma entrevista','Resumos e rascunhos de acompanhamento','Rede de conexões e temas de pesquisa','Metas de pesquisa e próximas entrevistas','Resumo e relatório','Recibos, verificação e exportação offline'],
+      },
+      roles:{maya:'estreante que veio para fazer conexões',diego:'profissional de vendas e parcerias',priya:'pesquisadora acadêmica'},
+      explanations:{
+        maya:[
+          `Registre a conversa enquanto os detalhes ainda estão frescos. ${parserNotes.pt}`,
+          'Eu decido quando um acompanhamento sai do meu celular; o rascunho permanece ligado à pessoa.',
+          'Veja a palestra principal, a sessão de interesses em comum e os planos sociais sem perder a agenda.',
+          'Encontre pessoas com interesses em pertencimento, design e bem-estar.',
+          'Acompanhe os objetivos que transformam sua primeira participação em conexões reais e ajudam a reunir pessoas para jantar.',
+          'Leve acompanhamentos e resultados úteis para além do evento.',
+          'Defina o contexto do evento e alterne entre os temas visuais da Slalom e da AiGovOps Foundation.',
+          'Confira as evidências assinadas e as opções de exportação offline.',
+          'No artefato, Claude pode criar um resumo; aqui você verá um modelo local, sem chamada de IA.',
+        ],
+        diego:[
+          'Mantenha conversas prioritárias com clientes e parceiros ligadas a um próximo passo.',
+          'Compartilhe um cartão do agente fácil de entender e deixe o consentimento para contato visível.',
+          'Acompanhe oportunidades qualificadas, vendas conjuntas e reuniões de acompanhamento.',
+          'Mantenha as ligações inadiáveis com clientes visíveis ao lado das sessões do evento.',
+          'Ensaie uma apresentação curta e avance pela fila de participantes.',
+          'Encontre temas em comum e oportunidades de apresentação entre contas e parceiros.',
+          'Compartilhe resultados e próximos passos, não o rastreamento de participantes.',
+          'Não envie às cegas um acompanhamento escrito pelo agente: revise o rascunho e escolha quando copiá-lo.',
+          'Confira as evidências assinadas e exporte-as para verificação offline.',
+        ],
+        priya:[
+          'Registre os principais pontos das palestras sem abrir mão do seu horário protegido para escrever.',
+          `Transforme o texto colado em sessões que você pode revisar. ${parserNotes.pt}`,
+          `Registre uma conversa com um profissional e confirme o registro estruturado. ${parserNotes.pt}`,
+          'No artefato, Claude pode criar um resumo; aqui você verá um modelo local, sem chamada de IA.',
+          'Agrupe profissionais por governança de IA, sistemas agênticos, plataformas de dados e mudanças organizacionais.',
+          'Acompanhe palestras, entrevistas com profissionais e os temas de pesquisa que surgirem.',
+          'Leve os aprendizados das sessões e os acompanhamentos para o fluxo de pesquisa.',
+          'Verifique a cadeia de recibos assinados sem dados de conteúdo e exporte as evidências.',
+        ],
       }},
   };
   const tr = (key, values = {}) => Object.entries(values).reduce((text,[name,value])=>text.replaceAll(`{${name}}`,String(value)),strings[locale()][key] || strings.en[key] || key);
   const stepTitle = (index) => strings[locale()].steps[id]?.[index] || steps[index].title;
-  const stepWhy = (index) => steps[index].why?.[locale()] || steps[index].explanation || tr('why',{name:persona.name});
+  const stepExplanation = (index) => strings[locale()].explanations?.[id]?.[index] || strings.en.explanations?.[id]?.[index] || steps[index].explanation;
+  const personaRole = () => strings[locale()].roles?.[id] || strings.en.roles?.[id] || persona.role;
+  const stepWhy = (index) => steps[index].why?.[locale()] || steps[index].why?.en || stepExplanation(index) || tr('why',{name:persona.name});
   const metaKey = `${stateKey}:tour`;
   const storageGet = Storage.prototype.getItem;
   const storageSet = Storage.prototype.setItem;
@@ -264,7 +341,7 @@
   banner.setAttribute('aria-label','demo mode');
   const exitUrl = new URL(location.href);
   exitUrl.searchParams.delete('demo');
-  banner.innerHTML = `<div class="demo-banner__copy"><strong>demo · ${persona.name}</strong><span>${persona.role} · <span data-demo-progress>${tr('tour')} 0/5</span></span></div><div class="demo-banner__controls"><button type="button" data-demo-tour>${tr('tour')}</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>${tr('exit')}</a></div>`;
+  banner.innerHTML = `<div class="demo-banner__copy"><strong>demo · ${persona.name}</strong><span>${personaRole()} · <span data-demo-progress>${tr('tour')} 0/5</span></span></div><div class="demo-banner__controls"><button type="button" data-demo-tour>${tr('tour')}</button><a href="${exitUrl.pathname}${exitUrl.search}${exitUrl.hash}" data-demo-exit>${tr('exit')}</a></div>`;
   document.body.prepend(banner);
   let dialog;
   ensureDemo();
