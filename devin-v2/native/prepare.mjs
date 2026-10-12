@@ -108,6 +108,7 @@ const connectSources = [
   'http://ipc.localhost',
   'https://*.supabase.co',
   'wss://*.supabase.co',
+  ...(app === 'claude' ? ['https://api.anthropic.com'] : []),
   ...extraConnectOrigins
 ];
 const connectDirective = `connect-src ${[...new Set(connectSources)].join(' ')}`;

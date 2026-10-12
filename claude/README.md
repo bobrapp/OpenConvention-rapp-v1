@@ -39,6 +39,10 @@ The app works by itself and does more when the page can ask Claude.
 
 Whatever is read, by rules or by Claude, is shown for you to check before it is saved. Pasted text is sent to Claude as data to read, and every reply is validated before use.
 
+## Live AI with your own key
+
+Uses your own key from console.anthropic.com, billed to you. The key stays on this device only: it is not synced, exported or put in receipts. When it is on, the text and photos you ask Claude to read are sent from this device to Anthropic. Every page on this web address shares browser storage, so use a key with a spending limit.
+
 ## Where notes are stored
 
 - Opened from this folder, notes stay in that browser's local storage.
