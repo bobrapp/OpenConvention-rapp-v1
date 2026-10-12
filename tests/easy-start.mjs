@@ -251,24 +251,32 @@ try {
   await goTab(page, 'people');
   await page.screenshot({ path: path.join(shots, 'people-subnav.png') });
 
-  const setHeadlinerOffset = async (minutes) => page.evaluate((offset) => {
-    const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
-    const headliner = state.sessions.find((session) => session.featured);
-    const start = new Date(Date.now() + offset * 60000);
-    headliner.day = 0;
-    headliner.start = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-    headliner.end = `${String((start.getHours() + 1) % 24).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-    state.me.eventStart = new Date().toISOString().slice(0, 10);
-    state.fired = {};
-    localStorage.setItem('r4-networking-v2', JSON.stringify(state));
-  }, minutes);
+  const setHeadlinerOffset = async (minutes) => {
+    const navigation = page.waitForNavigation({ waitUntil: 'domcontentloaded' });
+    const mutation = page.evaluate((offset) => {
+      const state = JSON.parse(localStorage.getItem('r4-networking-v2'));
+      const headliner = state.sessions.find((session) => session.featured);
+      const today = new Date();
+      const start = new Date(Date.now() + offset * 60000);
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      headliner.day = Math.round((startDay - todayStart) / 86400000);
+      headliner.start = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+      headliner.end = `${String((start.getHours() + 1) % 24).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+      state.me.eventStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      state.fired = {};
+      localStorage.setItem('r4-networking-v2', JSON.stringify(state));
+      location.reload();
+    }, minutes).catch((error) => {
+      if (!/Execution context was destroyed/.test(error.message)) throw error;
+    });
+    await Promise.all([navigation, mutation]);
+  };
   await setHeadlinerOffset(30);
-  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.goal-hero');
   await page.waitForSelector('#toast.show');
   assert.equal(await page.locator('.alert-pop').count(), 0, '30-minute alert is a toast');
   await setHeadlinerOffset(4);
-  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.alert-pop');
   await page.locator('[data-action="alert-close"]').click();
   await page.locator('[data-action="open-settings"]').click();
