@@ -59,6 +59,8 @@ try {
     for (const source of expectedConnectSources) {
       assert.ok(connectSources.has(source), `${app} connect-src is missing ${source}`);
     }
+    assert.equal(connectSources.has('https://api.anthropic.com'), app === 'claude',
+      `${app} connect-src must allow Anthropic only for Claude`);
     const server = createServer((request, response) => {
       try {
         const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
@@ -113,9 +115,10 @@ try {
       assert.equal(response?.status(), 200, `${app} index should load`);
       if (app === 'devin') {
         await page.waitForSelector('#sheet-root .sheet');
-        await page.locator('input[name="give"]').fill('facilitation');
-        await page.locator('input[name="ask"]').fill('AI adoption');
-        await page.locator('[data-form="charter"] button[type="submit"], [data-form="charter"] button').click();
+        await page.locator('[data-action="start-goal"][data-goal="business"]').click();
+        await page.locator('[data-action="start-next"]').click();
+        await page.locator('[data-action="start-next"]').click();
+        await page.locator('[data-action="start-finish"]').click();
         await page.waitForFunction(() => JSON.parse(localStorage.getItem('r4-networking-v2') || '{}').backstage?.onboarded);
       }
       await page.locator('.tab[data-tab]').first().waitFor();
