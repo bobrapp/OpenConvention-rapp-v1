@@ -1471,7 +1471,7 @@
     });
     if (changed) save();
   }
-  function revealMoment(th) {
+  function revealMoment(th, { background = false } = {}) {
     if (!th || th.youSaid !== 'yes' || th.theySaid !== 'yes' || th.revealed) return;
     th.revealed = true; th.stage = 'confirmed'; th.expiresAt = 0;
     th.icebreaker.index ??= Math.floor(hash(th.id) * ICEBREAKERS.length);
@@ -1479,7 +1479,20 @@
     threadLog(th, 'mine', 'you both said yes. meeting is on the calendar for {time} at the {place}.', {
       time: fmtTime(th.start), place: { k: 'the {place}', p: { place: { k: th.place, p: {} } } },
     }, { status: 'confirmed', momentId: th.id });
-    save(); openRevealSheet(th); render();
+    const keepInBackground = background && (
+      $('#sheet-root .sheet') ||
+      $('#sheet-root .start-sheet') ||
+      document.body.classList.contains('demo-tour-active') ||
+      !BK().onboarded
+    );
+    save();
+    if (keepInBackground) {
+      render();
+      toast(t('you both said yes with {name}. it is in your agent tab.', { name: first(threadPerson(th)?.name || t('someone')) }));
+    } else {
+      openRevealSheet(th);
+      render();
+    }
   }
   function markThreadDeclined(th, reason) {
     if (!th || TERMINAL_THREADS.has(th.stage)) return;
@@ -1555,7 +1568,7 @@
       th.stage = 'needs-you'; th.expiresAt = Date.now() + 9 * 60 * 1000;
       th.theySaid = 'yes';
       threadLog(th, 'peer', 'the other person is open to meeting. this choice is yours.', {}, { status: 'needs-you', humanDecision: th.theySaid });
-      if (BK().autonomy === 'act') { th.youSaid = 'yes'; revealMoment(th); }
+      if (BK().autonomy === 'act') { th.youSaid = 'yes'; revealMoment(th, { background: true }); }
     };
     if (th.stage === 'discover') {
       th.stage = 'overlap';
