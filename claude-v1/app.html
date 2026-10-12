@@ -2969,7 +2969,8 @@ const hasData = () => ['people','sessions','blocks','goals','pitches'].some(k =>
 
 /* ---------- storage: account store when available, this device otherwise ---------- */
 const DEMO_ID = new URLSearchParams(location.search).get('demo');
-const LS = 'r4companion.v1' + (['maya','diego','priya'].includes(DEMO_ID) ? '-demo-' + DEMO_ID : '');
+const DEMO_PERSONA = ['maya','diego','priya'].includes(DEMO_ID);
+const LS = 'r4companion.v1' + (DEMO_PERSONA ? '-demo-' + DEMO_ID : '');
 const dirty = {}, timers = {}, chains = {};
 function cacheWrite(){ try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
 function cacheRead(){ try { const j = JSON.parse(localStorage.getItem(LS) || 'null'); if (!j) return false;
@@ -3198,11 +3199,119 @@ function renderAgents(){
 
 /* ---------- reading pasted text, photos and notes: Claude when the page has it, simple rules when it does not ---------- */
 const HIDE = new Set(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed']);
+const AI_KEY_STORAGE = 'r4-claude-anthropic-key';
+const AI_IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp'];
+const AI_KEY_COPY = 'Uses your own key from console.anthropic.com, billed to you. The key stays on this device only: it is not synced, exported or put in receipts. When it is on, the text and photos you ask Claude to read are sent from this device to Anthropic. Every page on this web address shares browser storage, so use a key with a spending limit.';
+const validAnthropicKey = value => /^sk-ant-/.test(String(value ?? '').trim());
+function readAnthropicKey(){
+  try { const key = String(localStorage.getItem(AI_KEY_STORAGE) || '').trim(); return validAnthropicKey(key) ? key : ''; }
+  catch (e) { return ''; }
+}
+function writeAnthropicKey(value){
+  const key = String(value ?? '').trim();
+  if (!validAnthropicKey(key)) return false;
+  try { localStorage.setItem(AI_KEY_STORAGE, key); return true; } catch (e) { return false; }
+}
+function removeAnthropicKey(){
+  try { localStorage.removeItem(AI_KEY_STORAGE); return true; } catch (e) { return false; }
+}
+const claudeArtifactAvailable = () => !!window.claude && typeof window.claude.use === 'function';
+async function imageBlock(file){
+  const mediaType = String(file && file.type || '').toLowerCase();
+  if (!file || file.size > 5 * 1024 * 1024 || !AI_IMAGE_TYPES.includes(mediaType)) throw {code:'image_rejected'};
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return {type:'image', source:{type:'base64', media_type:mediaType, data:btoa(binary)}};
+  } catch (error) {
+    if (error && error.code === 'image_rejected') throw error;
+    throw {code:'image_rejected'};
+  }
+}
+function parseLiveJson(reply){
+  const text = (Array.isArray(reply && reply.content) ? reply.content : [])
+    .filter(block => block && block.type === 'text' && typeof block.text === 'string')
+    .map(block => block.text).join('\n').replace(/```(?:json)?/gi, '').replace(/```/g, '');
+  let start = -1, quoted = false, escaped = false;
+  const stack = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (start < 0) {
+      if (ch === '{' || ch === '[') { start = i; stack.push(ch === '{' ? '}' : ']'); }
+      continue;
+    }
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') quoted = false;
+      continue;
+    }
+    if (ch === '"') quoted = true;
+    else if (ch === '{') stack.push('}');
+    else if (ch === '[') stack.push(']');
+    else if ((ch === '}' || ch === ']') && ch === stack[stack.length - 1]) {
+      stack.pop();
+      if (!stack.length) {
+        try { return JSON.parse(text.slice(start, i + 1)); }
+        catch (error) { throw {code:'invalid_json'}; }
+      }
+    }
+  }
+  throw {code:'invalid_json'};
+}
+const liveAsk = {
+  model(opts = {}) { return opts.modelTier === 'quick' ? 'claude-haiku-5-5' : 'claude-sonnet-5-5'; },
+  async limits(){ return {images:{mediaTypes:AI_IMAGE_TYPES}}; },
+  async json(prompt, opts = {}){
+    const key = readAnthropicKey();
+    if (!key) throw {code:'invalid_key'};
+    const images = opts.images ? [await imageBlock(opts.images)] : [];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'x-api-key':key,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true',
+          'content-type':'application/json'
+        },
+        body:JSON.stringify({
+          model:this.model(opts),
+          max_tokens:4096,
+          messages:[{role:'user', content:[...images,{type:'text', text:String(prompt)}]}]
+        }),
+        signal:controller.signal
+      });
+      const raw = await response.text();
+      let payload = {};
+      try { payload = JSON.parse(raw); } catch (error) { payload = {error:{message:raw}}; }
+      if (!response.ok) {
+        const message = String(payload && (payload.error && payload.error.message || payload.message) || raw || '');
+        let code = 'failed';
+        if (response.status === 401 || response.status === 403) code = 'invalid_key';
+        else if (response.status === 429 || response.status === 529) code = 'rate_limited';
+        else if (response.status === 413 || response.status === 400 && /too long|tokens?/i.test(message)) code = 'prompt_too_large';
+        else if (response.status === 400 && images.length) code = 'image_rejected';
+        throw {code};
+      }
+      return parseLiveJson(payload);
+    } catch (error) {
+      if (error && error.code) throw error;
+      throw {code:'network'};
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+};
 function askFail(e){
   const code = e && e.code; if (HIDE.has(code)) { ask = null; return 'Claude is not available on this page.'; }
   return ({rate_limited:'Claude is busy or at your usage limit. Try again later.', session_expired:'Sign in again to use Claude here.',
     image_rejected:'That photo could not be read. Try another one.', images_unavailable:'Photos are not supported in this view.',
-    refused:'Claude declined that input.', invalid_json:'Claude’s reply could not be read. Try again.', prompt_too_large:'That is too much text at once. Paste less.'})[code] || 'Claude could not finish. Try again.';
+    refused:'Claude declined that input.', invalid_json:'Claude’s reply could not be read. Try again.', prompt_too_large:'That is too much text at once. Paste less.',
+    invalid_key:'Your Anthropic key was not accepted. Check it in settings.', network:'Could not reach Claude. Check your connection.'})[code] || 'Claude could not finish. Try again.';
 }
 const clean = (v, n = 200) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 function setBusy(msg){
@@ -3327,7 +3436,8 @@ function batchPrompt(list){
 const AI_ACTIONS = {agenda:'claude.agenda.parse', people:'claude.people.parse', capture:'claude.capture.parse', summary:'claude.summary.write', batch:'claude.summary.batch'};
 async function askJson(kind, prompt, opts = {}){
   const started = performance.now();
-  const receiptOptions = {vendor:'anthropic', model:'claude-artifact-sample', latencyMs:0, actionDetail:{modelTier:opts.modelTier || 'default'}};
+  const receiptOptions = {vendor:'anthropic', model:ask?.model?.(opts) || 'claude-artifact-sample', latencyMs:0,
+    actionDetail:{modelTier:opts.modelTier || 'default', provider:ask === liveAsk ? 'user-key' : 'claude-artifact'}};
   try {
     const result = await ask.json(prompt, opts);
     receiptOptions.latencyMs = Math.round(performance.now() - started);
@@ -3473,6 +3583,22 @@ const picks = (name, opts, sel, type = 'radio') => '<div class="chips">' + opts.
   '<label class="pick"><input type="' + type + '" name="' + name + '" id="f-' + name + '-' + i + '" value="' + esc(v) + '"' +
   ((type === 'radio' ? sel === v : (sel || []).includes(v)) ? ' checked' : '') + '><span>' + esc(l) + '</span></label>').join('') + '</div>';
 const field = (label, id, html) => '<label class="field" for="' + id + '"><span>' + label + '</span>' + html + '</label>';
+function liveAiState(){
+  if (claudeArtifactAvailable()) return 'Using Claude in the Claude app';
+  if (DEMO_PERSONA) return 'Off in demos';
+  const key = readAnthropicKey();
+  return key ? 'On · key ending …' + key.slice(-4) : "Off · using the app's own rules";
+}
+function liveAiSettingsSection(){
+  const controls = claudeArtifactAvailable() || DEMO_PERSONA ? '' :
+    field('Your Anthropic API key', 'f-ai-key', '<input id="f-ai-key" type="password" autocomplete="off" spellcheck="false" autocapitalize="none">') +
+    '<div class="row"><button type="button" class="btn small" data-act="saveAiKey">Save key</button>' +
+    '<button type="button" class="btn small" data-act="testAiKey">Test</button>' +
+    '<button type="button" class="btn small" data-act="removeAiKey">Remove key</button></div>' +
+    '<p id="ai-key-test-status" class="small muted" role="status" aria-live="polite"></p>';
+  return '<section class="receipt-card"><h3>Live AI (optional)</h3><p id="ai-key-state" class="small muted" role="status">' + esc(liveAiState()) + '</p>' +
+    controls + '<p class="small muted">' + esc(AI_KEY_COPY) + '</p></section>';
+}
 const input = (id, name, val, extra = '') => '<input type="text" id="' + id + '" name="' + name + '" value="' + esc(val || '') + '" ' + extra + '>';
 const daySelect = sel => '<select id="f-day" name="day">' + days().map(d => '<option value="' + d.i + '"' + (d.i === sel ? ' selected' : '') + '>' + d.label + ' · ' + esc(d.sub) + '</option>').join('') + '</select>';
 
@@ -3837,6 +3963,7 @@ const acts = {
       '<div class="grid2">' + field('Your name', 'f-me', input('f-me', 'me', c.me)) + field('Team the report is for', 'f-team', input('f-team', 'team', c.team)) + '</div>' +
       field('Your subjects, separated by commas', 'f-topics', '<textarea id="f-topics" name="topics" rows="2" placeholder="what you want to talk about">' + esc(c.topics.join(', ')) + '</textarea>') +
       '<p class="small muted">Your subjects drive who the app suggests you meet.</p>' +
+      liveAiSettingsSection() +
       '<section class="receipt-card"><h3>Receipts</h3><p class="small muted">Receipts are signed on this device. Changes are detectable on this device. It is not a server-side immutable ledger.</p><p class="small muted">Built on AiGovOps Foundation governance-as-code: Beacon receipts in the OVERT evidence format, verifiable offline. <a href="https://www.aigovops-foundation.com/overt.html">OVERT</a></p>' +
       '<div class="row"><button type="button" class="btn small" data-act="verifyReceipts">Verify</button><button type="button" class="btn small" data-act="exportReceipts">Export NDJSON + PEM bundle</button></div>' +
       '<p id="receipt-status" role="status" aria-live="polite"></p><div id="receipt-list" class="receipt-list"></div></section>',
@@ -3844,6 +3971,42 @@ const acts = {
         me:String(fd.get('me') || '').trim(), team:String(fd.get('team') || '').trim(), topics:parseTopics(fd.get('topics')), example:false};
         save('settings'); ui.dayPicked = false; pickDay(); toast('Saved'); }});
     refreshReceiptPanel().catch(() => {});
+  },
+  async saveAiKey(){
+    if (DEMO_PERSONA || claudeArtifactAvailable()) return;
+    const input = $('#f-ai-key'), key = String(input && input.value || '').trim();
+    if (!validAnthropicKey(key)) { toast('Enter a key starting with sk-ant-.'); return; }
+    if (!writeAnthropicKey(key)) { toast('Could not save the key on this device.'); return; }
+    if (input) input.value = '';
+    ask = liveAsk;
+    try { askImages = (await liveAsk.limits()).images; } catch (e) { askImages = null; }
+    const state = $('#ai-key-state'), status = $('#ai-key-test-status');
+    if (state) state.textContent = liveAiState();
+    if (status) status.textContent = '';
+    softRender();
+    toast('Key saved on this device');
+  },
+  async testAiKey(){
+    const status = $('#ai-key-test-status');
+    if (!readAnthropicKey()) { if (status) status.textContent = 'Save a valid key before testing it.'; return; }
+    if (status) status.textContent = 'Testing…';
+    try {
+      await liveAsk.json('Reply with only {"ok":true}', {modelTier:'quick'});
+      if (status) status.textContent = 'Claude responded successfully.';
+    } catch (error) {
+      if (status) status.textContent = askFail(error);
+    }
+  },
+  removeAiKey(){
+    if (DEMO_PERSONA || claudeArtifactAvailable()) return;
+    if (!removeAnthropicKey()) { toast('Could not remove the key from this device.'); return; }
+    ask = null;
+    askImages = null;
+    const state = $('#ai-key-state'), status = $('#ai-key-test-status');
+    if (state) state.textContent = liveAiState();
+    if (status) status.textContent = '';
+    softRender();
+    toast('Key removed');
   },
   brandChoice(d){
     const brand = d.brand === 'aigovops' ? 'aigovops' : 'slalom';
@@ -4056,7 +4219,13 @@ async function boot(){
   pickDay(); render();
   const c = window.claude;
   const local = () => { ui.store = 'local'; ui.loaded = true; softRender(); };
-  if (!c || typeof c.use !== 'function') return local();
+  if (!c || typeof c.use !== 'function') {
+    if (!DEMO_PERSONA && readAnthropicKey()) {
+      ask = liveAsk;
+      try { askImages = (await liveAsk.limits()).images; } catch (e) { askImages = null; }
+    }
+    return local();
+  }
   c.use('downloads').then(n => { dl = n; if (ui.tab === 'report') softRender(); }, () => {});
   c.use('sample').then(async fn => { if (!fn) return; ask = fn;
     try { const caps = await fn.limits(); askImages = (caps && caps.images) || null; } catch (e) { askImages = null; }
