@@ -213,7 +213,6 @@
         stepHighlightTarget?.classList.remove('demo-tour-target');
         stepHighlightTarget = nextTarget;
         nextTarget.classList.add('demo-tour-target');
-        nextTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
       });
     });
     stepHighlightObserver.observe(root, { childList: true, subtree: true });

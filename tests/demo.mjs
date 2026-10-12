@@ -555,6 +555,12 @@ try {
   await highlightPage.locator('.demo-tour [data-show="2"]').click();
   await highlightPage.locator('.thread-card.demo-tour-target').waitFor();
   assert.equal(await highlightPage.locator('.demo-banner [data-progress]').textContent(), 'tour 2/5');
+  const manualScrollY = await highlightPage.evaluate(() => {
+    document.body.style.minHeight = '2000px';
+    window.scrollTo(0, 700);
+    return window.scrollY;
+  });
+  assert.equal(manualScrollY, 700, 'manual scroll is applied before the backstage rerender');
   await highlightPage.evaluate(() => {
     window.__highlightBeforeTick = document.querySelector('.thread-card.demo-tour-target');
     window.__tickBackstage();
@@ -565,6 +571,7 @@ try {
     return previous && current && current !== previous;
   });
   assert.equal(await highlightPage.locator('.thread-card.demo-tour-target').count(), 1, 'Maya backstage highlight survives a tickBackstage rerender');
+  assert.equal(await highlightPage.evaluate(() => window.scrollY), manualScrollY, 'backstage rerender does not scroll the user back to the highlight');
   assert.equal(await highlightPage.locator('.demo-banner [data-progress]').textContent(), 'tour 2/5', 'rerender does not change tour progress');
   await highlightContext.close();
 
