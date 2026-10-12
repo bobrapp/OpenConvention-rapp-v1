@@ -518,7 +518,83 @@ try {
     assert.deepEqual(consoleErrors, [], `${id}: no console errors`);
     await context.close();
   }
-  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; quick/full tour modes and progress; localized toggles; every mapped feature target; tour class cleanup/alert routing; exit/reset; axe; 44px controls at 390px and 200% text');
+  const prepareBackgroundReveal = async (tourActive) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      const nativeSetInterval = window.setInterval.bind(window);
+      window.setInterval = (callback, delay, ...args) => {
+        if (delay === 3000) {
+          window.__tickBackstage = callback;
+          return 0;
+        }
+        return nativeSetInterval(callback, delay, ...args);
+      };
+    });
+    const key = 'r4-networking-v2-demo-maya';
+    await page.goto(`${base}?demo=maya`, { waitUntil: 'domcontentloaded' });
+    await page.locator('.demo-tour [data-close]').waitFor();
+    await page.locator('.demo-tour [data-close]').click();
+    const personName = await page.evaluate((storageKey) => {
+      const state = JSON.parse(localStorage.getItem(storageKey));
+      const thread = state.backstage.threads.find((item) => item.stage === 'needs-you');
+      const hash = (value) => {
+        let result = 2166136261;
+        for (const character of String(value)) {
+          result ^= character.charCodeAt(0);
+          result = Math.imul(result, 16777619);
+        }
+        return (result >>> 0) / 4294967295;
+      };
+      let seed = 0;
+      while (hash(`${thread.personIds[0]}${seed}outcome`) < 0.4) seed++;
+      thread.seed = seed;
+      thread.stage = 'negotiate';
+      thread.youSaid = null;
+      thread.theySaid = null;
+      thread.revealed = false;
+      thread.countered = false;
+      thread.draftPending = false;
+      thread.expiresAt = 0;
+      state.backstage.threads = [thread];
+      state.backstage.autonomy = 'act';
+      state.backstage.live = true;
+      state.backstage.onboarded = true;
+      state.backstage.beacon.mode = 'open';
+      state.backstage.tickCount = 0;
+      state.demo.tourOpened = true;
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      return state.people.find((person) => person.id === thread.personIds[0]).name.split(/\s+/)[0];
+    }, key);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('region', { name: 'demo mode' }).waitFor();
+    await page.waitForFunction(() => typeof window.__tickBackstage === 'function');
+    if (tourActive) {
+      await page.locator('.demo-banner [data-tour]').click();
+      await page.locator('.demo-tour [data-show="0"]').click();
+      await page.waitForFunction(() => document.body.classList.contains('demo-tour-active'));
+    } else {
+      assert.equal(await page.locator('.demo-tour').count(), 0, 'background reveal scenario has no open tour');
+    }
+    assert.equal(await page.locator('#sheet-root .sheet').count(), 0, 'background reveal scenario has no open sheet');
+    return { context, page, personName, key };
+  };
+  const touringReveal = await prepareBackgroundReveal(true);
+  await touringReveal.page.evaluate(() => window.__tickBackstage());
+  await touringReveal.page.waitForFunction(() => document.querySelector('#toast')?.classList.contains('show'));
+  assert.equal(await touringReveal.page.locator('.reveal-sheet').count(), 0, 'a background reveal does not cover Maya’s active tour');
+  assert.match(await touringReveal.page.locator('#toast').textContent(), new RegExp(`you both said yes with ${touringReveal.personName}`));
+  const touringState = await touringReveal.page.evaluate((key) => JSON.parse(localStorage.getItem(key)), touringReveal.key);
+  assert.ok(touringState.backstage.threads.some((thread) => thread.stage === 'confirmed' && thread.revealed), 'a background reveal confirms the mutual yes during Maya’s tour');
+  await touringReveal.context.close();
+
+  const idleReveal = await prepareBackgroundReveal(false);
+  await idleReveal.page.evaluate(() => window.__tickBackstage());
+  await idleReveal.page.locator('.reveal-sheet').waitFor();
+  const idleState = await idleReveal.page.evaluate((key) => JSON.parse(localStorage.getItem(key)), idleReveal.key);
+  assert.ok(idleState.backstage.threads.some((thread) => thread.stage === 'confirmed' && thread.revealed), 'a background reveal opens normally when no tour or sheet is active');
+  await idleReveal.context.close();
+  console.log('Devin persona demo ok: isolated real state/receipts; persona seeds; quick/full tour modes and progress; localized toggles; every mapped feature target; background reveals do not interrupt tours; tour class cleanup/alert routing; exit/reset; axe; 44px controls at 390px and 200% text');
 } finally {
   await browser.close();
 }
