@@ -575,7 +575,7 @@ try {
   assert.equal(await highlightPage.locator('.demo-banner [data-progress]').textContent(), 'tour 2/5', 'rerender does not change tour progress');
   await highlightContext.close();
 
-  const prepareBackgroundReveal = async (tourActive) => {
+  const prepareBackgroundReveal = async (tourActive, tourDialogOpen = false) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     await page.addInitScript(() => {
@@ -630,6 +630,11 @@ try {
       await page.locator('.demo-banner [data-tour]').click();
       await page.locator('.demo-tour [data-show="0"]').click();
       await page.waitForFunction(() => document.body.classList.contains('demo-tour-active'));
+    } else if (tourDialogOpen) {
+      await page.locator('.demo-banner [data-tour]').click();
+      await page.locator('.demo-tour-backdrop').waitFor();
+      assert.equal(await page.locator('.demo-tour').isVisible(), true, 'tour dialog is open without a step');
+      assert.equal(await page.locator('.demo-banner [data-progress]').textContent(), 'tour 0/5', 'tour dialog is idle before a step is shown');
     } else {
       assert.equal(await page.locator('.demo-tour').count(), 0, 'background reveal scenario has no open tour');
     }
@@ -644,6 +649,40 @@ try {
   const touringState = await touringReveal.page.evaluate((key) => JSON.parse(localStorage.getItem(key)), touringReveal.key);
   assert.ok(touringState.backstage.threads.some((thread) => thread.stage === 'confirmed' && thread.revealed), 'a background reveal confirms the mutual yes during Maya’s tour');
   await touringReveal.context.close();
+
+  const dialogReveal = await prepareBackgroundReveal(false, true);
+  await dialogReveal.page.evaluate(() => window.__tickBackstage());
+  await dialogReveal.page.waitForFunction(() => {
+    const toast = document.querySelector('#toast');
+    const backdrop = document.querySelector('.demo-tour-backdrop');
+    return toast?.classList.contains('show') &&
+      Number(getComputedStyle(toast).zIndex) > Number(getComputedStyle(backdrop).zIndex);
+  });
+  assert.equal(await dialogReveal.page.locator('.reveal-sheet').count(), 0, 'a background reveal does not open a sheet over the idle tour dialog');
+  assert.match(await dialogReveal.page.locator('#toast').textContent(), new RegExp(`you both said yes with ${dialogReveal.personName}`));
+  assert.equal(await dialogReveal.page.locator('.demo-tour-backdrop').count(), 1, 'the tour dialog remains open during the background reveal');
+  assert.equal(await dialogReveal.page.locator('.demo-tour').isVisible(), true, 'the tour list remains open without showing a step');
+  const toastHitTest = await dialogReveal.page.evaluate(() => {
+    const toast = document.querySelector('#toast');
+    if (!toast) return { above: false, pointerEvents: null };
+    const rect = toast.getBoundingClientRect();
+    const pointerEvents = toast.style.pointerEvents;
+    toast.style.pointerEvents = 'auto';
+    const topElement = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    toast.style.pointerEvents = pointerEvents;
+    return {
+      above: topElement === toast || toast.contains(topElement),
+      pointerEvents: getComputedStyle(toast).pointerEvents,
+    };
+  });
+  assert.equal(toastHitTest.above, true, 'the background reveal toast renders above the tour dialog');
+  assert.equal(toastHitTest.pointerEvents, 'none', 'the toast remains non-interactive');
+  const dialogState = await dialogReveal.page.evaluate((key) => JSON.parse(localStorage.getItem(key)), dialogReveal.key);
+  assert.ok(dialogState.backstage.threads.some((thread) => thread.stage === 'confirmed' && thread.revealed), 'the background reveal confirms the mutual yes while the idle tour dialog is open');
+  await dialogReveal.page.locator('.demo-tour [data-close]').click();
+  await dialogReveal.page.locator('.demo-tour-backdrop').waitFor({ state: 'detached' });
+  assert.equal(await dialogReveal.page.locator('.demo-tour-backdrop').count(), 0, 'the tour dialog close button remains usable above the toast');
+  await dialogReveal.context.close();
 
   const idleReveal = await prepareBackgroundReveal(false);
   await idleReveal.page.evaluate(() => window.__tickBackstage());

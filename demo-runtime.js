@@ -158,6 +158,7 @@
       .demo-banner button,.demo-tour button{border:0;border-radius:999px;padding:8px 12px;background:#fff;color:#0c2bd8;font:inherit;font-weight:700;cursor:pointer}
       .demo-banner a{color:#fff;padding:6px 10px}
       .demo-tour-backdrop{position:fixed;inset:0;z-index:1000;background:#07152de8;display:flex;align-items:flex-end;justify-content:center}
+      #toast{z-index:1001}
       .demo-tour{width:min(100%,620px);max-height:90dvh;overflow:auto;background:var(--bg,#fff);color:var(--ink,#14213d);border-radius:18px 18px 0 0;padding:20px;box-shadow:0 -10px 40px #0005}
       .demo-tour li{padding:10px 0;border-bottom:1px solid #d9dfeb}
       .demo-tour h2{margin:0 0 8px}.demo-tour p{margin:6px 0}

@@ -1482,6 +1482,7 @@
     const keepInBackground = background && (
       $('#sheet-root .sheet') ||
       $('#sheet-root .start-sheet') ||
+      document.querySelector('.demo-tour-backdrop') ||
       document.body.classList.contains('demo-tour-active') ||
       !BK().onboarded
     );
