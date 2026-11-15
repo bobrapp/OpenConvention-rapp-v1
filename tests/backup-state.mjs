@@ -40,4 +40,10 @@ const accepted = restore(incoming, original, storage, 'synthetic', noMigration);
 assert.equal(accepted.me.name, 'Restored');
 assert.equal(JSON.parse(values.get('synthetic.previous')).me.name, original.me.name);
 assert.equal(JSON.parse(values.get('synthetic')).me.name, 'Restored');
-console.log('backup state: schemas, empty projects, detached migration, unsupported versions and save failures passed');
+context.window.R4_VARIANT = 'muse';
+const muse = { ...emptyBackup(), badges: {}, streak: [], debriefs: {}, promises: [], pitchRevisions: [], pitchDraft: '', matchWeights: { shared: 22, goal: 18, hot: 18, bridges: 4 } };
+assert.doesNotThrow(() => validate(muse));
+for (const alter of [x => { x.promises = {}; }, x => { x.debriefs = { 0: { moments: {} } }; }, x => { x.matchWeights.hot = 'x" data-marker="weight'; }, x => { x.pitchRevisions = [{ id: 'safe', text: {}, ts: 1 }]; }]) {
+  const bad = structuredClone(muse); alter(bad); assert.throws(() => validate(bad));
+}
+console.log('backup state: root/Muse schemas, empty projects, detached migration, unsupported versions and save failures passed');

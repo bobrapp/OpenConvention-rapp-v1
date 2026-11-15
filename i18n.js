@@ -2,6 +2,8 @@
 // spanish + portuguese strings; english keys are the source text in app.js
 window.R4_I18N = {
  "es": {
+  "recovery mode: changes are not saved until you accept this recovered project.": "modo de recuperación: los cambios no se guardan hasta que aceptes este proyecto recuperado.",
+  "keep recovered project": "conservar proyecto recuperado",
   "export previous backup": "exportar copia anterior",
   "no previous backup": "no hay copia anterior",
   "saved data could not be loaded; the original was kept. export a backup before editing.": "no se pudieron cargar los datos; se conservó el original. exporta una copia antes de editar.",
@@ -519,6 +521,8 @@ window.R4_I18N = {
   "that agent link did not work": "ese enlace de agente no funcionó"
  },
  "pt": {
+  "recovery mode: changes are not saved until you accept this recovered project.": "modo de recuperação: as alterações não são salvas até aceitar este projeto recuperado.",
+  "keep recovered project": "manter projeto recuperado",
   "export previous backup": "exportar cópia anterior",
   "no previous backup": "não há cópia anterior",
   "saved data could not be loaded; the original was kept. export a backup before editing.": "não foi possível carregar os dados; o original foi preservado. exporte uma cópia antes de editar.",

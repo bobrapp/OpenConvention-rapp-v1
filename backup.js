@@ -55,9 +55,13 @@
     });
     data.sessions.forEach(s => {
       item(s); fields(s, ['title', 'location', 'notes', 'takeaways', 'topic']);
-      check(['session', 'bof', 'pitch', 'meeting', 'work', 'social'].includes(s.type) && ['going', 'maybe'].includes(s.status), 'session type/status');
+      check(['session', 'bof', 'pitch', 'meeting', 'work', 'social', ...(window.R4_VARIANT === 'muse' ? ['meetup'] : [])].includes(s.type) && ['going', 'maybe'].includes(s.status), 'session type/status');
       check(Number.isInteger(s.day) && s.day >= 0 && s.day < m.days && time(s.start) && time(s.end) && s.start < s.end && ids(s.attendees), 'session time/attendees');
       optional(s, 'speaker', text); optional(s, 'featured', x => typeof x === 'boolean'); optional(s, 'agentBooked', x => typeof x === 'boolean');
+      optional(s, 'why', text);
+      if (s.polls != null) {
+        check(list(s.polls), 'polls'); s.polls.forEach(p => { item(p); fields(p, ['q']); check(list(p.opts), 'poll options'); p.opts.forEach(o => { fields(o, ['t']); check(number(o.v), 'poll votes'); }); });
+      }
     });
     data.goals.forEach(g => { item(g); fields(g, ['text']); check(number(g.target) && g.target > 0 && number(g.count) && ['', 'people', 'execclient', 'followups', 'bof'].includes(g.auto), 'goal'); });
     data.bofTopics.forEach(b => { item(b); fields(b, ['title', 'by']); check(number(b.votes) && typeof b.voted === 'boolean', 'topic votes'); });
@@ -78,6 +82,14 @@
           optional(x, 'sessionId', identifier);
         });
       }
+    }
+    if (window.R4_VARIANT === 'muse') {
+      optional(data, 'badges', x => object(x) && Object.values(x).every(number));
+      optional(data, 'streak', strings); optional(data, 'pitchDraft', text);
+      optional(data, 'matchWeights', x => object(x) && ['shared', 'goal', 'hot', 'bridges'].every(k => Number.isFinite(x[k]) && x[k] >= 0 && x[k] <= 40));
+      optional(data, 'debriefs', x => object(x) && Object.values(x).every(d => object(d) && strings(d.moments)));
+      if (data.promises != null) { check(list(data.promises), 'promises'); data.promises.forEach(p => { item(p); fields(p, ['text']); check(identifier(p.personId) && typeof p.done === 'boolean' && number(p.createdAt), 'promise'); }); }
+      if (data.pitchRevisions != null) { check(list(data.pitchRevisions), 'pitch revisions'); data.pitchRevisions.forEach(p => { item(p); fields(p, ['text']); check(number(p.ts), 'pitch revision'); }); }
     }
     return data;
   }

@@ -251,7 +251,7 @@
     const defaults = freshAgents();
     candidate.agents = { ...defaults, ...(candidate.agents || {}), on: { ...defaults.on, ...candidate.agents?.on } };
   }
-  const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+  const save = () => { if (!loadWarning) localStorage.setItem(KEY, JSON.stringify(state)); };
 
   const ui = {
     tab: 'today', day: null,
@@ -1285,7 +1285,7 @@
     const hl = headliner();
     $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${esc(hl.id)}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
     const views = { today: viewToday, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewAgents, pitch: viewPitch, report: viewReport };
-    $('#view').innerHTML = views[ui.tab]();
+    $('#view').innerHTML = (loadWarning ? `<div class="card"><p>${t('recovery mode: changes are not saved until you accept this recovered project.')}</p><button class="btn" data-action="accept-recovery">${t('keep recovered project')}</button></div>` : '') + views[ui.tab]();
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
   }
@@ -1300,6 +1300,7 @@
     'go-connect': (el) => { ui.connectSeg = el.dataset.seg; go('connect'); },
     'go-recap': () => { ui.reportSeg = 'recap'; ui.recapDay = currentDay(); go('report'); },
     'open-settings': settingsSheet,
+    'accept-recovery': () => { loadWarning = false; try { save(); } catch (error) { loadWarning = true; toast(error.message); return; } render(); toast(t('saved')); },
     'set-lang': (el) => { state.me.lang = el.dataset.lang; save(); const inSheet = !!el.closest('.sheet'); render(); if (inSheet) settingsSheet(); },
     'close-sheet': closeSheet,
     'close-sheet-bg': (el, e) => { if (e.target === el) closeSheet(); },
@@ -1490,7 +1491,7 @@
           if ([...state.sessions, ...additions].some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
           additions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(endM), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
         });
-        if (additions.length) state = window.R4_BACKUP.restore({ ...state, sessions: [...state.sessions, ...additions] }, state, localStorage, KEY, migrate);
+        if (additions.length) { state = window.R4_BACKUP.restore({ ...state, sessions: [...state.sessions, ...additions] }, state, localStorage, KEY, migrate); loadWarning = false; }
         render(); toast(additions.length ? t('{n} work events imported', { n: additions.length }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
       }).catch(error => toast(error.message));
       x.value = '';
@@ -1498,7 +1499,7 @@
     if (x.id === 'json-file' && x.files[0]) {
       if (x.files[0].size > 20 * 1024 * 1024) { toast(t('that file does not look like a backup') + ': 20 MiB maximum'); x.value = ''; return; }
       x.files[0].text().then((text) => {
-        try { state = window.R4_BACKUP.restore(JSON.parse(text), state, localStorage, KEY, migrate); closeSheet(); render(); toast(t('imported')); } catch (error) { toast(t('that file does not look like a backup') + ': ' + error.message); }
+        try { state = window.R4_BACKUP.restore(JSON.parse(text), state, localStorage, KEY, migrate); loadWarning = false; closeSheet(); render(); toast(t('imported')); } catch (error) { toast(t('that file does not look like a backup') + ': ' + error.message); }
       }).catch(() => toast(t('that file does not look like a backup')));
       x.value = '';
     }

@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0c2bd8" />
   <title>r4 networking</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%230c2bd8%22/%3E%3Ctext x=%2216%22 y=%2222%22 font-size=%2216%22 font-family=%22sans-serif%22 font-weight=%22700%22 fill=%22white%22 text-anchor=%22middle%22%3Er4%3C/text%3E%3C/svg%3E" />
   <style>
 :root {
@@ -2763,11 +2760,18 @@ var qrcode = function() {
 }));
 
 </script>
-  <script>
+<!-- shared-boundaries:start -->
+<script>window.R4_VARIANT = "muse";</script>
+<script>
 'use strict';
 // spanish + portuguese strings; english keys are the source text in app.js
 window.R4_I18N = {
  "es": {
+  "recovery mode: changes are not saved until you accept this recovered project.": "modo de recuperación: los cambios no se guardan hasta que aceptes este proyecto recuperado.",
+  "keep recovered project": "conservar proyecto recuperado",
+  "export previous backup": "exportar copia anterior",
+  "no previous backup": "no hay copia anterior",
+  "saved data could not be loaded; the original was kept. export a backup before editing.": "no se pudieron cargar los datos; se conservó el original. exporta una copia antes de editar.",
   "executive sponsor": "patrocinador ejecutivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "un directivo sénior que piensa en resultados, riesgo e inversión",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negocio claros, perspectivas de pares, formas de empezar con poco riesgo",
@@ -3282,6 +3286,11 @@ window.R4_I18N = {
   "that agent link did not work": "ese enlace de agente no funcionó"
  },
  "pt": {
+  "recovery mode: changes are not saved until you accept this recovered project.": "modo de recuperação: as alterações não são salvas até aceitar este projeto recuperado.",
+  "keep recovered project": "manter projeto recuperado",
+  "export previous backup": "exportar cópia anterior",
+  "no previous backup": "não há cópia anterior",
+  "saved data could not be loaded; the original was kept. export a backup before editing.": "não foi possível carregar os dados; o original foi preservado. exporte uma cópia antes de editar.",
   "executive sponsor": "patrocinador executivo",
   "a senior decision-maker who thinks in outcomes, risk and investment": "um executivo sênior que pensa em resultados, risco e investimento",
   "clear business outcomes, peer perspectives, low-risk ways to start": "resultados de negócio claros, perspectivas de pares, formas de começar com pouco risco",
@@ -3796,9 +3805,180 @@ window.R4_I18N = {
   "that agent link did not work": "esse link de agente não funcionou"
  }
 };
-
 </script>
-  <script>
+<script>
+'use strict';
+(() => {
+  const identifier = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(value) && !['__proto__', 'constructor', 'prototype'].includes(value);
+  function validateIds(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Backup must be an object');
+    let count = 0;
+    function walk(value, depth) {
+      if (++count > 100000 || depth > 30) throw new Error('Backup is too complex');
+      if (!value || typeof value !== 'object') return;
+      if (Array.isArray(value)) {
+        const seen = new Set();
+        value.forEach(item => {
+          if (item && typeof item === 'object' && Object.hasOwn(item, 'id')) {
+            if (!identifier(item.id) || seen.has(item.id)) throw new Error('Invalid or duplicate backup identifier');
+            seen.add(item.id);
+          }
+        });
+      }
+      Object.entries(value).forEach(([key, item]) => {
+        if (['__proto__', 'constructor', 'prototype'].includes(key) || (key === 'id' && !identifier(item))) throw new Error('Invalid backup identifier');
+        walk(item, depth + 1);
+      });
+    }
+    walk(data, 0);
+    return data;
+  }
+  const object = value => value && typeof value === 'object' && !Array.isArray(value);
+  const text = value => typeof value === 'string' && value.length <= 200000;
+  const number = value => Number.isSafeInteger(value) && value >= 0 && value <= 1e15;
+  const time = value => typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+  function validate(data) {
+    validateIds(data);
+    const check = (yes, field) => { if (!yes) throw new Error('Invalid backup: ' + field); };
+    const fields = (value, names) => { check(object(value), names.join('/')); names.forEach(key => check(text(value[key]), key)); };
+    const list = value => Array.isArray(value) && value.length <= 10000;
+    const strings = value => list(value) && value.every(text);
+    const ids = value => list(value) && value.every(identifier);
+    const optional = (value, key, test) => { if (value[key] != null) check(test(value[key]), key); };
+    check(data.version === 1, 'unsupported version (only version 1 is supported)');
+    check(number(data.pitchSeconds) && data.pitchSeconds >= 15 && data.pitchSeconds <= 3600, 'pitch timer');
+    fields(data.me, ['name', 'team', 'eventName', 'eventStart', 'dayStart', 'dayEnd']);
+    const m = data.me;
+    check(/^\d{4}-\d{2}-\d{2}$/.test(m.eventStart) && Number.isFinite(Date.parse(m.eventStart)) && new Date(m.eventStart).toISOString().slice(0, 10) === m.eventStart, 'event date');
+    check(Number.isInteger(m.days) && m.days >= 1 && m.days <= 7 && time(m.dayStart) && time(m.dayEnd) && m.dayStart < m.dayEnd, 'event days/hours');
+    check(strings(m.interests), 'interests'); optional(m, 'role', text); optional(m, 'lang', x => ['en', 'es', 'pt'].includes(x));
+    ['people', 'sessions', 'goals', 'bofTopics', 'pitches'].forEach(key => check(list(data[key]), key));
+    const item = value => check(object(value) && identifier(value.id), 'item');
+    data.people.forEach(p => {
+      item(p); fields(p, ['name', 'role', 'company', 'lookingFor', 'canOffer', 'notes', 'metAt']);
+      check(['exec', 'tech', 'peer', 'client', 'partner', 'talent', 'cos'].includes(p.persona), 'persona');
+      check(['met', 'want'].includes(p.status) && ['hot', 'warm', 'cold'].includes(p.priority), 'person status/priority');
+      check(strings(p.topics) && number(p.day), 'person topics/day');
+      fields(p.followUp, ['action']); check(number(p.followUp.due) && typeof p.followUp.done === 'boolean', 'follow-up');
+      optional(p, 'createdAt', number); optional(p, 'imported', x => typeof x === 'boolean');
+    });
+    data.sessions.forEach(s => {
+      item(s); fields(s, ['title', 'location', 'notes', 'takeaways', 'topic']);
+      check(['session', 'bof', 'pitch', 'meeting', 'work', 'social', ...(window.R4_VARIANT === 'muse' ? ['meetup'] : [])].includes(s.type) && ['going', 'maybe'].includes(s.status), 'session type/status');
+      check(Number.isInteger(s.day) && s.day >= 0 && s.day < m.days && time(s.start) && time(s.end) && s.start < s.end && ids(s.attendees), 'session time/attendees');
+      optional(s, 'speaker', text); optional(s, 'featured', x => typeof x === 'boolean'); optional(s, 'agentBooked', x => typeof x === 'boolean');
+      optional(s, 'why', text);
+      if (s.polls != null) {
+        check(list(s.polls), 'polls'); s.polls.forEach(p => { item(p); fields(p, ['q']); check(list(p.opts), 'poll options'); p.opts.forEach(o => { fields(o, ['t']); check(number(o.v), 'poll votes'); }); });
+      }
+    });
+    data.goals.forEach(g => { item(g); fields(g, ['text']); check(number(g.target) && g.target > 0 && number(g.count) && ['', 'people', 'execclient', 'followups', 'bof'].includes(g.auto), 'goal'); });
+    data.bofTopics.forEach(b => { item(b); fields(b, ['title', 'by']); check(number(b.votes) && typeof b.voted === 'boolean', 'topic votes'); });
+    data.pitches.forEach(p => { item(p); fields(p, ['name', 'idea']); check(typeof p.done === 'boolean' && ids(p.sparked), 'pitch'); });
+    ['headlinerSeeded', 'cosSeeded'].forEach(key => optional(data, key, x => typeof x === 'boolean'));
+    ['fired', 'prep'].forEach(key => optional(data, key, x => object(x) && Object.values(x).every(v => typeof v === 'boolean' || v === 0 || v === 1)));
+    if (data.agents != null) {
+      const a = data.agents; check(object(a), 'agents');
+      optional(a, 'on', x => object(x) && Object.values(x).every(v => typeof v === 'boolean'));
+      optional(a, 'autoBook', x => typeof x === 'boolean'); optional(a, 'runs', number);
+      if (a.log != null) {
+        check(list(a.log), 'agent log'); a.log.forEach(x => { item(x); fields(x, ['from', 'to', 'text']); check(identifier(x.fromKind) && number(x.ts), 'agent log metadata'); });
+      }
+      if (a.proposals != null) {
+        check(list(a.proposals), 'proposals'); a.proposals.forEach(x => {
+          item(x); fields(x, ['location', 'brief']);
+          check(identifier(x.personId) && ['pending', 'booked', 'declined'].includes(x.status) && number(x.day) && x.day < m.days && time(x.start) && time(x.end) && x.start < x.end && typeof x.inbound === 'boolean', 'proposal');
+          optional(x, 'sessionId', identifier);
+        });
+      }
+    }
+    if (window.R4_VARIANT === 'muse') {
+      optional(data, 'badges', x => object(x) && Object.values(x).every(number));
+      optional(data, 'streak', strings); optional(data, 'pitchDraft', text);
+      optional(data, 'matchWeights', x => object(x) && ['shared', 'goal', 'hot', 'bridges'].every(k => Number.isFinite(x[k]) && x[k] >= 0 && x[k] <= 40));
+      optional(data, 'debriefs', x => object(x) && Object.values(x).every(d => object(d) && strings(d.moments)));
+      if (data.promises != null) { check(list(data.promises), 'promises'); data.promises.forEach(p => { item(p); fields(p, ['text']); check(identifier(p.personId) && typeof p.done === 'boolean' && number(p.createdAt), 'promise'); }); }
+      if (data.pitchRevisions != null) { check(list(data.pitchRevisions), 'pitch revisions'); data.pitchRevisions.forEach(p => { item(p); fields(p, ['text']); check(number(p.ts), 'pitch revision'); }); }
+    }
+    return data;
+  }
+  function prepare(data, migrate) {
+    validate(data);
+    const candidate = JSON.parse(JSON.stringify(data));
+    migrate(candidate);
+    return validate(candidate);
+  }
+  function restore(data, current, storage, key, migrate) {
+    const candidate = prepare(data, migrate);
+    storage.setItem(key + '.previous', JSON.stringify(current));
+    storage.setItem(key, JSON.stringify(candidate));
+    return candidate;
+  }
+  window.R4_BACKUP = { validateIds, validate, prepare, restore };
+})();
+</script>
+<script>
+'use strict';
+(() => {
+  function parse(text) {
+    if (typeof text !== 'string' || text.length > 2 * 1024 * 1024) throw new Error('Calendar exceeds 2 MiB');
+    const lines = text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
+    if (lines.includes('BEGIN:VTIMEZONE')) throw new Error('VTIMEZONE definitions are unsupported. Export UTC times or IANA TZIDs without custom definitions.');
+    const events = []; let current = null;
+    for (const line of lines) {
+      if (line === 'BEGIN:VEVENT') current = {};
+      else if (line === 'END:VEVENT') {
+        if (current) events.push(current);
+        if (events.length > 1000) throw new Error('Calendar exceeds 1000 events');
+        current = null;
+      } else if (current) {
+        const colon = line.indexOf(':'); if (colon < 0) continue;
+        const [name, ...params] = line.slice(0, colon).split(';');
+        if (!Object.hasOwn(current, name)) current[name] = { value: line.slice(colon + 1), params: params.join(';') };
+      }
+    }
+    const formatters = new Map();
+    function date(field) {
+      if (!field) throw new Error('Timed events require DTSTART and DTEND');
+      const m = field.value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+      if (!m) throw new Error('Unsupported calendar date-time: use YYYYMMDDTHHMMSS with optional Z');
+      const [year, month, day, hour, minute, second] = m.slice(1, 7).map(Number);
+      const wall = Date.UTC(year, month - 1, day, hour, minute, second), nominal = new Date(wall);
+      if (nominal.getUTCFullYear() !== year || nominal.getUTCMonth() !== month - 1 || nominal.getUTCDate() !== day || hour > 23 || minute > 59 || second > 59) throw new Error('Invalid calendar date-time');
+      const tzid = field.params.match(/(?:^|;)TZID=(?:"([^"]+)"|([^;]+))/i);
+      if (m[7]) { if (tzid) throw new Error('UTC calendar times must not specify TZID'); return nominal; }
+      const zone = tzid ? tzid[1] || tzid[2] : Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (!formatters.has(zone)) {
+        try { formatters.set(zone, new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })); }
+        catch { throw new Error('Unsupported calendar TZID: ' + zone + '. Export UTC or an IANA timezone.'); }
+      }
+      const parts = instant => Object.fromEntries(formatters.get(zone).formatToParts(new Date(instant)).filter(p => p.type !== 'literal').map(p => [p.type, Number(p.value)]));
+      const offsets = new Set(), matches = new Set();
+      for (let hours = -36; hours <= 36; hours += 6) {
+        const instant = wall + hours * 3600000, p = parts(instant);
+        offsets.add(Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - instant);
+      }
+      for (const offset of offsets) {
+        const instant = wall - offset, p = parts(instant);
+        if (p.year === year && p.month === month && p.day === day && p.hour === hour && p.minute === minute && p.second === second) matches.add(instant);
+      }
+      if (matches.size !== 1) throw new Error('Ambiguous or nonexistent calendar time in ' + zone + '. Export this event in UTC.');
+      return new Date([...matches][0]);
+    }
+    const unescape = value => value.replace(/\\([,;\\])/g, '$1').replace(/\\n/gi, ' ');
+    return events.flatMap(event => {
+      if (/VALUE=DATE(?:;|$)/i.test(event.DTSTART?.params || '') || /^\d{8}$/.test(event.DTSTART?.value || '')) return [];
+      if (['RRULE', 'RDATE', 'EXDATE', 'RECURRENCE-ID'].some(key => Object.hasOwn(event, key))) throw new Error('Recurring events are unsupported. Export expanded, individual events.');
+      const start = date(event.DTSTART), end = date(event.DTEND);
+      if (end <= start) throw new Error('Calendar event end must follow its start');
+      return [{ title: unescape(event.SUMMARY?.value || 'busy'), start, end, location: unescape(event.LOCATION?.value || '') }];
+    });
+  }
+  window.R4_CALENDAR = { parse };
+})();
+</script>
+<!-- shared-boundaries:end -->
+<script>
 'use strict';
 (() => {
   const KEY = 'r4-networking-v1';
@@ -4058,33 +4238,42 @@ window.R4_I18N = {
   }
 
   // ---------- state ----------
-  let state = null;
-  try { state = JSON.parse(localStorage.getItem(KEY)); } catch { state = null; }
-  if (!state || state.version !== 1) state = seed();
-  function migrate() {
-    state.fired = state.fired || {}; state.prep = state.prep || {};
-    if (!state.me.lang) state.me.lang = 'en';
-    if (!state.headlinerSeeded) {
-      const day = Math.min(currentDay() + 1, state.me.days - 1);
-      const old = state.sessions.find((s) => s.title === 'keynote: the people side of change');
-      if (old) Object.assign(old, { title: 'keynote: oprah winfrey', speaker: 'oprah winfrey', featured: true, day, start: '09:00', end: '10:00', location: 'main hall' });
-      else state.sessions.push(headlinerSession(day));
-      state.sessions.filter((s) => s.day === day && s.type === 'work' && s.title === 'team check-in').forEach((s) => { s.start = '08:00'; s.end = '08:30'; });
-      state.headlinerSeeded = true;
-    }
-    if (!state.cosSeeded) {
-      COS_PEOPLE.forEach((o) => { if (!state.people.some((p) => p.name === o.name)) state.people.push(cosPerson(o)); });
-      if (!state.sessions.some((s) => s.title === 'chiefs of staff circle')) state.sessions.push(cosBof());
-      state.bofTopics.push({ id: uid(), title: 'chiefs of staff: running the operating rhythm', by: 'olivia', votes: 11, voted: false });
-      state.cosSeeded = true;
-    }
-    state.agents = { ...freshAgents(), ...(state.agents || {}) };
-    state.badges = state.badges || {}; state.streak = state.streak || [];
-    state.promises = state.promises || []; state.debriefs = state.debriefs || {};
-    state.pitchRevisions = state.pitchRevisions || []; if (state.pitchDraft === undefined) state.pitchDraft = '';
-    state.matchWeights = { shared: 22, goal: 18, hot: 18, bridges: 4, ...(state.matchWeights || {}) };
+  let state = null, loadWarning = false;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) state = window.R4_BACKUP.prepare(JSON.parse(raw), migrate);
+  } catch {
+    loadWarning = true;
+    try { const previous = localStorage.getItem(KEY + '.previous'); if (previous) state = window.R4_BACKUP.prepare(JSON.parse(previous), migrate); } catch { /* preserve both stored snapshots */ }
   }
-  const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+  if (!state) state = seed();
+  function migrate(candidate) {
+    candidate.fired = candidate.fired || {}; candidate.prep = candidate.prep || {};
+    if (!candidate.me.lang) candidate.me.lang = 'en';
+    if (!candidate.headlinerSeeded) {
+      const [y, m, d] = candidate.me.eventStart.split('-').map(Number), now = new Date();
+      const todayIndex = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(y, m - 1, d)) / 86400000);
+      const day = Math.min(Math.max(0, todayIndex) + 1, candidate.me.days - 1);
+      const old = candidate.sessions.find((s) => s.title === 'keynote: the people side of change');
+      if (old) Object.assign(old, { title: 'keynote: oprah winfrey', speaker: 'oprah winfrey', featured: true, day, start: '09:00', end: '10:00', location: 'main hall' });
+      else candidate.sessions.push(headlinerSession(day));
+      candidate.sessions.filter((s) => s.day === day && s.type === 'work' && s.title === 'team check-in').forEach((s) => { s.start = '08:00'; s.end = '08:30'; });
+      candidate.headlinerSeeded = true;
+    }
+    if (!candidate.cosSeeded) {
+      COS_PEOPLE.forEach((o) => { if (!candidate.people.some((p) => p.name === o.name)) candidate.people.push(cosPerson(o)); });
+      if (!candidate.sessions.some((s) => s.title === 'chiefs of staff circle')) candidate.sessions.push(cosBof());
+      candidate.bofTopics.push({ id: uid(), title: 'chiefs of staff: running the operating rhythm', by: 'olivia', votes: 11, voted: false });
+      candidate.cosSeeded = true;
+    }
+    const defaults = freshAgents();
+    candidate.agents = { ...defaults, ...(candidate.agents || {}), on: { ...defaults.on, ...candidate.agents?.on } };
+    candidate.badges = candidate.badges || {}; candidate.streak = candidate.streak || [];
+    candidate.promises = candidate.promises || []; candidate.debriefs = candidate.debriefs || {};
+    candidate.pitchRevisions = candidate.pitchRevisions || []; if (candidate.pitchDraft === undefined) candidate.pitchDraft = '';
+    candidate.matchWeights = { shared: 22, goal: 18, hot: 18, bridges: 4, ...(candidate.matchWeights || {}) };
+  }
+  const save = () => { if (!loadWarning) localStorage.setItem(KEY, JSON.stringify(state)); };
 
   const ui = {
     tab: 'prep', day: null,
@@ -4102,7 +4291,7 @@ window.R4_I18N = {
     const diff = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - dayDate(0)) / 86400000);
     return Math.max(0, Math.min(state.me.days - 1, diff));
   }
-  migrate(); save();
+  if (!loadWarning) { try { save(); } catch { loadWarning = true; } }
   const isEventDay = () => isoOf(new Date()) >= state.me.eventStart && isoOf(new Date()) <= isoOf(dayDate(state.me.days - 1));
   const personById = (id) => state.people.find((p) => p.id === id);
   const sessionById = (id) => state.sessions.find((s) => s.id === id);
@@ -4164,7 +4353,7 @@ window.R4_I18N = {
       else el.textContent = k === 'd' ? c.d : pad(c[k]);
     });
   }
-  const alertKey = (s, o) => `${s.id}@${s.day}T${s.start}:${o}`;
+  const alertKey = (s, o) => `${esc(s.id)}@${s.day}T${s.start}:${o}`;
   function checkAlerts() {
     const s = headliner(); if (!s) return;
     const m = (sessionStart(s) - Date.now()) / 60000;
@@ -4179,13 +4368,13 @@ window.R4_I18N = {
     const v = { name: hlName(s), loc: s.location || t('the venue') };
     const title = t('★ {name} countdown', v); const body = t(msg, v);
     if ('Notification' in window && Notification.permission === 'granted') {
-      try { new Notification(title, { body, tag: `r4-${s.id}`, icon: $('link[rel=icon]')?.href }); } catch { /* some browsers need a service worker */ }
+      try { new Notification(title, { body, tag: `r4-${esc(s.id)}`, icon: $('link[rel=icon]')?.href }); } catch { /* some browsers need a service worker */ }
     }
     beep(660, 0.15); setTimeout(() => beep(880, 0.15), 180); setTimeout(() => beep(1100, 0.3), 360);
     $('#alert-root').innerHTML = `<div class="alert-pop" data-action="alert-close-bg"><div class="alert-card">
       <div class="alert-burst">★</div><div class="alert-title">${esc(title)}</div><p>${esc(body)}</p>
       <div class="row" style="gap:8px;justify-content:center"><button class="btn coral" data-action="alert-close">${t('let us go!')}</button>
-      <button class="btn secondary" data-action="alert-open" data-id="${s.id}">${t('open')}</button></div></div></div>`;
+      <button class="btn secondary" data-action="alert-open" data-id="${esc(s.id)}">${t('open')}</button></div></div></div>`;
   }
   async function enableAlerts() {
     if (!('Notification' in window)) { toast(t('this browser does not support notifications. in-app alerts are still on.')); return; }
@@ -4445,7 +4634,7 @@ window.R4_I18N = {
     const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//r4 networking//EN', 'CALSCALE:GREGORIAN'];
     items.forEach((s) => {
       const who = names(s.attendees);
-      L.push('BEGIN:VEVENT', `UID:${s.id}@r4-networking`, `DTSTAMP:${stamp}`, `DTSTART:${d2(s.day, s.start)}`, `DTEND:${d2(s.day, s.end)}`,
+      L.push('BEGIN:VEVENT', `UID:${esc(s.id)}@r4-networking`, `DTSTAMP:${stamp}`, `DTSTART:${d2(s.day, s.start)}`, `DTEND:${d2(s.day, s.end)}`,
         `SUMMARY:${icsEsc(`${s.featured ? '★ ' : ''}${state.me.eventName} · ${s.title}`)}`, `LOCATION:${icsEsc(s.location)}`,
         `DESCRIPTION:${icsEsc([t(TYPES[s.type].label), who && t('with {names}', { names: who }), s.notes].filter(Boolean).join('\n'))}`);
       const alarms = s.featured ? [1440, 60, 30, 10] : [10];
@@ -4459,21 +4648,7 @@ window.R4_I18N = {
     return L.join('\r\n');
   }
   function parseIcs(text) {
-    const lines = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
-    const events = []; let cur = null;
-    for (const line of lines) {
-      if (line === 'BEGIN:VEVENT') cur = {};
-      else if (line === 'END:VEVENT') { if (cur) events.push(cur); cur = null; } else if (cur) {
-        const i = line.indexOf(':'); if (i < 0) continue;
-        const [nm, ...params] = line.slice(0, i).split(';'); if (!cur[nm]) cur[nm] = { value: line.slice(i + 1), params: params.join(';') };
-      }
-    }
-    const toDate = (f) => {
-      if (!f || /VALUE=DATE(?!-)/.test(f.params) || f.value.length < 15) return null;
-      const v = f.value; const [y, mo, d, h, mi] = [v.slice(0, 4), v.slice(4, 6), v.slice(6, 8), v.slice(9, 11), v.slice(11, 13)].map(Number);
-      return v.endsWith('Z') ? new Date(Date.UTC(y, mo - 1, d, h, mi)) : new Date(y, mo - 1, d, h, mi);
-    };
-    return events.map((e) => ({ title: (e.SUMMARY?.value || 'busy').replace(/\\([,;\\])/g, '$1').replace(/\\n/gi, ' '), start: toDate(e.DTSTART), end: toDate(e.DTEND), location: (e.LOCATION?.value || '').replace(/\\([,;\\])/g, '$1') })).filter((e) => e.start && e.end);
+    return window.R4_CALENDAR.parse(text);
   }
 
   // ---------- toast / sheet ----------
@@ -4505,7 +4680,7 @@ window.R4_I18N = {
   const avatar = (p, lg) => `<span class="avatar ${lg ? 'lg' : ''} ${persona(p).cls}">${esc(initials(p.name))}</span>`;
   const prioLabel = (x) => t(x);
   const prioChip = (p) => (p.priority === 'hot' ? `<span class="chip bad">${t('hot')}</span>` : '');
-  const personRow = (p, extra = '') => `<button class="list-item" data-action="person" data-id="${p.id}">${avatar(p)}
+  const personRow = (p, extra = '') => `<button class="list-item" data-action="person" data-id="${esc(p.id)}">${avatar(p)}
       <div class="grow"><div class="row between"><span class="name">${esc(p.name)}</span>${prioChip(p)}</div>
       <div class="sub">${esc([p.role, p.company].filter(Boolean).join(' · ') || '—')}</div>
       <div class="row wrap" style="margin-top:4px;gap:6px">${personaTag(p)}${p.status === 'want' ? `<span class="chip warn">${t('to meet')}</span>` : ''}${extra}</div></div></button>`;
@@ -4513,7 +4688,7 @@ window.R4_I18N = {
   const dayN = (i) => t('day {n}', { n: i + 1 });
   const dayPicker = (key) => `<div class="scroller">${Array.from({ length: state.me.days }, (_x, i) => `<button class="chip ${ui[key] === i ? 'on' : ''}" data-action="pick-day" data-key="${key}" data-day="${i}">${dayN(i)} · ${esc(dayLabel(i))}</button>`).join('')}</div>`;
   const tItem = (s, conflict) => `<div class="t-item"><div class="t-time">${fmtTime(s.start)}</div>
-      <div class="t-card ${TYPES[s.type].cls} ${conflict ? 'conflict' : ''} ${s.featured ? 'featured' : ''}" data-action="session" data-id="${s.id}">
+      <div class="t-card ${TYPES[s.type].cls} ${conflict ? 'conflict' : ''} ${s.featured ? 'featured' : ''}" data-action="session" data-id="${esc(s.id)}">
       ${s.featured ? `<div class="row between" style="margin-bottom:4px"><span class="chip star">★ ${t('headliner')}</span>${headliner()?.id === s.id ? '<span class="chip star-cd" data-cd="short"></span>' : ''}</div>` : ''}
       <div class="row between"><span class="t-title">${esc(s.title)}</span>${s.status === 'maybe' ? `<span class="chip">${t('maybe')}</span>` : ''}</div>
       <div class="t-meta">${fmtTime(s.start)}–${fmtTime(s.end)}${s.location ? ` · ${esc(s.location)}` : ''} · ${t(TYPES[s.type].label)}${s.attendees.length ? ` · ${t('{n} people', { n: s.attendees.length })}` : ''}</div>
@@ -4533,12 +4708,12 @@ window.R4_I18N = {
       <p class="hl-hype" data-cd="hype"></p>
       <div class="row wrap" style="gap:8px">
         <button class="btn coral sm" data-action="enable-alerts">${notif === 'granted' ? `✓ ${t('alerts on')}` : t('turn on alerts')}</button>
-        <button class="btn light sm" data-action="hl-ics" data-id="${s.id}">${t('add to calendar with reminders')}</button>
-        <button class="btn light sm" data-action="edit-session" data-id="${s.id}">${t('edit time')}</button>
+        <button class="btn light sm" data-action="hl-ics" data-id="${esc(s.id)}">${t('add to calendar with reminders')}</button>
+        <button class="btn light sm" data-action="edit-session" data-id="${esc(s.id)}">${t('edit time')}</button>
       </div>
       <details class="hl-prep"><summary>${t('get ready checklist')} · ${done}/${PREP.length}</summary>
         ${PREP.map(([k, l]) => `<label class="check"><input type="checkbox" data-action="prep" data-k="${k}" ${state.prep[k] ? 'checked' : ''}/> ${t(l)}</label>`).join('')}
-        <button class="btn ghost sm light-ghost" data-action="alert-preview" data-id="${s.id}">${t('preview an alert')}</button>
+        <button class="btn ghost sm light-ghost" data-action="alert-preview" data-id="${esc(s.id)}">${t('preview an alert')}</button>
       </details>
     </section>`;
   }
@@ -4604,7 +4779,7 @@ window.R4_I18N = {
         const v = goalValue(g); const pct = Math.min(100, Math.round((v / Math.max(1, g.target)) * 100));
         return `<div class="goal-row"><div class="grow"><div class="row between"><span>${esc(goalText(g))}</span><b>${v}/${g.target}</b></div>
           <div class="progress"><i style="width:${pct}%"></i></div></div>
-          ${g.auto ? '' : `<div class="stepper"><button data-action="goal-step" data-id="${g.id}" data-d="-1" aria-label="minus">−</button><button data-action="goal-step" data-id="${g.id}" data-d="1" aria-label="plus">+</button></div>`}</div>`;
+          ${g.auto ? '' : `<div class="stepper"><button data-action="goal-step" data-id="${esc(g.id)}" data-d="-1" aria-label="minus">−</button><button data-action="goal-step" data-id="${esc(g.id)}" data-d="1" aria-label="plus">+</button></div>`}</div>`;
       }).join('')}</div>
       <h2 class="section">${t('follow-ups')} <button class="btn ghost sm" data-action="go-followups">${t('see all')}</button></h2>
       ${due.length ? due.slice(0, 3).map((p) => followRow(p)).join('') : `<div class="card empty"><b>${t('inbox zero')}</b>${t('all follow-ups done.')}</div>`}
@@ -4639,7 +4814,7 @@ window.R4_I18N = {
         <div class="small muted" style="margin-top:8px">${t('set goals, list who to meet, draft your pitch, review the agenda, turn on alerts.')}</div>
         <div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn sm" data-action="edit-goals">${t('set goals')}</button><button class="btn secondary sm" data-action="go" data-tab="today">${t('headliner checklist')}</button></div></div>
       <h2 class="section">${t('who to find')} <small>${targets.length}</small></h2>
-      ${targets.slice(0, 6).map((p) => { const s = summary(p); return `<button class="list-item" data-action="person" data-id="${p.id}">${avatar(p)}<div class="grow"><span class="name">${esc(p.name)}</span>
+      ${targets.slice(0, 6).map((p) => { const s = summary(p); return `<button class="list-item" data-action="person" data-id="${esc(p.id)}">${avatar(p)}<div class="grow"><span class="name">${esc(p.name)}</span>
         <div class="sub">${esc([p.role, p.company].filter(Boolean).join(' · '))}</div>
         <div class="small" style="margin-top:4px"><b>${t('ask about:')}</b> ${esc(s.wants)}</div></div></button>`; }).join('') || `<div class="card empty small">${t('nobody targeted yet. add people with status "to meet".')}</div>`}
       <button class="btn secondary sm" data-action="add-target">${t('add someone to find')}</button>
@@ -4649,7 +4824,7 @@ window.R4_I18N = {
         <div class="row wrap" style="gap:8px"><button class="btn sm">${t('save revision')}</button><button type="button" class="btn secondary sm" data-action="go" data-tab="pitch">${t('practice with timer')}</button></div></form>
         ${revs.length ? `<h3 style="margin:14px 0 6px">${t('revisions')} <small class="muted">${revs.length}</small></h3>${revs.slice().reverse().slice(0, 5).map((r) => `<div class="card tight small"><div class="muted" style="margin-bottom:4px">${new Date(r.ts).toLocaleString(LANGS[lang()].locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>${esc(r.text.slice(0, 140))}${r.text.length > 140 ? '…' : ''}</div>`).join('')}` : ''}</div>
       <h2 class="section">${t('my shortlist')} <small>${shortlist.length}</small></h2>
-      ${shortlist.slice(0, 8).map((s) => `<div class="card tight" data-action="session" data-id="${s.id}" style="cursor:pointer"><div class="row between"><b>${esc(s.title)}</b><span class="chip">${dayN(s.day)} · ${fmtTime(s.start)}</span></div>
+      ${shortlist.slice(0, 8).map((s) => `<div class="card tight" data-action="session" data-id="${esc(s.id)}" style="cursor:pointer"><div class="row between"><b>${esc(s.title)}</b><span class="chip">${dayN(s.day)} · ${fmtTime(s.start)}</span></div>
         <div class="small muted">${s.why ? esc(s.why) : t('tap to add why you are going')}</div></div>`).join('') || `<div class="card empty small">${t('nothing shortlisted yet. mark sessions as going.')}</div>`}
       <h2 class="section">${t('badges')} <small>${Object.keys(state.badges).length}/${BADGES.length}</small></h2>
       <div class="badge-grid">${BADGES.map((b) => `<button class="badge ${state.badges[b.id] ? 'on' : ''}" data-action="badges" aria-label="${esc(t(b.name))}">${b.icon}<span>${esc(t(b.name))}</span></button>`).join('')}</div>`;
@@ -4658,9 +4833,9 @@ window.R4_I18N = {
       <div class="grow"><div class="row between"><b>${esc(p.name)}</b><span class="chip ${p.followUp.done ? 'good' : p.followUp.due <= currentDay() ? 'bad' : 'warn'}">${p.followUp.done ? t('done') : t('due {d}', { d: esc(dayLabel(p.followUp.due)) })}</span></div>
       <div class="small muted">${esc(p.followUp.action)}</div></div></div>
       <div class="row" style="margin-top:10px;gap:6px;justify-content:flex-end">
-        <button class="btn ghost sm" data-action="person" data-id="${p.id}">${t('open')}</button>
-        <button class="btn secondary sm" data-action="copy-followup" data-id="${p.id}">${t('copy message')}</button>
-        <button class="btn sm" data-action="toggle-followup" data-id="${p.id}">${p.followUp.done ? t('reopen') : t('mark done')}</button>
+        <button class="btn ghost sm" data-action="person" data-id="${esc(p.id)}">${t('open')}</button>
+        <button class="btn secondary sm" data-action="copy-followup" data-id="${esc(p.id)}">${t('copy message')}</button>
+        <button class="btn sm" data-action="toggle-followup" data-id="${esc(p.id)}">${p.followUp.done ? t('reopen') : t('mark done')}</button>
       </div></div>`;
 
   function viewPeople() {
@@ -4711,11 +4886,11 @@ window.R4_I18N = {
       body = `<div class="card"><h3>${t('birds of a feather')}</h3><p class="muted small">${t('small, self-organized circles on a shared topic. propose one, vote, then schedule the winners and link who joined.')}</p>
         <form data-form="propose-bof" class="row" style="margin-top:12px"><input class="search" style="margin:0" name="title" placeholder="${t('propose a topic…')}" required /><button class="btn">${t('add')}</button></form></div>
         <h2 class="section">${t('proposed topics')} <small>${topics.length}</small></h2>
-        ${topics.map((x) => `<div class="card tight row"><div class="vote"><button class="${x.voted ? 'on' : ''}" data-action="vote" data-id="${x.id}" aria-label="vote">▲</button><span>${x.votes}</span></div>
+        ${topics.map((x) => `<div class="card tight row"><div class="vote"><button class="${x.voted ? 'on' : ''}" data-action="vote" data-id="${esc(x.id)}" aria-label="vote">▲</button><span>${x.votes}</span></div>
           <div class="grow"><b>${esc(x.title)}</b><div class="small muted">${t('proposed by {name}', { name: esc(x.by) })}</div></div>
-          <button class="btn secondary sm" data-action="schedule-bof" data-id="${x.id}">${t('schedule')}</button></div>`).join('')}
+          <button class="btn secondary sm" data-action="schedule-bof" data-id="${esc(x.id)}">${t('schedule')}</button></div>`).join('')}
         <h2 class="section">${t('scheduled')} <small>${bofs.length}</small></h2>
-        ${bofs.map((s) => `<div class="card tight t-bof" data-action="session" data-id="${s.id}" style="cursor:pointer;border-left:5px solid var(--mint)">
+        ${bofs.map((s) => `<div class="card tight t-bof" data-action="session" data-id="${esc(s.id)}" style="cursor:pointer;border-left:5px solid var(--mint)">
           <div class="row between"><b>${esc(s.title)}</b><span class="chip">${dayN(s.day)} · ${fmtTime(s.start)}</span></div>
           <div class="small muted">${t('{n} people linked', { n: s.attendees.length })}${s.takeaways ? ` · ${t('{n} takeaways', { n: s.takeaways.split('\n').filter(Boolean).length })}` : ''}${s.location ? ` · ${esc(s.location)}` : ''}</div></div>`).join('') || `<div class="card empty">${t('none scheduled yet.')}</div>`}`;
     }
@@ -4762,7 +4937,7 @@ window.R4_I18N = {
       ${links.map(([pi, ti]) => { const a = nodes[pi], b = nodes[ti]; const on = f && (a.id === f || b.id === f); return `<line class="web-edge ${on ? 'hl' : f ? 'web-dim' : ''}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"/>`; }).join('')}
       ${nodes.map((n) => (n.kind === 't'
         ? `<g class="web-node web-node-topic ${dim(n.id)}" data-action="web-focus" data-id="${esc(n.id)}"><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r.toFixed(1)}" ${f === n.id ? 'stroke="#ffc23d" stroke-width="3"' : ''}/>${n.label.split(' ').length > 1 ? n.label.split(' ').map((w, k, arr) => `<text x="${n.x.toFixed(1)}" y="${(n.y + (k - (arr.length - 1) / 2) * 12 + 4).toFixed(1)}" text-anchor="middle" style="font-size:${n.fs}px">${esc(w)}</text>`).join('') : `<text x="${n.x.toFixed(1)}" y="${(n.y + 4).toFixed(1)}" text-anchor="middle" style="font-size:${n.fs}px">${esc(n.label)}</text>`}</g>`
-        : `<g class="web-node web-node-person ${dim(n.id)}" data-action="web-focus" data-id="${n.id}"><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r}" fill="${persona(n.p).color}" ${n.p.status === 'want' ? `fill-opacity=".25" stroke="${persona(n.p).color}" stroke-width="2"` : 'stroke="#fff" stroke-width="2"'}/><text x="${n.x.toFixed(1)}" y="${(n.y + n.r + 11).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text></g>`)).join('')}
+        : `<g class="web-node web-node-person ${dim(n.id)}" data-action="web-focus" data-id="${esc(n.id)}"><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r}" fill="${persona(n.p).color}" ${n.p.status === 'want' ? `fill-opacity=".25" stroke="${persona(n.p).color}" stroke-width="2"` : 'stroke="#fff" stroke-width="2"'}/><text x="${n.x.toFixed(1)}" y="${(n.y + n.r + 11).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text></g>`)).join('')}
     </svg>`;
   }
   function viewConnect() {
@@ -4788,13 +4963,13 @@ window.R4_I18N = {
         <details class="card tight"><summary class="small" style="cursor:pointer"><b>${t('tune matching')}</b> <span class="muted">· ${t('weights')}</span></summary>
           ${[['shared', _('shared interests')], ['goal', _('goal fit')], ['hot', _('hot priority')], ['bridges', _('mutual connections')]].map(([k, l]) => `<label class="small muted" style="display:block;margin-top:8px">${t(l)} · <b>${state.matchWeights[k]}</b><input type="range" min="0" max="40" step="1" value="${state.matchWeights[k]}" data-input="mw-${k}" style="width:100%" /></label>`).join('')}</details>
         <h2 class="section">${t('who should i meet')} <small>${sug.length}</small></h2>
-        ${sug.map((x) => `<button class="list-item" data-action="person" data-id="${x.p.id}">${avatar(x.p)}<div class="grow"><span class="name">${esc(x.p.name)}</span>
+        ${sug.map((x) => `<button class="list-item" data-action="person" data-id="${esc(x.p.id)}">${avatar(x.p)}<div class="grow"><span class="name">${esc(x.p.name)}</span>
           <div class="sub">${esc([x.p.role, x.p.company].filter(Boolean).join(' · '))}</div><div class="chips" style="margin-top:5px">${x.reasons.map((r) => `<span class="chip">${esc(r)}</span>`).join('')}</div></div>
           <span class="match-score">${x.score}</span></button>`).join('') || `<div class="card empty"><b>${t('to-meet list is empty')}</b>${t('add people with status "to meet".')}</div>`}
         <h2 class="section">${t('intros you could make')} <small>${ints.length}</small></h2>
         ${ints.map((x) => `<div class="card tight"><div class="row">${avatar(x.a)}<span style="font-weight:700;color:var(--blue)">↔</span>${avatar(x.b)}
           <div class="grow"><b>${esc(first(x.a.name))} & ${esc(first(x.b.name))}</b><div class="small muted">${t('both into {topics}', { topics: esc(x.shared.join(', ')) })}</div></div>
-          <button class="btn secondary sm" data-action="copy-intro" data-a="${x.a.id}" data-b="${x.b.id}">${t('copy intro')}</button></div></div>`).join('') || `<div class="card empty">${t('log a few more people to see intros.')}</div>`}`;
+          <button class="btn secondary sm" data-action="copy-intro" data-a="${esc(x.a.id)}" data-b="${esc(x.b.id)}">${t('copy intro')}</button></div></div>`).join('') || `<div class="card empty">${t('log a few more people to see intros.')}</div>`}`;
     } else {
       const pool = state.people.filter((p) => ui.groupPool === 'all' || p.status === ui.groupPool).filter((p) => !ui.groupTopic || p.topics.includes(ui.groupTopic));
       const groups = pool.length >= 2 ? buildGroups(pool, ui.groupSize, ui.groupSeed) : [];
@@ -4805,7 +4980,7 @@ window.R4_I18N = {
         <button class="btn secondary sm" style="margin-top:12px" data-action="group-shuffle">${t('shuffle groups')}</button></div>
         <p class="small muted" style="margin:0 2px 10px">${t('{a} people → {b} groups, clustered by shared subject.', { a: pool.length, b: groups.length })}</p>
         ${groups.map((g, i) => `<div class="card group-card" style="--gc:${colors[i % colors.length]}"><div class="row between"><h3>${t('group {n}', { n: i + 1 })} · ${esc(g.topic || t('open mix'))}</h3><span class="chip">${g.members.length}</span></div>
-          <div class="chips" style="margin:8px 0">${g.members.map((p) => `<button class="chip" data-action="person" data-id="${p.id}">${esc(p.name)}</button>`).join('')}</div>
+          <div class="chips" style="margin:8px 0">${g.members.map((p) => `<button class="chip" data-action="person" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>
           <p class="small muted">${t('conversation starter')}: “${esc(g.prompt)}”</p>
           <div class="row" style="gap:6px;margin-top:10px"><button class="btn sm" data-action="group-bof" data-i="${i}">${t('schedule as bof')}</button><button class="btn ghost sm" data-action="group-copy" data-i="${i}">${t('copy')}</button></div></div>`).join('') || `<div class="card empty">${t('need at least 2 people.')}</div>`}`;
       ui._groups = groups;
@@ -4870,8 +5045,8 @@ window.R4_I18N = {
         <div class="field"><label>${t('the idea')}</label><input name="idea" required placeholder="${t('one line')}" /></div></div>
         <button class="btn sm">${t('add pitcher')}</button></form>
       <h2 class="section">${t('up next')} <small>${Math.max(0, queue.length - 1)}</small></h2>
-      ${queue.slice(1).map((p, i) => `<div class="card tight row"><span class="chip">${i + 2}</span><div class="grow"><b>${esc(p.name)}</b><div class="small muted">${esc(p.idea)}</div></div><button class="btn ghost sm" data-action="pitch-remove" data-id="${p.id}">${t('remove')}</button></div>`).join('') || `<div class="card empty small">${t('nobody else queued.')}</div>`}
-      ${done.length ? `<h2 class="section">${t('pitched')} <small>${done.length}</small></h2>${done.map((p) => `<div class="card tight"><div class="row between"><b>${esc(p.name)}</b><span class="chip ${p.sparked.length ? 'good' : ''}">${t('{n} sparks', { n: p.sparked.length })}</span></div><div class="small muted">${esc(p.idea)}</div>${p.sparked.length ? `<div class="chips" style="margin-top:6px">${p.sparked.map((id) => personById(id)).filter(Boolean).map((x) => `<button class="chip" data-action="person" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>` : ''}</div>`).join('')}` : ''}
+      ${queue.slice(1).map((p, i) => `<div class="card tight row"><span class="chip">${i + 2}</span><div class="grow"><b>${esc(p.name)}</b><div class="small muted">${esc(p.idea)}</div></div><button class="btn ghost sm" data-action="pitch-remove" data-id="${esc(p.id)}">${t('remove')}</button></div>`).join('') || `<div class="card empty small">${t('nobody else queued.')}</div>`}
+      ${done.length ? `<h2 class="section">${t('pitched')} <small>${done.length}</small></h2>${done.map((p) => `<div class="card tight"><div class="row between"><b>${esc(p.name)}</b><span class="chip ${p.sparked.length ? 'good' : ''}">${t('{n} sparks', { n: p.sparked.length })}</span></div><div class="small muted">${esc(p.idea)}</div>${p.sparked.length ? `<div class="chips" style="margin-top:6px">${p.sparked.map((id) => personById(id)).filter(Boolean).map((x) => `<button class="chip" data-action="person" data-id="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div>` : ''}</div>`).join('')}` : ''}
       <div class="card tight row" style="margin-top:12px"><span class="grow small muted">${t('pitch length')}</span>${[60, 90, 120, 180].map((s) => `<button class="chip ${state.pitchSeconds === s ? 'on' : ''}" data-action="pitch-len" data-s="${s}">${s / 60}m</button>`).join('')}</div>`;
   }
 
@@ -4909,7 +5084,7 @@ window.R4_I18N = {
   function iceAttachSheet() {
     const q = iceList()[iceDeck()[ui.iceIdx % iceDeck().length]];
     openSheet(t('attach to person'), `<p class="small muted" style="margin-bottom:10px">“${esc(t(q))}”</p>
-      ${state.people.map((p) => `<button class="list-item" data-action="ice-attach-to" data-id="${p.id}">${avatar(p)}<div class="grow"><span class="name">${esc(p.name)}</span><div class="sub">${esc([p.role, p.company].filter(Boolean).join(' · '))}</div></div></button>`).join('')}`);
+      ${state.people.map((p) => `<button class="list-item" data-action="ice-attach-to" data-id="${esc(p.id)}">${avatar(p)}<div class="grow"><span class="name">${esc(p.name)}</span><div class="sub">${esc([p.role, p.company].filter(Boolean).join(' · '))}</div></div></button>`).join('')}`);
   }
 
   function viewReport() {
@@ -5026,7 +5201,7 @@ window.R4_I18N = {
       say('mine', cos, pa, t('hi, i am the chief of staff agent for {me}. {why}. could {name} meet {me} {slot} at the {loc}?', { me: state.me.name, why: x.reasons[0] || t('shared interests'), name: first(p.name), slot: slotText(slot), loc }),
         { skill: 'propose-meeting', slot: { day: slot.day, start: slot.start, end: slot.end, location: loc } });
       await sleep(pace);
-      const r = hash(`${p.id}:${ag.runs}`);
+      const r = hash(`${esc(p.id)}:${ag.runs}`);
       const picky = p.persona === 'exec' ? 0.35 : p.persona === 'cos' ? 0.05 : 0.15;
       if (r < picky) {
         say('peer', pa, cos, t('thanks. {name} is fully booked with client meetings at {event}. happy to swap agent cards and follow up after.', { name: first(p.name), event: state.me.eventName }), { status: 'declined' });
@@ -5093,7 +5268,7 @@ window.R4_I18N = {
     const p = personById(pr.personId); if (!p) return '';
     return `<div class="card tight ${persona(p).cls}"><div class="row">${avatar(p)}<div class="grow"><div class="row between"><b>${esc(p.name)}</b>${pr.status === 'booked' ? `<span class="chip good">✓ ${t('booked')}</span>` : pr.inbound ? `<span class="chip warn">${t('asked to meet you')}</span>` : `<span class="chip good">${t('accepted')}</span>`}</div>
       <div class="small muted">${esc(slotText(pr))}–${fmtTime(pr.end)} · ${esc(pr.location)}</div>${pr.brief ? `<div class="small" style="margin-top:4px">${esc(pr.brief)}</div>` : ''}</div></div>
-      ${pr.status === 'pending' ? `<div class="row" style="gap:6px;margin-top:10px;justify-content:flex-end"><button class="btn ghost sm" data-action="person" data-id="${p.id}">${t('open')}</button><button class="btn secondary sm" data-action="agent-decline" data-id="${pr.id}">${t('decline')}</button><button class="btn sm" data-action="agent-approve" data-id="${pr.id}">${t('book it')}</button></div>` : ''}</div>`;
+      ${pr.status === 'pending' ? `<div class="row" style="gap:6px;margin-top:10px;justify-content:flex-end"><button class="btn ghost sm" data-action="person" data-id="${esc(p.id)}">${t('open')}</button><button class="btn secondary sm" data-action="agent-decline" data-id="${esc(pr.id)}">${t('decline')}</button><button class="btn sm" data-action="agent-approve" data-id="${esc(pr.id)}">${t('book it')}</button></div>` : ''}</div>`;
   };
   function agentTodayCard() {
     const pending = AG().proposals.filter((x) => x.status === 'pending').length; const booked = AG().proposals.filter((x) => x.status === 'booked').length;
@@ -5108,7 +5283,7 @@ window.R4_I18N = {
     return `<h1 class="page-title">${t('agents')}</h1><p class="page-sub">${t('your agents meet other chiefs of staff agents and line up meetings for you. every agent here is simulated.')}</p>
       <div class="card"><h3>${t('my agents')}</h3>
         ${MY_AGENTS.map((a) => `<div class="agent-row"><span class="agent-ico">${a.icon}</span><div class="grow"><b>${esc(t(a.name))}</b><div class="small muted">${esc(t(a.job))}</div></div>
-          ${a.core ? `<span class="chip good">${t('always on')}</span>` : `<button class="chip ${ag.on[a.id] ? 'good' : ''}" data-action="agent-toggle" data-id="${a.id}">${ag.on[a.id] ? t('on') : t('off')}</button>`}</div>`).join('')}
+          ${a.core ? `<span class="chip good">${t('always on')}</span>` : `<button class="chip ${ag.on[a.id] ? 'good' : ''}" data-action="agent-toggle" data-id="${esc(a.id)}">${ag.on[a.id] ? t('on') : t('off')}</button>`}</div>`).join('')}
         <label class="check" style="margin-top:10px"><input type="checkbox" data-action="agent-autobook" ${ag.autoBook ? 'checked' : ''}/> ${t('book accepted meetings without asking me')}</label>
         <button class="btn block" style="margin-top:12px" data-action="agent-run" ${ui.agentRunning ? 'disabled' : ''}>${ui.agentRunning ? t('agents are talking…') : t('let my agents network')}</button>
       </div>
@@ -5134,10 +5309,10 @@ window.R4_I18N = {
       ${polls.map((pl) => {
         const tot = pl.opts.reduce((a, o) => a + o.v, 0) || 1;
         return `<div class="poll"><b>${esc(pl.q)}</b>
-        ${pl.opts.map((o, i) => `<button class="poll-opt" data-action="poll-vote" data-sid="${s.id}" data-pid="${pl.id}" data-i="${i}"><span class="grow">${esc(o.t)}</span><span class="poll-bar"><i style="width:${Math.round((o.v / tot) * 100)}%"></i></span><b>${o.v}</b></button>`).join('')}
-        <div class="row" style="gap:6px;margin-top:6px;justify-content:flex-end"><button class="btn ghost sm" data-action="poll-del" data-sid="${s.id}" data-pid="${pl.id}">${t('remove poll')}</button></div></div>`;
+        ${pl.opts.map((o, i) => `<button class="poll-opt" data-action="poll-vote" data-sid="${esc(s.id)}" data-pid="${esc(pl.id)}" data-i="${i}"><span class="grow">${esc(o.t)}</span><span class="poll-bar"><i style="width:${Math.round((o.v / tot) * 100)}%"></i></span><b>${o.v}</b></button>`).join('')}
+        <div class="row" style="gap:6px;margin-top:6px;justify-content:flex-end"><button class="btn ghost sm" data-action="poll-del" data-sid="${esc(s.id)}" data-pid="${esc(pl.id)}">${t('remove poll')}</button></div></div>`;
       }).join('') || `<p class="small muted">${t('no polls yet. ask the room something.')}</p>`}
-      <form data-form="poll" data-id="${s.id}" style="margin-top:10px"><div class="field"><label>${t('question')}</label><input name="q" required placeholder="${t('ask the room…')}" /></div>
+      <form data-form="poll" data-id="${esc(s.id)}" style="margin-top:10px"><div class="field"><label>${t('question')}</label><input name="q" required placeholder="${t('ask the room…')}" /></div>
       <div class="field"><label>${t('options (comma separated)')}</label><input name="opts" required placeholder="${t('yes, no, maybe')}" /></div>
       <button class="btn sm">${t('start poll')}</button></form></div>`;
   }
@@ -5154,30 +5329,30 @@ window.R4_I18N = {
         <dl class="kv"><dt>${t('focus')}</dt><dd>${esc(s.focus)}</dd><dt>${t('looking for')}</dt><dd>${esc(s.wants)}</dd><dt>${t('you can offer')}</dt><dd>${esc(s.offer)}</dd>${p.metAt ? `<dt>${t('met at')}</dt><dd>${esc(p.metAt)}</dd>` : ''}${p.notes ? `<dt>${t('notes')}</dt><dd>${esc(p.notes)}</dd>` : ''}</dl>
         <p class="small" style="margin-top:10px;background:var(--blue-soft);padding:10px;border-radius:10px"><b>${t('how to approach:')}</b> ${esc(s.approach)}</p></div>
       <div class="card"><h3>${t('resources to share')}</h3>${s.resources.map((r, i) => `<div class="resource"><span class="ico">${i + 1}</span><div><b>${esc(r.title)}</b><div class="muted">${esc(r.desc)}</div></div></div>`).join('')}</div>
-      <form class="card" data-form="followup" data-id="${p.id}"><h3>${t('follow-up')}</h3>
+      <form class="card" data-form="followup" data-id="${esc(p.id)}"><h3>${t('follow-up')}</h3>
         <div class="field"><label>${t('next step')}</label><input name="action" value="${esc(p.followUp?.action)}" placeholder="${t('e.g. send case study')}" /></div>
         <div class="field-row"><div class="field"><label>${t('due')}</label><select name="due">${Array.from({ length: state.me.days + 3 }, (_x, i) => `<option value="${i}" ${p.followUp?.due === i ? 'selected' : ''}>${dayOpt(i)} · ${esc(dayLabel(i))}</option>`).join('')}</select></div>
         <div class="field"><label>${t('status')}</label><select name="done"><option value="0">${t('open')}</option><option value="1" ${p.followUp?.done ? 'selected' : ''}>${t('done')}</option></select></div></div>
         <label style="font-size:13px;font-weight:600;color:var(--muted)">${t('message template ({p})', { p: esc(plabel(p)) })}</label>
         <div class="template-box" style="margin:6px 0 10px">${esc(s.followup)}</div>
-        <div class="row wrap" style="gap:6px"><button class="btn sm">${t('save follow-up')}</button><button type="button" class="btn secondary sm" data-action="copy-followup" data-id="${p.id}">${t('copy message')}</button></div></form>
-      ${p.seq?.length ? `<div class="card"><h3>${t('follow-up sequence')}</h3>${p.seq.map((st, i) => `<label class="check"><input type="checkbox" data-action="seq-toggle" data-id="${p.id}" data-i="${i}" ${st.done ? 'checked' : ''}/> <b>${esc(st.label)}</b><span class="muted"> · ${esc(st.when)}</span></label>`).join('')}</div>`
-        : `<button class="btn secondary sm" data-action="seq-start" data-id="${p.id}" style="margin-bottom:12px">${t('start 3-step sequence')}</button>`}
-      <form class="card" data-form="promise" data-id="${p.id}"><h3>${t('promises')}</h3>
-        ${(state.promises || []).filter((x) => x.personId === p.id).map((x) => `<div class="row between" style="padding:6px 0"><span class="${x.done ? 'done' : ''}">${esc(x.text)}</span><button type="button" class="btn ghost sm" data-action="promise-toggle" data-id="${x.id}">${x.done ? t('reopen') : t('done')}</button></div>`).join('')}
+        <div class="row wrap" style="gap:6px"><button class="btn sm">${t('save follow-up')}</button><button type="button" class="btn secondary sm" data-action="copy-followup" data-id="${esc(p.id)}">${t('copy message')}</button></div></form>
+      ${p.seq?.length ? `<div class="card"><h3>${t('follow-up sequence')}</h3>${p.seq.map((st, i) => `<label class="check"><input type="checkbox" data-action="seq-toggle" data-id="${esc(p.id)}" data-i="${i}" ${st.done ? 'checked' : ''}/> <b>${esc(st.label)}</b><span class="muted"> · ${esc(st.when)}</span></label>`).join('')}</div>`
+        : `<button class="btn secondary sm" data-action="seq-start" data-id="${esc(p.id)}" style="margin-bottom:12px">${t('start 3-step sequence')}</button>`}
+      <form class="card" data-form="promise" data-id="${esc(p.id)}"><h3>${t('promises')}</h3>
+        ${(state.promises || []).filter((x) => x.personId === p.id).map((x) => `<div class="row between" style="padding:6px 0"><span class="${x.done ? 'done' : ''}">${esc(x.text)}</span><button type="button" class="btn ghost sm" data-action="promise-toggle" data-id="${esc(x.id)}">${x.done ? t('reopen') : t('done')}</button></div>`).join('')}
         <div class="row" style="margin-top:8px"><input class="search" style="margin:0" name="text" placeholder="${t('i promised…')}" required /><button class="btn sm">${t('add')}</button></div></form>
       <div class="row wrap" style="gap:8px">
-        ${p.status === 'want' ? `<button class="btn sm" data-action="mark-met" data-id="${p.id}">${t('i met them')}</button>` : ''}
-        <button class="btn secondary sm" data-action="book-1on1" data-id="${p.id}">${t('book a 1:1')}</button>
-        <button class="btn secondary sm" data-action="edit-person" data-id="${p.id}">${t('edit')}</button>
-        <button class="btn danger sm" data-action="delete-person" data-id="${p.id}">${t('delete')}</button>
+        ${p.status === 'want' ? `<button class="btn sm" data-action="mark-met" data-id="${esc(p.id)}">${t('i met them')}</button>` : ''}
+        <button class="btn secondary sm" data-action="book-1on1" data-id="${esc(p.id)}">${t('book a 1:1')}</button>
+        <button class="btn secondary sm" data-action="edit-person" data-id="${esc(p.id)}">${t('edit')}</button>
+        <button class="btn danger sm" data-action="delete-person" data-id="${esc(p.id)}">${t('delete')}</button>
       </div>`);
   }
   function personForm(p, opts = {}) {
     const isNew = !p; p = p || { name: '', role: '', company: '', persona: 'client', topics: [], status: opts.status || 'met', priority: 'warm', lookingFor: '', canOffer: '', notes: '', metAt: opts.metAt || '', day: currentDay(), followUp: { action: '', due: Math.min(currentDay() + 1, state.me.days + 2), done: false } };
     const allTopics = [...new Set([...SUGGESTED_TOPICS, ...state.people.flatMap((x) => x.topics), ...state.me.interests])];
     openSheet(isNew ? (opts.title || t('log a person')) : t('edit {name}', { name: p.name }), `
-      <form data-form="person" data-id="${isNew ? '' : p.id}" data-pitch="${opts.pitchId || ''}">
+      <form data-form="person" data-id="${isNew ? '' : esc(p.id)}" data-pitch="${esc(opts.pitchId || '')}">
         <div class="field"><label>${t('name')} *</label><input name="name" required value="${esc(p.name)}" placeholder="${t('first last')}" data-autofocus /></div>
         <div class="field-row"><div class="field"><label>${t('role')}</label><input name="role" value="${esc(p.role)}" /></div><div class="field"><label>${t('company')}</label><input name="company" value="${esc(p.company)}" /></div></div>
         <div class="field"><label>${t('persona')}</label><div class="chips">${Object.entries(PERSONAS).map(([k, ps]) => `<label class="chip ${p.persona === k ? 'on' : ''}" style="cursor:pointer"><input type="radio" name="persona" value="${k}" ${p.persona === k ? 'checked' : ''} hidden />${t(ps.label)}</label>`).join('')}</div></div>
@@ -5199,7 +5374,7 @@ window.R4_I18N = {
     const isNew = !s;
     s = s || { type: defaults.type || 'session', title: defaults.title || '', day: defaults.day ?? ui.day ?? currentDay(), start: defaults.start || '09:00', end: defaults.end || fromMin(toMin(defaults.start || '09:00') + (defaults.type === 'work' ? 60 : 45)), location: '', topic: defaults.topic || '', status: 'going', notes: '', attendees: defaults.attendees || [] };
     openSheet(isNew ? t('add to agenda') : t('edit'), `
-      <form data-form="session" data-id="${isNew ? '' : s.id}" data-attendees="${esc(s.attendees.join(','))}">
+      <form data-form="session" data-id="${isNew ? '' : esc(s.id)}" data-attendees="${esc(s.attendees.join(','))}">
         ${s.featured ? `<p class="small" style="background:#fff1d6;color:#7a3c00;padding:10px;border-radius:10px;margin-bottom:12px">${t('the time and room are placeholders. check the official r4 agenda and update them here so the countdown and alerts are right.')}</p>` : ''}
         <div class="field"><label>${t('type')}</label><div class="chips">${Object.entries(TYPES).map(([k, x]) => `<label class="chip ${s.type === k ? 'on' : ''}" style="cursor:pointer"><input type="radio" name="type" value="${k}" ${s.type === k ? 'checked' : ''} hidden />${t(x.label)}</label>`).join('')}</div></div>
         <div class="field"><label>${t('title')} *</label><input name="title" required value="${esc(s.title)}" data-autofocus /></div>
@@ -5222,23 +5397,23 @@ window.R4_I18N = {
     openSheet(s.title, `
       ${s.featured ? `<div class="headliner" style="margin:0 0 14px"><div class="hl-top"><span class="chip star">★ ${t('headliner')}</span><span class="hl-when">${esc(relDay(s))} · ${fmtTime(s.start)}</span></div>
         <div class="hl-name">${esc(hlName(s))}</div>${live ? `<p class="hl-hype" style="margin-top:8px"><b data-cd="short"></b></p><p class="hl-hype" data-cd="hype"></p>` : ''}
-        <div class="row wrap" style="gap:8px"><button class="btn coral sm" data-action="hl-ics" data-id="${s.id}">${t('add to calendar with reminders')}</button><button class="btn light sm" data-action="enable-alerts">${t('turn on alerts')}</button></div></div>` : ''}
+        <div class="row wrap" style="gap:8px"><button class="btn coral sm" data-action="hl-ics" data-id="${esc(s.id)}">${t('add to calendar with reminders')}</button><button class="btn light sm" data-action="enable-alerts">${t('turn on alerts')}</button></div></div>` : ''}
       <div class="row wrap" style="gap:6px;margin-bottom:12px"><span class="chip" style="background:${TYPES[s.type].color};color:#fff">${t(TYPES[s.type].label)}</span><span class="chip">${dayN(s.day)} · ${fmtTime(s.start)}–${fmtTime(s.end)}</span>${s.location ? `<span class="chip">${esc(s.location)}</span>` : ''}${conflicts.has(s.id) ? `<span class="chip bad">${t('conflict')}</span>` : ''}${s.topic ? `<span class="chip good">${esc(s.topic)}</span>` : ''}</div>
       <div class="card"><div class="row between"><h3>${t('people here')}</h3><span class="chip">${people.length}</span></div>
-        ${people.map((p) => `<div class="row" style="padding:6px 0">${avatar(p)}<div class="grow" data-action="person" data-id="${p.id}" style="cursor:pointer"><b>${esc(p.name)}</b><div class="small muted">${esc(p.company)}</div></div><button class="btn ghost sm" data-action="unlink" data-sid="${s.id}" data-pid="${p.id}">${t('remove')}</button></div>`).join('') || `<p class="small muted">${t('no one linked yet.')}</p>`}
-        <div class="row" style="margin-top:10px"><select id="link-person" class="search" style="margin:0"><option value="">${t('link someone…')}</option>${others.map((p) => `<option value="${p.id}">${esc(p.name)}${p.company ? ` (${esc(p.company)})` : ''}</option>`).join('')}</select><button class="btn sm" data-action="link" data-sid="${s.id}">${t('link')}</button></div>
-        <button class="btn ghost sm" style="margin-top:6px" data-action="add-person-at" data-sid="${s.id}">+ ${t('log someone new here')}</button></div>
-      <form class="card" data-form="session-notes" data-id="${s.id}">
+        ${people.map((p) => `<div class="row" style="padding:6px 0">${avatar(p)}<div class="grow" data-action="person" data-id="${esc(p.id)}" style="cursor:pointer"><b>${esc(p.name)}</b><div class="small muted">${esc(p.company)}</div></div><button class="btn ghost sm" data-action="unlink" data-sid="${esc(s.id)}" data-pid="${esc(p.id)}">${t('remove')}</button></div>`).join('') || `<p class="small muted">${t('no one linked yet.')}</p>`}
+        <div class="row" style="margin-top:10px"><select id="link-person" class="search" style="margin:0"><option value="">${t('link someone…')}</option>${others.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}${p.company ? ` (${esc(p.company)})` : ''}</option>`).join('')}</select><button class="btn sm" data-action="link" data-sid="${esc(s.id)}">${t('link')}</button></div>
+        <button class="btn ghost sm" style="margin-top:6px" data-action="add-person-at" data-sid="${esc(s.id)}">+ ${t('log someone new here')}</button></div>
+      <form class="card" data-form="session-notes" data-id="${esc(s.id)}">
         <div class="field"><label>${t('why i am going')}</label><input name="why" value="${esc(s.why || '')}" placeholder="${t('one line, for your prep shortlist')}" /></div>
         <div class="field"><label>${s.type === 'bof' ? t('discussion notes') : t('notes')}</label><textarea name="notes">${esc(s.notes)}</textarea></div>
         <div class="field"><label>${t('takeaways (one per line, goes in your report)')}</label><textarea name="takeaways">${esc(s.takeaways)}</textarea></div>
         <button class="btn sm">${t('save notes')}</button></form>
       ${['bof', 'pitch', 'meetup'].includes(s.type) ? pollHtml(s) : ''}
       <div class="row wrap" style="gap:8px">
-        <button class="btn secondary sm" data-action="toggle-going" data-id="${s.id}">${s.status === 'going' ? t('mark as maybe') : t('mark as going')}</button>
-        <button class="btn secondary sm" data-action="export-one" data-id="${s.id}">${t('add to calendar')}</button>
-        <button class="btn secondary sm" data-action="edit-session" data-id="${s.id}">${t('edit')}</button>
-        <button class="btn danger sm" data-action="delete-session" data-id="${s.id}">${t('delete')}</button></div>`);
+        <button class="btn secondary sm" data-action="toggle-going" data-id="${esc(s.id)}">${s.status === 'going' ? t('mark as maybe') : t('mark as going')}</button>
+        <button class="btn secondary sm" data-action="export-one" data-id="${esc(s.id)}">${t('add to calendar')}</button>
+        <button class="btn secondary sm" data-action="edit-session" data-id="${esc(s.id)}">${t('edit')}</button>
+        <button class="btn danger sm" data-action="delete-session" data-id="${esc(s.id)}">${t('delete')}</button></div>`);
     updateCountdowns();
   }
   function settingsSheet() {
@@ -5252,13 +5427,13 @@ window.R4_I18N = {
         <div class="field-row"><div class="field"><label>${t('days')}</label><input type="number" min="1" max="7" name="days" value="${m.days}" /></div><div class="field"><label>${t('day hours')}</label><div class="row"><input type="time" name="dayStart" value="${m.dayStart}" /><input type="time" name="dayEnd" value="${m.dayEnd}" /></div></div></div>
         <button class="btn block">${t('save')}</button></form>
       <div class="card" style="margin-top:14px"><h3>${t('your data')}</h3><p class="small muted" style="margin-bottom:10px">${t('everything stays on this device (browser storage). back it up or move it to another device with export / import.')}</p>
-        <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
+        <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="export-previous">${t('export previous backup')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
         <button class="btn secondary sm" data-action="reset-demo">${t('reset to demo data')}</button><button class="btn danger sm" data-action="clear-all">${t('start fresh (empty)')}</button></div>
         <input type="file" id="json-file" accept="application/json,.json" hidden /></div>`);
   }
   function goalsSheet() {
-    openSheet(t('my goals'), `<form data-form="goals">${state.goals.map((g) => `<div class="card tight"><div class="field"><label>${g.auto ? t('goal (auto-tracked)') : t('goal (tracked by hand)')}</label><input name="text-${g.id}" value="${esc(goalText(g))}" /></div>
-      <div class="row between"><div class="field" style="margin:0;max-width:120px"><label>${t('target')}</label><input type="number" min="1" name="target-${g.id}" value="${g.target}" /></div><button type="button" class="btn ghost sm" data-action="del-goal" data-id="${g.id}">${t('remove')}</button></div></div>`).join('')}
+    openSheet(t('my goals'), `<form data-form="goals">${state.goals.map((g) => `<div class="card tight"><div class="field"><label>${g.auto ? t('goal (auto-tracked)') : t('goal (tracked by hand)')}</label><input name="text-${esc(g.id)}" value="${esc(goalText(g))}" /></div>
+      <div class="row between"><div class="field" style="margin:0;max-width:120px"><label>${t('target')}</label><input type="number" min="1" name="target-${esc(g.id)}" value="${g.target}" /></div><button type="button" class="btn ghost sm" data-action="del-goal" data-id="${esc(g.id)}">${t('remove')}</button></div></div>`).join('')}
       <div class="card tight"><div class="field"><label>${t('new goal (tracked by hand)')}</label><input name="newText" placeholder="${t('e.g. find 2 pursuit partners')}" /></div><div class="field" style="max-width:120px"><label>${t('target')}</label><input type="number" min="1" name="newTarget" value="3" /></div></div>
       <button class="btn block">${t('save goals')}</button></form>`);
   }
@@ -5271,9 +5446,9 @@ window.R4_I18N = {
     $('#lang-switch').innerHTML = Object.entries(LANGS).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}" aria-label="${k}">${l.label}</button>`).join('');
     $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}"><span class="tab-ico">${I[k]}</span>${t(l)}</button>`).join('');
     const hl = headliner();
-    $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${hl.id}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
+    $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${esc(hl.id)}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
     const views = { prep: viewPrep, today: viewToday, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewAgents, pitch: viewPitch, report: viewReport };
-    $('#view').innerHTML = (views[ui.tab] || viewPrep)();
+    $('#view').innerHTML = (loadWarning ? `<div class="card"><p>${t('recovery mode: changes are not saved until you accept this recovered project.')}</p><button class="btn" data-action="accept-recovery">${t('keep recovered project')}</button></div>` : '') + (views[ui.tab] || viewPrep)();
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
     checkBadges();
@@ -5289,6 +5464,7 @@ window.R4_I18N = {
     'go-connect': (el) => { ui.connectSeg = el.dataset.seg; go('connect'); },
     'go-recap': () => { ui.reportSeg = 'recap'; ui.recapDay = currentDay(); go('report'); },
     'open-settings': settingsSheet,
+    'accept-recovery': () => { loadWarning = false; try { save(); } catch (error) { loadWarning = true; toast(error.message); return; } render(); toast(t('saved')); },
     'set-lang': (el) => { state.me.lang = el.dataset.lang; save(); const inSheet = !!el.closest('.sheet'); render(); if (inSheet) settingsSheet(); },
     'close-sheet': closeSheet,
     'close-sheet-bg': (el, e) => { if (e.target === el) closeSheet(); },
@@ -5423,6 +5599,7 @@ window.R4_I18N = {
     'report-email': () => { const subj = ui.reportSeg === 'team' ? t('{event} networking report', { event: state.me.eventName }) : t('{event} day {n} recap', { event: state.me.eventName, n: ui.recapDay + 1 }); location.href = `mailto:?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(ui._md.slice(0, 1800))}`; },
     'report-print': () => window.print(),
     'export-json': () => download(`r4-networking-backup-${isoOf(new Date())}.json`, JSON.stringify(state, null, 2), 'application/json'),
+    'export-previous': () => { const previous = localStorage.getItem(KEY + '.previous'); if (previous) download('r4-networking-previous.json', previous, 'application/json'); else toast(t('no previous backup')); },
     'import-json': () => $('#json-file').click(),
     'reset-demo': () => { if (!confirm(t('replace everything with demo data?'))) return; const l = lang(); state = seed(); state.me.lang = l; save(); closeSheet(); resetTimer(); render(); toast(t('demo data loaded')); },
     'clear-all': () => {
@@ -5494,7 +5671,7 @@ window.R4_I18N = {
       save(); closeSheet(); render(); toast(t('saved'));
     },
     goals: (fd) => {
-      state.goals.forEach((g) => { const v = fd.get(`text-${g.id}`).trim(); if (v && v !== goalText(g)) g.text = v; g.target = Math.max(1, Number(fd.get(`target-${g.id}`)) || g.target); });
+      state.goals.forEach((g) => { const v = fd.get(`text-${esc(g.id)}`).trim(); if (v && v !== goalText(g)) g.text = v; g.target = Math.max(1, Number(fd.get(`target-${esc(g.id)}`)) || g.target); });
       if (fd.get('newText').trim()) state.goals.push({ id: uid(), text: fd.get('newText').trim(), target: Math.max(1, Number(fd.get('newTarget')) || 1), auto: '', count: 0 });
       save(); closeSheet(); render(); toast(t('goals saved'));
     },
@@ -5524,25 +5701,28 @@ window.R4_I18N = {
       x.closest('.chips').querySelectorAll('label.chip').forEach((l) => l.classList.toggle('on', l.contains(x)));
     }
     if (x.id === 'ics-file' && x.files[0]) {
+      if (x.files[0].size > 2 * 1024 * 1024) { toast('Calendar exceeds 2 MiB'); x.value = ''; return; }
       x.files[0].text().then((text) => {
-        const evs = parseIcs(text); let added = 0;
+        const evs = parseIcs(text), additions = [];
         evs.forEach((ev) => {
           const day = Math.round((new Date(ev.start.getFullYear(), ev.start.getMonth(), ev.start.getDate()) - dayDate(0)) / 86400000);
           if (day < 0 || day >= state.me.days) return;
           const start = fromMin(ev.start.getHours() * 60 + ev.start.getMinutes());
-          let endM = ev.end.getHours() * 60 + ev.end.getMinutes(); if (ev.end.getDate() !== ev.start.getDate()) endM = 23 * 60 + 55;
-          if (state.sessions.some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
-          state.sessions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(Math.max(endM, toMin(start) + 15)), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
-          added++;
+          const endM = ev.end.getHours() * 60 + ev.end.getMinutes();
+          if (isoOf(ev.end) !== isoOf(ev.start) || endM <= toMin(start)) throw new Error('Import same-day events lasting at least one minute; split overnight events first.');
+          if ([...state.sessions, ...additions].some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
+          additions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(endM), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
         });
-        save(); render(); toast(added ? t('{n} work events imported', { n: added }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
-      });
+        if (additions.length) { state = window.R4_BACKUP.restore({ ...state, sessions: [...state.sessions, ...additions] }, state, localStorage, KEY, migrate); loadWarning = false; }
+        render(); toast(additions.length ? t('{n} work events imported', { n: additions.length }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
+      }).catch(error => toast(error.message));
       x.value = '';
     }
     if (x.id === 'json-file' && x.files[0]) {
+      if (x.files[0].size > 20 * 1024 * 1024) { toast(t('that file does not look like a backup') + ': 20 MiB maximum'); x.value = ''; return; }
       x.files[0].text().then((text) => {
-        try { const data = JSON.parse(text); if (!data.people || !data.sessions) throw new Error('bad file'); state = data; migrate(); save(); closeSheet(); render(); toast(t('imported')); } catch { toast(t('that file does not look like a backup')); }
-      });
+        try { state = window.R4_BACKUP.restore(JSON.parse(text), state, localStorage, KEY, migrate); loadWarning = false; closeSheet(); render(); toast(t('imported')); } catch (error) { toast(t('that file does not look like a backup') + ': ' + error.message); }
+      }).catch(() => toast(t('that file does not look like a backup')));
       x.value = '';
     }
   });
@@ -5560,6 +5740,7 @@ window.R4_I18N = {
   window.addEventListener('hashchange', handleAgentHash);
   render();
   handleAgentHash();
+  if (loadWarning) toast(t('saved data could not be loaded; the original was kept. export a backup before editing.'));
   setInterval(() => { updateCountdowns(); checkAlerts(); }, 1000);
   setTimeout(checkAlerts, 1500);
 })();
