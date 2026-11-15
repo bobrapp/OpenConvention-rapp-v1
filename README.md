@@ -4,6 +4,20 @@ Mobile-first networking companion for Slalom r4. Static HTML/CSS/JS, no build st
 
 Run: `python3 -m http.server 8080` in this folder, open http://localhost:8080.
 
+## Backups
+
+Root-app JSON imports accept version 1 backups up to 20 MiB. Identifiers, member
+types, dates, times and nested collections are validated before migration or
+storage replacement. Older version-1 backups without the headliner/chief-of-staff
+flags, language or agent state are migrated on a detached copy; other versions
+are rejected rather than guessed. A storage failure leaves the current project
+unchanged. Before a successful import, the prior project is retained under
+Settings → **export previous backup**.
+
+If persisted data is invalid, startup uses the previous valid snapshot when
+available, otherwise demo data, and warns without overwriting the original.
+Export before editing a recovered project; browser storage is not a durable backup.
+
 ## Versions
 
 The same app, built by three AI builders. Each version lives on its own branch:

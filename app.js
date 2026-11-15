@@ -220,27 +220,36 @@
   }
 
   // ---------- state ----------
-  let state = null;
-  try { state = JSON.parse(localStorage.getItem(KEY)); if (state) window.R4_BACKUP.validateIds(state); } catch { state = null; }
-  if (!state || state.version !== 1) state = seed();
-  function migrate() {
-    state.fired = state.fired || {}; state.prep = state.prep || {};
-    if (!state.me.lang) state.me.lang = 'en';
-    if (!state.headlinerSeeded) {
-      const day = Math.min(currentDay() + 1, state.me.days - 1);
-      const old = state.sessions.find((s) => s.title === 'keynote: the people side of change');
+  let state = null, loadWarning = false;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) state = window.R4_BACKUP.prepare(JSON.parse(raw), migrate);
+  } catch {
+    loadWarning = true;
+    try { const previous = localStorage.getItem(KEY + '.previous'); if (previous) state = window.R4_BACKUP.prepare(JSON.parse(previous), migrate); } catch { /* preserve both stored snapshots */ }
+  }
+  if (!state) state = seed();
+  function migrate(candidate) {
+    candidate.fired = candidate.fired || {}; candidate.prep = candidate.prep || {};
+    if (!candidate.me.lang) candidate.me.lang = 'en';
+    if (!candidate.headlinerSeeded) {
+      const [y, m, d] = candidate.me.eventStart.split('-').map(Number), now = new Date();
+      const todayIndex = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(y, m - 1, d)) / 86400000);
+      const day = Math.min(Math.max(0, todayIndex) + 1, candidate.me.days - 1);
+      const old = candidate.sessions.find((s) => s.title === 'keynote: the people side of change');
       if (old) Object.assign(old, { title: 'keynote: oprah winfrey', speaker: 'oprah winfrey', featured: true, day, start: '09:00', end: '10:00', location: 'main hall' });
-      else state.sessions.push(headlinerSession(day));
-      state.sessions.filter((s) => s.day === day && s.type === 'work' && s.title === 'team check-in').forEach((s) => { s.start = '08:00'; s.end = '08:30'; });
-      state.headlinerSeeded = true;
+      else candidate.sessions.push(headlinerSession(day));
+      candidate.sessions.filter((s) => s.day === day && s.type === 'work' && s.title === 'team check-in').forEach((s) => { s.start = '08:00'; s.end = '08:30'; });
+      candidate.headlinerSeeded = true;
     }
-    if (!state.cosSeeded) {
-      COS_PEOPLE.forEach((o) => { if (!state.people.some((p) => p.name === o.name)) state.people.push(cosPerson(o)); });
-      if (!state.sessions.some((s) => s.title === 'chiefs of staff circle')) state.sessions.push(cosBof());
-      state.bofTopics.push({ id: uid(), title: 'chiefs of staff: running the operating rhythm', by: 'olivia', votes: 11, voted: false });
-      state.cosSeeded = true;
+    if (!candidate.cosSeeded) {
+      COS_PEOPLE.forEach((o) => { if (!candidate.people.some((p) => p.name === o.name)) candidate.people.push(cosPerson(o)); });
+      if (!candidate.sessions.some((s) => s.title === 'chiefs of staff circle')) candidate.sessions.push(cosBof());
+      candidate.bofTopics.push({ id: uid(), title: 'chiefs of staff: running the operating rhythm', by: 'olivia', votes: 11, voted: false });
+      candidate.cosSeeded = true;
     }
-    state.agents = { ...freshAgents(), ...(state.agents || {}) };
+    const defaults = freshAgents();
+    candidate.agents = { ...defaults, ...(candidate.agents || {}), on: { ...defaults.on, ...candidate.agents?.on } };
   }
   const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 
@@ -259,7 +268,7 @@
     const diff = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - dayDate(0)) / 86400000);
     return Math.max(0, Math.min(state.me.days - 1, diff));
   }
-  migrate(); save();
+  if (!loadWarning) { try { save(); } catch { loadWarning = true; } }
   const isEventDay = () => isoOf(new Date()) >= state.me.eventStart && isoOf(new Date()) <= isoOf(dayDate(state.me.days - 1));
   const personById = (id) => state.people.find((p) => p.id === id);
   const sessionById = (id) => state.sessions.find((s) => s.id === id);
@@ -1269,7 +1278,7 @@
         <div class="field-row"><div class="field"><label>${t('days')}</label><input type="number" min="1" max="7" name="days" value="${m.days}" /></div><div class="field"><label>${t('day hours')}</label><div class="row"><input type="time" name="dayStart" value="${m.dayStart}" /><input type="time" name="dayEnd" value="${m.dayEnd}" /></div></div></div>
         <button class="btn block">${t('save')}</button></form>
       <div class="card" style="margin-top:14px"><h3>${t('your data')}</h3><p class="small muted" style="margin-bottom:10px">${t('everything stays on this device (browser storage). back it up or move it to another device with export / import.')}</p>
-        <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
+        <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="export-previous">${t('export previous backup')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
         <button class="btn secondary sm" data-action="reset-demo">${t('reset to demo data')}</button><button class="btn danger sm" data-action="clear-all">${t('start fresh (empty)')}</button></div>
         <input type="file" id="json-file" accept="application/json,.json" hidden /></div>`);
   }
@@ -1401,6 +1410,7 @@
     'report-print': () => window.print(),
     'export-json': () => download(`r4-networking-backup-${isoOf(new Date())}.json`, JSON.stringify(state, null, 2), 'application/json'),
     'import-json': () => $('#json-file').click(),
+    'export-previous': () => { const previous = localStorage.getItem(KEY + '.previous'); if (previous) download('r4-networking-previous.json', previous, 'application/json'); else toast(t('no previous backup')); },
     'reset-demo': () => { if (!confirm(t('replace everything with demo data?'))) return; const l = lang(); state = seed(); state.me.lang = l; save(); closeSheet(); resetTimer(); render(); toast(t('demo data loaded')); },
     'clear-all': () => {
       if (!confirm(t('start fresh? this clears all people, sessions and pitches.'))) return;
@@ -1498,9 +1508,10 @@
       x.value = '';
     }
     if (x.id === 'json-file' && x.files[0]) {
+      if (x.files[0].size > 20 * 1024 * 1024) { toast(t('that file does not look like a backup') + ': 20 MiB maximum'); x.value = ''; return; }
       x.files[0].text().then((text) => {
-        try { const data = window.R4_BACKUP.validateIds(JSON.parse(text)); if (!data.people || !data.sessions) throw new Error('bad file'); state = data; migrate(); save(); closeSheet(); render(); toast(t('imported')); } catch { toast(t('that file does not look like a backup')); }
-      });
+        try { state = window.R4_BACKUP.restore(JSON.parse(text), state, localStorage, KEY, migrate); closeSheet(); render(); toast(t('imported')); } catch (error) { toast(t('that file does not look like a backup') + ': ' + error.message); }
+      }).catch(() => toast(t('that file does not look like a backup')));
       x.value = '';
     }
   });
@@ -1518,6 +1529,7 @@
   window.addEventListener('hashchange', handleAgentHash);
   render();
   handleAgentHash();
+  if (loadWarning) toast(t('saved data could not be loaded; the original was kept. export a backup before editing.'));
   setInterval(() => { updateCountdowns(); checkAlerts(); }, 1000);
   setTimeout(checkAlerts, 1500);
 })();
