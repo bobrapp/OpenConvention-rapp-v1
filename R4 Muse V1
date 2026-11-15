@@ -5671,6 +5671,7 @@ window.R4_I18N = {
       const days = Math.max(1, Math.min(7, Number(fd.get('days')) || 3));
       Object.assign(state.me, { name: fd.get('name').trim() || 'me', team: fd.get('team').trim() || 'my team', interests: parseTopics(fd.get('interests')), eventName: fd.get('eventName').trim() || 'r4', eventStart: fd.get('eventStart') || state.me.eventStart, days, dayStart: fd.get('dayStart') || '08:00', dayEnd: fd.get('dayEnd') || '18:00' });
       state.sessions.forEach((s) => { if (s.day >= days) s.day = days - 1; });
+      (state.agents?.proposals || []).forEach((p) => { if (p.day >= days) p.day = days - 1; });
       ui.day = null; ui.recapDay = null;
       save(); closeSheet(); render(); toast(t('saved'));
     },
@@ -5717,7 +5718,10 @@ window.R4_I18N = {
           if ([...state.sessions, ...additions].some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
           additions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(endM), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
         });
-        if (additions.length) { state = window.R4_BACKUP.restore({ ...state, sessions: [...state.sessions, ...additions] }, state, localStorage, KEY, migrate); loadWarning = false; }
+        if (additions.length) {
+          const next = { ...state, sessions: [...state.sessions, ...additions] };
+          state = loadWarning ? window.R4_BACKUP.prepare(next, migrate) : window.R4_BACKUP.restore(next, state, localStorage, KEY, migrate);
+        }
         render(); toast(additions.length ? t('{n} work events imported', { n: additions.length }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
       }).catch(error => toast(error.message));
       x.value = '';

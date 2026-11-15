@@ -98,6 +98,13 @@ try {
     await page.locator('#ics-file').setInputFiles({ name: 'unsupported.ics', mimeType: 'text/calendar', buffer: Buffer.from(calendar.replaceAll('America/New_York', 'Unknown/Zone')) });
     await page.waitForTimeout(100);
     check(JSON.stringify(await stored()) === before && (await page.locator('#toast').innerText()).includes('Unsupported calendar TZID'), entry + ': unsupported TZID warns and leaves agenda unchanged');
+    const shorter = emptyBackup(); shorter.agents.proposals = [{ id: 'synthetic-proposal', personId: 'synthetic-person', status: 'pending', day: 2, start: '10:00', end: '10:30', location: 'Hall', brief: 'Synthetic', inbound: false }];
+    await load(shorter);
+    await page.click('[data-action=open-settings]');
+    await page.fill('form[data-form=settings] [name=days]', '1');
+    await page.click('form[data-form=settings] button.btn.block');
+    await page.reload(); await page.waitForSelector('#tabbar button');
+    check((await stored()).me.days === 1 && (await stored()).agents.proposals[0].day === 0 && (await page.title()).includes('Synthetic event'), entry + ': shortening the event keeps the saved project valid');
     await page.reload(); await page.waitForSelector('#tabbar button');
     check(!errors.length, entry + ': no page errors, including after reload');
     await ctx.close();
@@ -112,6 +119,13 @@ try {
       await p.click('#tabbar [data-tab=today]');
       await p.waitForTimeout(1600);
       check(await p.evaluate(key => localStorage.getItem(key) === '{"version":1,"sessions":{}}', key), entry + ': automatic rendering and alert bookkeeping preserve rejected data');
+      if (previous) {
+        const prior = await p.evaluate(key => localStorage.getItem(key + '.previous'), key);
+        await p.click('#tabbar [data-tab=agenda]');
+        await p.locator('#ics-file').setInputFiles({ name: 'synthetic.ics', mimeType: 'text/calendar', buffer: Buffer.from(calendar) });
+        await p.waitForFunction(() => document.querySelector('#toast').innerText.includes('imported'));
+        check(await p.evaluate(({ key, prior }) => localStorage.getItem(key) === '{"version":1,"sessions":{}}' && localStorage.getItem(key + '.previous') === prior, { key, prior }), entry + ': calendar import during recovery keeps rejected and previous snapshots');
+      }
       await p.click('[data-action=accept-recovery]');
       check(await p.evaluate(key => Array.isArray(JSON.parse(localStorage.getItem(key)).sessions), key), entry + ': explicit recovery resumes persistence');
       await recovery.close();
