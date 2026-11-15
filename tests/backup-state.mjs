@@ -43,6 +43,15 @@ assert.equal(JSON.parse(values.get('synthetic')).me.name, 'Restored');
 context.window.R4_VARIANT = 'muse';
 const muse = { ...emptyBackup(), badges: {}, streak: [], debriefs: {}, promises: [], pitchRevisions: [], pitchDraft: '', matchWeights: { shared: 22, goal: 18, hot: 18, bridges: 4 } };
 assert.doesNotThrow(() => validate(muse));
+const meetup = structuredClone(muse);
+meetup.sessions.push({ id: 'meetup1', type: 'meetup', status: 'going', title: 'Synthetic meetup', location: '', notes: '', takeaways: '', topic: '', attendees: [], day: 0, start: '09:00', end: '10:00', why: 'Synthetic reason', polls: [{ id: 'poll1', q: 'Synthetic question', opts: [{ t: 'Yes', v: 1 }] }] });
+assert.doesNotThrow(() => validate(meetup));
+for (const polls of [{}, [{ id: 'poll1', q: 'Synthetic question', opts: {} }], [{ id: 'poll1', q: 'Synthetic question', opts: [{ t: 'Yes', v: 'x" data-marker="vote' }] }]]) {
+  const bad = structuredClone(meetup); bad.sessions[0].polls = polls; assert.throws(() => validate(bad));
+}
+context.window.R4_VARIANT = undefined;
+assert.throws(() => validate(meetup), 'root must reject unsupported Muse session types before rendering');
+context.window.R4_VARIANT = 'muse';
 for (const alter of [x => { x.promises = {}; }, x => { x.debriefs = { 0: { moments: {} } }; }, x => { x.matchWeights.hot = 'x" data-marker="weight'; }, x => { x.pitchRevisions = [{ id: 'safe', text: {}, ts: 1 }]; }]) {
   const bad = structuredClone(muse); alter(bad); assert.throws(() => validate(bad));
 }

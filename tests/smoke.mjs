@@ -48,11 +48,16 @@ try {
       check(await page.getAttribute('html', 'lang') === lang, entry + ': language ' + lang);
     }
     const baseline = await stored();
-    async function load(value) {
+    async function load(value, raw = false) {
       if (!await page.locator('#json-file').count()) await page.click('[data-action=open-settings]');
-      await page.locator('#json-file').setInputFiles({ name: 'synthetic-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(value)) });
+      await page.locator('#json-file').setInputFiles({ name: 'synthetic-backup.json', mimeType: 'application/json', buffer: Buffer.from(raw ? value : JSON.stringify(value)) });
       await page.waitForTimeout(100);
     }
+    await load('{malformed JSON', true);
+    check(JSON.stringify(await stored()) === JSON.stringify(baseline), entry + ': malformed JSON preserves the current project');
+    await page.locator('#json-file').setInputFiles({ name: 'oversized.json', mimeType: 'application/json', buffer: Buffer.alloc(20 * 1024 * 1024 + 1, 32) });
+    await page.waitForTimeout(100);
+    check(JSON.stringify(await stored()) === JSON.stringify(baseline) && (await page.locator('#toast').innerText()).includes('20 MiB'), entry + ': oversized backup rejected before reading');
     for (const modify of [
       x => { x.people[0].id = 'x" data-marker="person'; },
       x => { x.sessions[0].id = 'x" data-marker="session'; },
@@ -77,6 +82,9 @@ try {
     const empty = await stored();
     check(!empty.people.length && !empty.sessions.length, entry + ': valid empty backup');
     check((await page.evaluate(key => JSON.parse(localStorage.getItem(key + '.previous')), key)).people.length === baseline.people.length, entry + ': previous snapshot retained');
+    await page.click('[data-action=open-settings]');
+    const [download] = await Promise.all([page.waitForEvent('download'), page.click('[data-action=export-previous]')]);
+    check(JSON.parse(fs.readFileSync(await download.path(), 'utf8')).people.length === baseline.people.length, entry + ': previous snapshot can be exported through the UI');
     const legacy = emptyBackup(); delete legacy.cosSeeded; delete legacy.headlinerSeeded; delete legacy.agents; delete legacy.me.lang;
     await load(legacy);
     check((await stored()).cosSeeded && (await stored()).agents.on.researcher, entry + ': legacy v1 migration');
@@ -89,7 +97,7 @@ try {
     const before = JSON.stringify(await stored());
     await page.locator('#ics-file').setInputFiles({ name: 'unsupported.ics', mimeType: 'text/calendar', buffer: Buffer.from(calendar.replaceAll('America/New_York', 'Unknown/Zone')) });
     await page.waitForTimeout(100);
-    check(JSON.stringify(await stored()) === before, entry + ': unsupported TZID leaves agenda unchanged');
+    check(JSON.stringify(await stored()) === before && (await page.locator('#toast').innerText()).includes('Unsupported calendar TZID'), entry + ': unsupported TZID warns and leaves agenda unchanged');
     await page.reload(); await page.waitForSelector('#tabbar button');
     check(!errors.length, entry + ': no page errors, including after reload');
     await ctx.close();
