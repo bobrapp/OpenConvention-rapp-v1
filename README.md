@@ -18,6 +18,17 @@ If persisted data is invalid, startup uses the previous valid snapshot when
 available, otherwise demo data, and warns without overwriting the original.
 Export before editing a recovered project; browser storage is not a durable backup.
 
+## Work-calendar import
+
+ICS imports support UTC (`Z`), floating device-local times and IANA `TZID` values
+such as `America/New_York`. Instants are converted to the device timezone before
+placing work blocks on conference days. Times use minute precision. All-day events
+are skipped. Ambiguous/nonexistent DST wall times, unknown/Windows timezone names,
+custom `VTIMEZONE` definitions, and recurrence rules are rejected with a warning:
+export those events in UTC and expand recurring instances first. Split overnight
+events before import. Unsupported events never partially replace the agenda.
+Files are limited to 2 MiB and 1000 events.
+
 ## Versions
 
 The same app, built by three AI builders. Each version lives on its own branch:

@@ -617,21 +617,7 @@
     return L.join('\r\n');
   }
   function parseIcs(text) {
-    const lines = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
-    const events = []; let cur = null;
-    for (const line of lines) {
-      if (line === 'BEGIN:VEVENT') cur = {};
-      else if (line === 'END:VEVENT') { if (cur) events.push(cur); cur = null; } else if (cur) {
-        const i = line.indexOf(':'); if (i < 0) continue;
-        const [nm, ...params] = line.slice(0, i).split(';'); if (!cur[nm]) cur[nm] = { value: line.slice(i + 1), params: params.join(';') };
-      }
-    }
-    const toDate = (f) => {
-      if (!f || /VALUE=DATE(?!-)/.test(f.params) || f.value.length < 15) return null;
-      const v = f.value; const [y, mo, d, h, mi] = [v.slice(0, 4), v.slice(4, 6), v.slice(6, 8), v.slice(9, 11), v.slice(11, 13)].map(Number);
-      return v.endsWith('Z') ? new Date(Date.UTC(y, mo - 1, d, h, mi)) : new Date(y, mo - 1, d, h, mi);
-    };
-    return events.map((e) => ({ title: (e.SUMMARY?.value || 'busy').replace(/\\([,;\\])/g, '$1').replace(/\\n/gi, ' '), start: toDate(e.DTSTART), end: toDate(e.DTEND), location: (e.LOCATION?.value || '').replace(/\\([,;\\])/g, '$1') })).filter((e) => e.start && e.end);
+    return window.R4_CALENDAR.parse(text);
   }
 
   // ---------- toast / sheet ----------
@@ -1492,19 +1478,21 @@
       x.closest('.chips').querySelectorAll('label.chip').forEach((l) => l.classList.toggle('on', l.contains(x)));
     }
     if (x.id === 'ics-file' && x.files[0]) {
+      if (x.files[0].size > 2 * 1024 * 1024) { toast('Calendar exceeds 2 MiB'); x.value = ''; return; }
       x.files[0].text().then((text) => {
-        const evs = parseIcs(text); let added = 0;
+        const evs = parseIcs(text), additions = [];
         evs.forEach((ev) => {
           const day = Math.round((new Date(ev.start.getFullYear(), ev.start.getMonth(), ev.start.getDate()) - dayDate(0)) / 86400000);
           if (day < 0 || day >= state.me.days) return;
           const start = fromMin(ev.start.getHours() * 60 + ev.start.getMinutes());
-          let endM = ev.end.getHours() * 60 + ev.end.getMinutes(); if (ev.end.getDate() !== ev.start.getDate()) endM = 23 * 60 + 55;
-          if (state.sessions.some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
-          state.sessions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(Math.max(endM, toMin(start) + 15)), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
-          added++;
+          const endM = ev.end.getHours() * 60 + ev.end.getMinutes();
+          if (isoOf(ev.end) !== isoOf(ev.start) || endM <= toMin(start)) throw new Error('Import same-day events lasting at least one minute; split overnight events first.');
+          if ([...state.sessions, ...additions].some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
+          additions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(endM), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
         });
-        save(); render(); toast(added ? t('{n} work events imported', { n: added }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
-      });
+        if (additions.length) state = window.R4_BACKUP.restore({ ...state, sessions: [...state.sessions, ...additions] }, state, localStorage, KEY, migrate);
+        render(); toast(additions.length ? t('{n} work events imported', { n: additions.length }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
+      }).catch(error => toast(error.message));
       x.value = '';
     }
     if (x.id === 'json-file' && x.files[0]) {
