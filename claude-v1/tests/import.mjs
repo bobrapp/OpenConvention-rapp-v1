@@ -2,13 +2,14 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { offline, browserArgs } from './offline.mjs';
 
 // Paste-in import, quick capture and written summaries.
 // Runs twice: with no Claude on the page (the app's own rules), and with a stand-in for Claude that returns
 // fixed replies, including bad rows the app must drop. It does not call the real Claude.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const seed = fs.readFileSync(path.join(root, 'examples', 'examples.json'), 'utf8');
-const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: browserArgs });
 const problems=[]; const note=(ok,w)=>{console.log((ok?'ok   ':'FAIL ')+w); if(!ok) problems.push(w);};
 const AGENDA = `Day 1
 9:00 - 10:00 am Opening keynote | Main stage
@@ -29,6 +30,7 @@ this is not a person line because it is far too long to be a name of anyone at a
 
 async function run(mode){
   const ctx = await b.newContext({viewport:{width:390,height:844}, deviceScaleFactor:2});
+  await offline(ctx, problems);
   const p = await ctx.newPage(); const calls=[];
   p.on('console', m => { if(m.type()==='error') problems.push(mode+' console: '+m.text()); });
   p.on('pageerror', e => problems.push(mode+' page error: '+e.message));

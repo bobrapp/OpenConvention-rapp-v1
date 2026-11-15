@@ -4,16 +4,18 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { offline, browserArgs } from './offline.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const seed = fs.readFileSync(path.join(root, 'examples', 'examples.json'), 'utf8');
 const page = 'file://' + path.join(root, 'index.html');
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: browserArgs });
 const problems = [];
 const note = (ok, what) => { console.log((ok ? 'ok   ' : 'FAIL ') + what); if (!ok) problems.push(what); };
 
 for (const scheme of ['light', 'dark']) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: scheme });
+  await offline(ctx, problems);
   const p = await ctx.newPage();
   p.on('console', m => { if (m.type() === 'error') problems.push(scheme + ' console: ' + m.text()); });
   p.on('pageerror', e => problems.push(scheme + ' page error: ' + e.message));

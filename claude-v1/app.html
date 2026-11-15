@@ -1,5 +1,4 @@
 <title>r4 Networking Companion</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Lexend+Deca:wght@400;500;600&display=swap">
 <style>
 /* layout: one phone-width column, sticky day header, fixed six-tab bar; filled blue only for the one thing to do next */
 :root{
@@ -7,8 +6,8 @@
   --blue:#0c62fb; --on-blue:#ffffff; --blue-soft:#e1ebff; --blue-ink:#0a4fd0; --hero:#0c62fb; --hero-2:#0848c4;
   --warn:#b3261e; --warn-soft:#fde8e6; --ok:#0f7a55; --ok-soft:#dcf4ea; --amber:#855600; --amber-soft:#fdf0d2;
   --p-exec:#0c62fb; --p-tech:#0b7f94; --p-builder:#6a4df4; --p-product:#b8450f; --p-risk:#b3261e; --p-partner:#0f7a55; --p-consultant:#07173d; --p-peer:#a12f79;
-  --display:'Lexend Deca','Figtree',system-ui,sans-serif;
-  --body:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --display:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --body:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --r:14px; --qr-bg:#ffffff; --qr-fg:#000000;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
@@ -240,7 +239,7 @@ label.item{cursor:pointer}
 </div>
 <div id="toast" class="toast" role="status" hidden></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="vendor/qrcode.js"></script>
 <script>
 (() => {
 'use strict';
@@ -526,12 +525,13 @@ function buildAgentBrief(){
   return L.join('\n');
 }
 function qrSvg(text){
-  const Q = window.qrcode; if (typeof Q !== 'function' || !text) return '';
+  const unavailable = '<p class="small muted" data-qr-unavailable>QR code unavailable. Copy the card text instead.</p>';
+  const Q = window.qrcode; if (typeof Q !== 'function' || !text) return unavailable;
   try { if (Q.stringToBytesFuncs && Q.stringToBytesFuncs['UTF-8']) Q.stringToBytes = Q.stringToBytesFuncs['UTF-8'];
     const q = Q(0, 'M'); q.addData(text, 'Byte'); q.make(); const n = q.getModuleCount(); let d = '';
     for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) d += 'M' + k + ' ' + r + 'h1v1h-1z';
     return '<div class="qr"><svg viewBox="-2 -2 ' + (n + 4) + ' ' + (n + 4) + '" role="img" aria-label="QR code holding the agent card as text" shape-rendering="crispEdges"><path d="' + d + '"/></svg></div>';
-  } catch (e) { return ''; }
+  } catch (e) { return unavailable; }
 }
 const okChip = p => p.agent.ok ? '<span class="chip ok">fine to contact</span>' : '<span class="chip">ask ' + esc(first(p)) + ' first</span>';
 const agentBtns = p => '<button type="button" class="btn small" data-act="copyAgentNote" data-id="' + p.id + '">copy note to their agent</button>' +
