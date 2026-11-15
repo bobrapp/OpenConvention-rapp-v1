@@ -3910,8 +3910,12 @@ window.R4_I18N = {
   }
   function restore(data, current, storage, key, migrate) {
     const candidate = prepare(data, migrate);
+    const prior = typeof storage.getItem === 'function' ? storage.getItem(key + '.previous') : null;
     storage.setItem(key + '.previous', JSON.stringify(current));
-    storage.setItem(key, JSON.stringify(candidate));
+    try { storage.setItem(key, JSON.stringify(candidate)); } catch (error) {
+      try { if (prior != null) storage.setItem(key + '.previous', prior); else if (typeof storage.removeItem === 'function') storage.removeItem(key + '.previous'); } catch {}
+      throw error;
+    }
     return candidate;
   }
   window.R4_BACKUP = { validateIds, validate, prepare, restore };

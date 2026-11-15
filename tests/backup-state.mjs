@@ -34,6 +34,12 @@ for (const failAt of [1, 2]) {
   assert.throws(() => restore(original, original, { setItem(k, v) { if (++writes === failAt) throw new Error('synthetic quota'); values.set(k, v); } }, 'synthetic', noMigration));
   assert.equal(values.get('synthetic'), JSON.stringify(original));
 }
+{
+  const values = new Map([['synthetic', JSON.stringify(original)], ['synthetic.previous', '"older project"']]);
+  const storage = { getItem: k => values.get(k) ?? null, removeItem: k => values.delete(k), setItem(k, v) { if (k === 'synthetic') throw new Error('synthetic quota'); values.set(k, v); } };
+  assert.throws(() => restore(original, original, storage, 'synthetic', noMigration));
+  assert.equal(values.get('synthetic.previous'), '"older project"', 'a failed import must keep the earlier previous snapshot');
+}
 const values = new Map(), storage = { setItem(k, v) { values.set(k, v); } };
 const incoming = emptyBackup(); incoming.me.name = 'Restored';
 const accepted = restore(incoming, original, storage, 'synthetic', noMigration);
