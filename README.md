@@ -16,7 +16,9 @@ Settings → **export previous backup**.
 
 If persisted data is invalid, startup uses the previous valid snapshot when
 available, otherwise demo data, and warns without overwriting the original.
-Export before editing a recovered project; browser storage is not a durable backup.
+Recovery mode suppresses automatic writes (including Muse badge awards and alert
+bookkeeping). Export first, then choose **keep recovered project** or explicitly
+import a replacement to resume persistence. Browser storage is not a durable backup.
 
 ## Work-calendar import
 
@@ -28,6 +30,49 @@ custom `VTIMEZONE` definitions, and recurrence rules are rejected with a warning
 export those events in UTC and expand recurring instances first. Split overnight
 events before import. Unsupported events never partially replace the agenda.
 Files are limited to 2 MiB and 1000 events.
+
+## Reproducible, offline regression checks
+
+Use Node 22 and Python 3. Run dependency/browser installation once (this setup
+step needs network access):
+
+```sh
+npm ci --prefix tests
+npm ci --prefix claude-v1/tests
+(cd tests && npx playwright install chromium)
+```
+
+Then run the full non-deploying gate:
+
+```sh
+node --check app.js && node --check i18n.js && node --check backup.js && node --check calendar.js
+python3 build_muse.py
+python3 claude-v1/build.py
+git diff --exit-code -- 'R4 Muse V1' claude-v1/index.html
+npm test --prefix tests
+npm test --prefix claude-v1/tests
+node tests/workflow-check.mjs
+git diff --check
+```
+
+Root/Muse tests start an ephemeral loopback server, reject external requests,
+and cover normal/empty/malformed backups, harmless ID marker probes, quota
+failures, old version-1 migration, invalid-storage recovery, named-zone calendar
+import, language switching, and every top-level tab. The Node calendar lane also
+covers floating/UTC times, fractional offsets and DST gaps/overlaps. Localization
+checks ensure Spanish/Portuguese key parity and interpolation variables.
+Claude tests use local files, reject HTTP(S), and stub Claude rather than calling
+real accounts. Use `CHROME_PATH` for root/Muse or `CHROMIUM_PATH` for Claude to
+reuse an installed browser; otherwise Playwright uses its pinned browser build.
+
+The standalone **Muse** file keeps its independent feature set (prep, badges,
+icebreakers, promises, pitch revisions and matching weights). Its import and
+calendar boundaries share the root modules; `build_muse.py` only refreshes those
+inline scripts. The extensionless file must be served as `text/html` (the test
+server does this; a default Python server will instead download it). Do not
+replace Muse with a root-app bundle. `.github/workflows/check.yml` runs the same
+source/generated checks with read-only permissions and no deployment step.
+There is no configured linter/typechecker; syntax checks are not a lint claim.
 
 ## Versions
 
