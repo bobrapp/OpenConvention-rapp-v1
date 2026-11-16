@@ -220,29 +220,38 @@
   }
 
   // ---------- state ----------
-  let state = null;
-  try { state = JSON.parse(localStorage.getItem(KEY)); } catch { state = null; }
-  if (!state || state.version !== 1) state = seed();
-  function migrate() {
-    state.fired = state.fired || {}; state.prep = state.prep || {};
-    if (!state.me.lang) state.me.lang = 'en';
-    if (!state.headlinerSeeded) {
-      const day = Math.min(currentDay() + 1, state.me.days - 1);
-      const old = state.sessions.find((s) => s.title === 'keynote: the people side of change');
-      if (old) Object.assign(old, { title: 'keynote: oprah winfrey', speaker: 'oprah winfrey', featured: true, day, start: '09:00', end: '10:00', location: 'main hall' });
-      else state.sessions.push(headlinerSession(day));
-      state.sessions.filter((s) => s.day === day && s.type === 'work' && s.title === 'team check-in').forEach((s) => { s.start = '08:00'; s.end = '08:30'; });
-      state.headlinerSeeded = true;
-    }
-    if (!state.cosSeeded) {
-      COS_PEOPLE.forEach((o) => { if (!state.people.some((p) => p.name === o.name)) state.people.push(cosPerson(o)); });
-      if (!state.sessions.some((s) => s.title === 'chiefs of staff circle')) state.sessions.push(cosBof());
-      state.bofTopics.push({ id: uid(), title: 'chiefs of staff: running the operating rhythm', by: 'olivia', votes: 11, voted: false });
-      state.cosSeeded = true;
-    }
-    state.agents = { ...freshAgents(), ...(state.agents || {}) };
+  let state = null, loadWarning = false;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) state = window.R4_BACKUP.prepare(JSON.parse(raw), migrate);
+  } catch {
+    loadWarning = true;
+    try { const previous = localStorage.getItem(KEY + '.previous'); if (previous) state = window.R4_BACKUP.prepare(JSON.parse(previous), migrate); } catch { /* preserve both stored snapshots */ }
   }
-  const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+  if (!state) state = seed();
+  function migrate(candidate) {
+    candidate.fired = candidate.fired || {}; candidate.prep = candidate.prep || {};
+    if (!candidate.me.lang) candidate.me.lang = 'en';
+    if (!candidate.headlinerSeeded) {
+      const [y, m, d] = candidate.me.eventStart.split('-').map(Number), now = new Date();
+      const todayIndex = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(y, m - 1, d)) / 86400000);
+      const day = Math.min(Math.max(0, todayIndex) + 1, candidate.me.days - 1);
+      const old = candidate.sessions.find((s) => s.title === 'keynote: the people side of change');
+      if (old) Object.assign(old, { title: 'keynote: oprah winfrey', speaker: 'oprah winfrey', featured: true, day, start: '09:00', end: '10:00', location: 'main hall' });
+      else candidate.sessions.push(headlinerSession(day));
+      candidate.sessions.filter((s) => s.day === day && s.type === 'work' && s.title === 'team check-in').forEach((s) => { s.start = '08:00'; s.end = '08:30'; });
+      candidate.headlinerSeeded = true;
+    }
+    if (!candidate.cosSeeded) {
+      COS_PEOPLE.forEach((o) => { if (!candidate.people.some((p) => p.name === o.name)) candidate.people.push(cosPerson(o)); });
+      if (!candidate.sessions.some((s) => s.title === 'chiefs of staff circle')) candidate.sessions.push(cosBof());
+      candidate.bofTopics.push({ id: uid(), title: 'chiefs of staff: running the operating rhythm', by: 'olivia', votes: 11, voted: false });
+      candidate.cosSeeded = true;
+    }
+    const defaults = freshAgents();
+    candidate.agents = { ...defaults, ...(candidate.agents || {}), on: { ...defaults.on, ...candidate.agents?.on } };
+  }
+  const save = () => { if (!loadWarning) localStorage.setItem(KEY, JSON.stringify(state)); };
 
   const ui = {
     tab: 'today', day: null,
@@ -259,7 +268,7 @@
     const diff = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - dayDate(0)) / 86400000);
     return Math.max(0, Math.min(state.me.days - 1, diff));
   }
-  migrate(); save();
+  if (!loadWarning) { try { save(); } catch { loadWarning = true; } }
   const isEventDay = () => isoOf(new Date()) >= state.me.eventStart && isoOf(new Date()) <= isoOf(dayDate(state.me.days - 1));
   const personById = (id) => state.people.find((p) => p.id === id);
   const sessionById = (id) => state.sessions.find((s) => s.id === id);
@@ -321,7 +330,7 @@
       else el.textContent = k === 'd' ? c.d : pad(c[k]);
     });
   }
-  const alertKey = (s, o) => `${s.id}@${s.day}T${s.start}:${o}`;
+  const alertKey = (s, o) => `${esc(s.id)}@${s.day}T${s.start}:${o}`;
   function checkAlerts() {
     const s = headliner(); if (!s) return;
     const m = (sessionStart(s) - Date.now()) / 60000;
@@ -336,13 +345,13 @@
     const v = { name: hlName(s), loc: s.location || t('the venue') };
     const title = t('★ {name} countdown', v); const body = t(msg, v);
     if ('Notification' in window && Notification.permission === 'granted') {
-      try { new Notification(title, { body, tag: `r4-${s.id}`, icon: $('link[rel=icon]')?.href }); } catch { /* some browsers need a service worker */ }
+      try { new Notification(title, { body, tag: `r4-${esc(s.id)}`, icon: $('link[rel=icon]')?.href }); } catch { /* some browsers need a service worker */ }
     }
     beep(660, 0.15); setTimeout(() => beep(880, 0.15), 180); setTimeout(() => beep(1100, 0.3), 360);
     $('#alert-root').innerHTML = `<div class="alert-pop" data-action="alert-close-bg"><div class="alert-card">
       <div class="alert-burst">★</div><div class="alert-title">${esc(title)}</div><p>${esc(body)}</p>
       <div class="row" style="gap:8px;justify-content:center"><button class="btn coral" data-action="alert-close">${t('let us go!')}</button>
-      <button class="btn secondary" data-action="alert-open" data-id="${s.id}">${t('open')}</button></div></div></div>`;
+      <button class="btn secondary" data-action="alert-open" data-id="${esc(s.id)}">${t('open')}</button></div></div></div>`;
   }
   async function enableAlerts() {
     if (!('Notification' in window)) { toast(t('this browser does not support notifications. in-app alerts are still on.')); return; }
@@ -594,7 +603,7 @@
     const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//r4 networking//EN', 'CALSCALE:GREGORIAN'];
     items.forEach((s) => {
       const who = names(s.attendees);
-      L.push('BEGIN:VEVENT', `UID:${s.id}@r4-networking`, `DTSTAMP:${stamp}`, `DTSTART:${d2(s.day, s.start)}`, `DTEND:${d2(s.day, s.end)}`,
+      L.push('BEGIN:VEVENT', `UID:${esc(s.id)}@r4-networking`, `DTSTAMP:${stamp}`, `DTSTART:${d2(s.day, s.start)}`, `DTEND:${d2(s.day, s.end)}`,
         `SUMMARY:${icsEsc(`${s.featured ? '★ ' : ''}${state.me.eventName} · ${s.title}`)}`, `LOCATION:${icsEsc(s.location)}`,
         `DESCRIPTION:${icsEsc([t(TYPES[s.type].label), who && t('with {names}', { names: who }), s.notes].filter(Boolean).join('\n'))}`);
       const alarms = s.featured ? [1440, 60, 30, 10] : [10];
@@ -608,21 +617,7 @@
     return L.join('\r\n');
   }
   function parseIcs(text) {
-    const lines = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
-    const events = []; let cur = null;
-    for (const line of lines) {
-      if (line === 'BEGIN:VEVENT') cur = {};
-      else if (line === 'END:VEVENT') { if (cur) events.push(cur); cur = null; } else if (cur) {
-        const i = line.indexOf(':'); if (i < 0) continue;
-        const [nm, ...params] = line.slice(0, i).split(';'); if (!cur[nm]) cur[nm] = { value: line.slice(i + 1), params: params.join(';') };
-      }
-    }
-    const toDate = (f) => {
-      if (!f || /VALUE=DATE(?!-)/.test(f.params) || f.value.length < 15) return null;
-      const v = f.value; const [y, mo, d, h, mi] = [v.slice(0, 4), v.slice(4, 6), v.slice(6, 8), v.slice(9, 11), v.slice(11, 13)].map(Number);
-      return v.endsWith('Z') ? new Date(Date.UTC(y, mo - 1, d, h, mi)) : new Date(y, mo - 1, d, h, mi);
-    };
-    return events.map((e) => ({ title: (e.SUMMARY?.value || 'busy').replace(/\\([,;\\])/g, '$1').replace(/\\n/gi, ' '), start: toDate(e.DTSTART), end: toDate(e.DTEND), location: (e.LOCATION?.value || '').replace(/\\([,;\\])/g, '$1') })).filter((e) => e.start && e.end);
+    return window.R4_CALENDAR.parse(text);
   }
 
   // ---------- toast / sheet ----------
@@ -653,7 +648,7 @@
   const avatar = (p, lg) => `<span class="avatar ${lg ? 'lg' : ''} ${persona(p).cls}">${esc(initials(p.name))}</span>`;
   const prioLabel = (x) => t(x);
   const prioChip = (p) => (p.priority === 'hot' ? `<span class="chip bad">${t('hot')}</span>` : '');
-  const personRow = (p, extra = '') => `<button class="list-item" data-action="person" data-id="${p.id}">${avatar(p)}
+  const personRow = (p, extra = '') => `<button class="list-item" data-action="person" data-id="${esc(p.id)}">${avatar(p)}
       <div class="grow"><div class="row between"><span class="name">${esc(p.name)}</span>${prioChip(p)}</div>
       <div class="sub">${esc([p.role, p.company].filter(Boolean).join(' · ') || '—')}</div>
       <div class="row wrap" style="margin-top:4px;gap:6px">${personaTag(p)}${p.status === 'want' ? `<span class="chip warn">${t('to meet')}</span>` : ''}${extra}</div></div></button>`;
@@ -661,7 +656,7 @@
   const dayN = (i) => t('day {n}', { n: i + 1 });
   const dayPicker = (key) => `<div class="scroller">${Array.from({ length: state.me.days }, (_x, i) => `<button class="chip ${ui[key] === i ? 'on' : ''}" data-action="pick-day" data-key="${key}" data-day="${i}">${dayN(i)} · ${esc(dayLabel(i))}</button>`).join('')}</div>`;
   const tItem = (s, conflict) => `<div class="t-item"><div class="t-time">${fmtTime(s.start)}</div>
-      <div class="t-card ${TYPES[s.type].cls} ${conflict ? 'conflict' : ''} ${s.featured ? 'featured' : ''}" data-action="session" data-id="${s.id}">
+      <div class="t-card ${TYPES[s.type].cls} ${conflict ? 'conflict' : ''} ${s.featured ? 'featured' : ''}" data-action="session" data-id="${esc(s.id)}">
       ${s.featured ? `<div class="row between" style="margin-bottom:4px"><span class="chip star">★ ${t('headliner')}</span>${headliner()?.id === s.id ? '<span class="chip star-cd" data-cd="short"></span>' : ''}</div>` : ''}
       <div class="row between"><span class="t-title">${esc(s.title)}</span>${s.status === 'maybe' ? `<span class="chip">${t('maybe')}</span>` : ''}</div>
       <div class="t-meta">${fmtTime(s.start)}–${fmtTime(s.end)}${s.location ? ` · ${esc(s.location)}` : ''} · ${t(TYPES[s.type].label)}${s.attendees.length ? ` · ${t('{n} people', { n: s.attendees.length })}` : ''}</div>
@@ -681,12 +676,12 @@
       <p class="hl-hype" data-cd="hype"></p>
       <div class="row wrap" style="gap:8px">
         <button class="btn coral sm" data-action="enable-alerts">${notif === 'granted' ? `✓ ${t('alerts on')}` : t('turn on alerts')}</button>
-        <button class="btn light sm" data-action="hl-ics" data-id="${s.id}">${t('add to calendar with reminders')}</button>
-        <button class="btn light sm" data-action="edit-session" data-id="${s.id}">${t('edit time')}</button>
+        <button class="btn light sm" data-action="hl-ics" data-id="${esc(s.id)}">${t('add to calendar with reminders')}</button>
+        <button class="btn light sm" data-action="edit-session" data-id="${esc(s.id)}">${t('edit time')}</button>
       </div>
       <details class="hl-prep"><summary>${t('get ready checklist')} · ${done}/${PREP.length}</summary>
         ${PREP.map(([k, l]) => `<label class="check"><input type="checkbox" data-action="prep" data-k="${k}" ${state.prep[k] ? 'checked' : ''}/> ${t(l)}</label>`).join('')}
-        <button class="btn ghost sm light-ghost" data-action="alert-preview" data-id="${s.id}">${t('preview an alert')}</button>
+        <button class="btn ghost sm light-ghost" data-action="alert-preview" data-id="${esc(s.id)}">${t('preview an alert')}</button>
       </details>
     </section>`;
   }
@@ -726,7 +721,7 @@
         const v = goalValue(g); const pct = Math.min(100, Math.round((v / Math.max(1, g.target)) * 100));
         return `<div class="goal-row"><div class="grow"><div class="row between"><span>${esc(goalText(g))}</span><b>${v}/${g.target}</b></div>
           <div class="progress"><i style="width:${pct}%"></i></div></div>
-          ${g.auto ? '' : `<div class="stepper"><button data-action="goal-step" data-id="${g.id}" data-d="-1" aria-label="minus">−</button><button data-action="goal-step" data-id="${g.id}" data-d="1" aria-label="plus">+</button></div>`}</div>`;
+          ${g.auto ? '' : `<div class="stepper"><button data-action="goal-step" data-id="${esc(g.id)}" data-d="-1" aria-label="minus">−</button><button data-action="goal-step" data-id="${esc(g.id)}" data-d="1" aria-label="plus">+</button></div>`}</div>`;
       }).join('')}</div>
       <h2 class="section">${t('follow-ups')} <button class="btn ghost sm" data-action="go-followups">${t('see all')}</button></h2>
       ${due.length ? due.slice(0, 3).map((p) => followRow(p)).join('') : `<div class="card empty"><b>${t('inbox zero')}</b>${t('all follow-ups done.')}</div>`}
@@ -741,9 +736,9 @@
       <div class="grow"><div class="row between"><b>${esc(p.name)}</b><span class="chip ${p.followUp.done ? 'good' : p.followUp.due <= currentDay() ? 'bad' : 'warn'}">${p.followUp.done ? t('done') : t('due {d}', { d: esc(dayLabel(p.followUp.due)) })}</span></div>
       <div class="small muted">${esc(p.followUp.action)}</div></div></div>
       <div class="row" style="margin-top:10px;gap:6px;justify-content:flex-end">
-        <button class="btn ghost sm" data-action="person" data-id="${p.id}">${t('open')}</button>
-        <button class="btn secondary sm" data-action="copy-followup" data-id="${p.id}">${t('copy message')}</button>
-        <button class="btn sm" data-action="toggle-followup" data-id="${p.id}">${p.followUp.done ? t('reopen') : t('mark done')}</button>
+        <button class="btn ghost sm" data-action="person" data-id="${esc(p.id)}">${t('open')}</button>
+        <button class="btn secondary sm" data-action="copy-followup" data-id="${esc(p.id)}">${t('copy message')}</button>
+        <button class="btn sm" data-action="toggle-followup" data-id="${esc(p.id)}">${p.followUp.done ? t('reopen') : t('mark done')}</button>
       </div></div>`;
 
   function viewPeople() {
@@ -794,11 +789,11 @@
       body = `<div class="card"><h3>${t('birds of a feather')}</h3><p class="muted small">${t('small, self-organized circles on a shared topic. propose one, vote, then schedule the winners and link who joined.')}</p>
         <form data-form="propose-bof" class="row" style="margin-top:12px"><input class="search" style="margin:0" name="title" placeholder="${t('propose a topic…')}" required /><button class="btn">${t('add')}</button></form></div>
         <h2 class="section">${t('proposed topics')} <small>${topics.length}</small></h2>
-        ${topics.map((x) => `<div class="card tight row"><div class="vote"><button class="${x.voted ? 'on' : ''}" data-action="vote" data-id="${x.id}" aria-label="vote">▲</button><span>${x.votes}</span></div>
+        ${topics.map((x) => `<div class="card tight row"><div class="vote"><button class="${x.voted ? 'on' : ''}" data-action="vote" data-id="${esc(x.id)}" aria-label="vote">▲</button><span>${x.votes}</span></div>
           <div class="grow"><b>${esc(x.title)}</b><div class="small muted">${t('proposed by {name}', { name: esc(x.by) })}</div></div>
-          <button class="btn secondary sm" data-action="schedule-bof" data-id="${x.id}">${t('schedule')}</button></div>`).join('')}
+          <button class="btn secondary sm" data-action="schedule-bof" data-id="${esc(x.id)}">${t('schedule')}</button></div>`).join('')}
         <h2 class="section">${t('scheduled')} <small>${bofs.length}</small></h2>
-        ${bofs.map((s) => `<div class="card tight t-bof" data-action="session" data-id="${s.id}" style="cursor:pointer;border-left:5px solid var(--mint)">
+        ${bofs.map((s) => `<div class="card tight t-bof" data-action="session" data-id="${esc(s.id)}" style="cursor:pointer;border-left:5px solid var(--mint)">
           <div class="row between"><b>${esc(s.title)}</b><span class="chip">${dayN(s.day)} · ${fmtTime(s.start)}</span></div>
           <div class="small muted">${t('{n} people linked', { n: s.attendees.length })}${s.takeaways ? ` · ${t('{n} takeaways', { n: s.takeaways.split('\n').filter(Boolean).length })}` : ''}${s.location ? ` · ${esc(s.location)}` : ''}</div></div>`).join('') || `<div class="card empty">${t('none scheduled yet.')}</div>`}`;
     }
@@ -845,7 +840,7 @@
       ${links.map(([pi, ti]) => { const a = nodes[pi], b = nodes[ti]; const on = f && (a.id === f || b.id === f); return `<line class="web-edge ${on ? 'hl' : f ? 'web-dim' : ''}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"/>`; }).join('')}
       ${nodes.map((n) => (n.kind === 't'
         ? `<g class="web-node web-node-topic ${dim(n.id)}" data-action="web-focus" data-id="${esc(n.id)}"><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r.toFixed(1)}" ${f === n.id ? 'stroke="#ffc23d" stroke-width="3"' : ''}/>${n.label.split(' ').length > 1 ? n.label.split(' ').map((w, k, arr) => `<text x="${n.x.toFixed(1)}" y="${(n.y + (k - (arr.length - 1) / 2) * 12 + 4).toFixed(1)}" text-anchor="middle" style="font-size:${n.fs}px">${esc(w)}</text>`).join('') : `<text x="${n.x.toFixed(1)}" y="${(n.y + 4).toFixed(1)}" text-anchor="middle" style="font-size:${n.fs}px">${esc(n.label)}</text>`}</g>`
-        : `<g class="web-node web-node-person ${dim(n.id)}" data-action="web-focus" data-id="${n.id}"><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r}" fill="${persona(n.p).color}" ${n.p.status === 'want' ? `fill-opacity=".25" stroke="${persona(n.p).color}" stroke-width="2"` : 'stroke="#fff" stroke-width="2"'}/><text x="${n.x.toFixed(1)}" y="${(n.y + n.r + 11).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text></g>`)).join('')}
+        : `<g class="web-node web-node-person ${dim(n.id)}" data-action="web-focus" data-id="${esc(n.id)}"><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r}" fill="${persona(n.p).color}" ${n.p.status === 'want' ? `fill-opacity=".25" stroke="${persona(n.p).color}" stroke-width="2"` : 'stroke="#fff" stroke-width="2"'}/><text x="${n.x.toFixed(1)}" y="${(n.y + n.r + 11).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text></g>`)).join('')}
     </svg>`;
   }
   function viewConnect() {
@@ -869,13 +864,13 @@
       const sug = suggestions(); const ints = intros();
       body = `<div class="card tight small muted">${t('ranked by shared interests ({list}), your goals, priority, and how many of your contacts they connect to.', { list: esc(state.me.interests.join(', ')) })} <button class="btn ghost sm" data-action="open-settings">${t('edit interests')}</button></div>
         <h2 class="section">${t('who should i meet')} <small>${sug.length}</small></h2>
-        ${sug.map((x) => `<button class="list-item" data-action="person" data-id="${x.p.id}">${avatar(x.p)}<div class="grow"><span class="name">${esc(x.p.name)}</span>
+        ${sug.map((x) => `<button class="list-item" data-action="person" data-id="${esc(x.p.id)}">${avatar(x.p)}<div class="grow"><span class="name">${esc(x.p.name)}</span>
           <div class="sub">${esc([x.p.role, x.p.company].filter(Boolean).join(' · '))}</div><div class="chips" style="margin-top:5px">${x.reasons.map((r) => `<span class="chip">${esc(r)}</span>`).join('')}</div></div>
           <span class="match-score">${x.score}</span></button>`).join('') || `<div class="card empty"><b>${t('to-meet list is empty')}</b>${t('add people with status "to meet".')}</div>`}
         <h2 class="section">${t('intros you could make')} <small>${ints.length}</small></h2>
         ${ints.map((x) => `<div class="card tight"><div class="row">${avatar(x.a)}<span style="font-weight:700;color:var(--blue)">↔</span>${avatar(x.b)}
           <div class="grow"><b>${esc(first(x.a.name))} & ${esc(first(x.b.name))}</b><div class="small muted">${t('both into {topics}', { topics: esc(x.shared.join(', ')) })}</div></div>
-          <button class="btn secondary sm" data-action="copy-intro" data-a="${x.a.id}" data-b="${x.b.id}">${t('copy intro')}</button></div></div>`).join('') || `<div class="card empty">${t('log a few more people to see intros.')}</div>`}`;
+          <button class="btn secondary sm" data-action="copy-intro" data-a="${esc(x.a.id)}" data-b="${esc(x.b.id)}">${t('copy intro')}</button></div></div>`).join('') || `<div class="card empty">${t('log a few more people to see intros.')}</div>`}`;
     } else {
       const pool = state.people.filter((p) => ui.groupPool === 'all' || p.status === ui.groupPool).filter((p) => !ui.groupTopic || p.topics.includes(ui.groupTopic));
       const groups = pool.length >= 2 ? buildGroups(pool, ui.groupSize, ui.groupSeed) : [];
@@ -886,7 +881,7 @@
         <button class="btn secondary sm" style="margin-top:12px" data-action="group-shuffle">${t('shuffle groups')}</button></div>
         <p class="small muted" style="margin:0 2px 10px">${t('{a} people → {b} groups, clustered by shared subject.', { a: pool.length, b: groups.length })}</p>
         ${groups.map((g, i) => `<div class="card group-card" style="--gc:${colors[i % colors.length]}"><div class="row between"><h3>${t('group {n}', { n: i + 1 })} · ${esc(g.topic || t('open mix'))}</h3><span class="chip">${g.members.length}</span></div>
-          <div class="chips" style="margin:8px 0">${g.members.map((p) => `<button class="chip" data-action="person" data-id="${p.id}">${esc(p.name)}</button>`).join('')}</div>
+          <div class="chips" style="margin:8px 0">${g.members.map((p) => `<button class="chip" data-action="person" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>
           <p class="small muted">${t('conversation starter')}: “${esc(g.prompt)}”</p>
           <div class="row" style="gap:6px;margin-top:10px"><button class="btn sm" data-action="group-bof" data-i="${i}">${t('schedule as bof')}</button><button class="btn ghost sm" data-action="group-copy" data-i="${i}">${t('copy')}</button></div></div>`).join('') || `<div class="card empty">${t('need at least 2 people.')}</div>`}`;
       ui._groups = groups;
@@ -948,8 +943,8 @@
         <div class="field"><label>${t('the idea')}</label><input name="idea" required placeholder="${t('one line')}" /></div></div>
         <button class="btn sm">${t('add pitcher')}</button></form>
       <h2 class="section">${t('up next')} <small>${Math.max(0, queue.length - 1)}</small></h2>
-      ${queue.slice(1).map((p, i) => `<div class="card tight row"><span class="chip">${i + 2}</span><div class="grow"><b>${esc(p.name)}</b><div class="small muted">${esc(p.idea)}</div></div><button class="btn ghost sm" data-action="pitch-remove" data-id="${p.id}">${t('remove')}</button></div>`).join('') || `<div class="card empty small">${t('nobody else queued.')}</div>`}
-      ${done.length ? `<h2 class="section">${t('pitched')} <small>${done.length}</small></h2>${done.map((p) => `<div class="card tight"><div class="row between"><b>${esc(p.name)}</b><span class="chip ${p.sparked.length ? 'good' : ''}">${t('{n} sparks', { n: p.sparked.length })}</span></div><div class="small muted">${esc(p.idea)}</div>${p.sparked.length ? `<div class="chips" style="margin-top:6px">${p.sparked.map((id) => personById(id)).filter(Boolean).map((x) => `<button class="chip" data-action="person" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>` : ''}</div>`).join('')}` : ''}
+      ${queue.slice(1).map((p, i) => `<div class="card tight row"><span class="chip">${i + 2}</span><div class="grow"><b>${esc(p.name)}</b><div class="small muted">${esc(p.idea)}</div></div><button class="btn ghost sm" data-action="pitch-remove" data-id="${esc(p.id)}">${t('remove')}</button></div>`).join('') || `<div class="card empty small">${t('nobody else queued.')}</div>`}
+      ${done.length ? `<h2 class="section">${t('pitched')} <small>${done.length}</small></h2>${done.map((p) => `<div class="card tight"><div class="row between"><b>${esc(p.name)}</b><span class="chip ${p.sparked.length ? 'good' : ''}">${t('{n} sparks', { n: p.sparked.length })}</span></div><div class="small muted">${esc(p.idea)}</div>${p.sparked.length ? `<div class="chips" style="margin-top:6px">${p.sparked.map((id) => personById(id)).filter(Boolean).map((x) => `<button class="chip" data-action="person" data-id="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div>` : ''}</div>`).join('')}` : ''}
       <div class="card tight row" style="margin-top:12px"><span class="grow small muted">${t('pitch length')}</span>${[60, 90, 120, 180].map((s) => `<button class="chip ${state.pitchSeconds === s ? 'on' : ''}" data-action="pitch-len" data-s="${s}">${s / 60}m</button>`).join('')}</div>`;
   }
 
@@ -1065,7 +1060,7 @@
       say('mine', cos, pa, t('hi, i am the chief of staff agent for {me}. {why}. could {name} meet {me} {slot} at the {loc}?', { me: state.me.name, why: x.reasons[0] || t('shared interests'), name: first(p.name), slot: slotText(slot), loc }),
         { skill: 'propose-meeting', slot: { day: slot.day, start: slot.start, end: slot.end, location: loc } });
       await sleep(pace);
-      const r = hash(`${p.id}:${ag.runs}`);
+      const r = hash(`${esc(p.id)}:${ag.runs}`);
       const picky = p.persona === 'exec' ? 0.35 : p.persona === 'cos' ? 0.05 : 0.15;
       if (r < picky) {
         say('peer', pa, cos, t('thanks. {name} is fully booked with client meetings at {event}. happy to swap agent cards and follow up after.', { name: first(p.name), event: state.me.eventName }), { status: 'declined' });
@@ -1132,7 +1127,7 @@
     const p = personById(pr.personId); if (!p) return '';
     return `<div class="card tight ${persona(p).cls}"><div class="row">${avatar(p)}<div class="grow"><div class="row between"><b>${esc(p.name)}</b>${pr.status === 'booked' ? `<span class="chip good">✓ ${t('booked')}</span>` : pr.inbound ? `<span class="chip warn">${t('asked to meet you')}</span>` : `<span class="chip good">${t('accepted')}</span>`}</div>
       <div class="small muted">${esc(slotText(pr))}–${fmtTime(pr.end)} · ${esc(pr.location)}</div>${pr.brief ? `<div class="small" style="margin-top:4px">${esc(pr.brief)}</div>` : ''}</div></div>
-      ${pr.status === 'pending' ? `<div class="row" style="gap:6px;margin-top:10px;justify-content:flex-end"><button class="btn ghost sm" data-action="person" data-id="${p.id}">${t('open')}</button><button class="btn secondary sm" data-action="agent-decline" data-id="${pr.id}">${t('decline')}</button><button class="btn sm" data-action="agent-approve" data-id="${pr.id}">${t('book it')}</button></div>` : ''}</div>`;
+      ${pr.status === 'pending' ? `<div class="row" style="gap:6px;margin-top:10px;justify-content:flex-end"><button class="btn ghost sm" data-action="person" data-id="${esc(p.id)}">${t('open')}</button><button class="btn secondary sm" data-action="agent-decline" data-id="${esc(pr.id)}">${t('decline')}</button><button class="btn sm" data-action="agent-approve" data-id="${esc(pr.id)}">${t('book it')}</button></div>` : ''}</div>`;
   };
   function agentTodayCard() {
     const pending = AG().proposals.filter((x) => x.status === 'pending').length; const booked = AG().proposals.filter((x) => x.status === 'booked').length;
@@ -1147,7 +1142,7 @@
     return `<h1 class="page-title">${t('agents')}</h1><p class="page-sub">${t('your agents meet other chiefs of staff agents and line up meetings for you. every agent here is simulated.')}</p>
       <div class="card"><h3>${t('my agents')}</h3>
         ${MY_AGENTS.map((a) => `<div class="agent-row"><span class="agent-ico">${a.icon}</span><div class="grow"><b>${esc(t(a.name))}</b><div class="small muted">${esc(t(a.job))}</div></div>
-          ${a.core ? `<span class="chip good">${t('always on')}</span>` : `<button class="chip ${ag.on[a.id] ? 'good' : ''}" data-action="agent-toggle" data-id="${a.id}">${ag.on[a.id] ? t('on') : t('off')}</button>`}</div>`).join('')}
+          ${a.core ? `<span class="chip good">${t('always on')}</span>` : `<button class="chip ${ag.on[a.id] ? 'good' : ''}" data-action="agent-toggle" data-id="${esc(a.id)}">${ag.on[a.id] ? t('on') : t('off')}</button>`}</div>`).join('')}
         <label class="check" style="margin-top:10px"><input type="checkbox" data-action="agent-autobook" ${ag.autoBook ? 'checked' : ''}/> ${t('book accepted meetings without asking me')}</label>
         <button class="btn block" style="margin-top:12px" data-action="agent-run" ${ui.agentRunning ? 'disabled' : ''}>${ui.agentRunning ? t('agents are talking…') : t('let my agents network')}</button>
       </div>
@@ -1178,25 +1173,25 @@
         <dl class="kv"><dt>${t('focus')}</dt><dd>${esc(s.focus)}</dd><dt>${t('looking for')}</dt><dd>${esc(s.wants)}</dd><dt>${t('you can offer')}</dt><dd>${esc(s.offer)}</dd>${p.metAt ? `<dt>${t('met at')}</dt><dd>${esc(p.metAt)}</dd>` : ''}${p.notes ? `<dt>${t('notes')}</dt><dd>${esc(p.notes)}</dd>` : ''}</dl>
         <p class="small" style="margin-top:10px;background:var(--blue-soft);padding:10px;border-radius:10px"><b>${t('how to approach:')}</b> ${esc(s.approach)}</p></div>
       <div class="card"><h3>${t('resources to share')}</h3>${s.resources.map((r, i) => `<div class="resource"><span class="ico">${i + 1}</span><div><b>${esc(r.title)}</b><div class="muted">${esc(r.desc)}</div></div></div>`).join('')}</div>
-      <form class="card" data-form="followup" data-id="${p.id}"><h3>${t('follow-up')}</h3>
+      <form class="card" data-form="followup" data-id="${esc(p.id)}"><h3>${t('follow-up')}</h3>
         <div class="field"><label>${t('next step')}</label><input name="action" value="${esc(p.followUp?.action)}" placeholder="${t('e.g. send case study')}" /></div>
         <div class="field-row"><div class="field"><label>${t('due')}</label><select name="due">${Array.from({ length: state.me.days + 3 }, (_x, i) => `<option value="${i}" ${p.followUp?.due === i ? 'selected' : ''}>${dayOpt(i)} · ${esc(dayLabel(i))}</option>`).join('')}</select></div>
         <div class="field"><label>${t('status')}</label><select name="done"><option value="0">${t('open')}</option><option value="1" ${p.followUp?.done ? 'selected' : ''}>${t('done')}</option></select></div></div>
         <label style="font-size:13px;font-weight:600;color:var(--muted)">${t('message template ({p})', { p: esc(plabel(p)) })}</label>
         <div class="template-box" style="margin:6px 0 10px">${esc(s.followup)}</div>
-        <div class="row wrap" style="gap:6px"><button class="btn sm">${t('save follow-up')}</button><button type="button" class="btn secondary sm" data-action="copy-followup" data-id="${p.id}">${t('copy message')}</button></div></form>
+        <div class="row wrap" style="gap:6px"><button class="btn sm">${t('save follow-up')}</button><button type="button" class="btn secondary sm" data-action="copy-followup" data-id="${esc(p.id)}">${t('copy message')}</button></div></form>
       <div class="row wrap" style="gap:8px">
-        ${p.status === 'want' ? `<button class="btn sm" data-action="mark-met" data-id="${p.id}">${t('i met them')}</button>` : ''}
-        <button class="btn secondary sm" data-action="book-1on1" data-id="${p.id}">${t('book a 1:1')}</button>
-        <button class="btn secondary sm" data-action="edit-person" data-id="${p.id}">${t('edit')}</button>
-        <button class="btn danger sm" data-action="delete-person" data-id="${p.id}">${t('delete')}</button>
+        ${p.status === 'want' ? `<button class="btn sm" data-action="mark-met" data-id="${esc(p.id)}">${t('i met them')}</button>` : ''}
+        <button class="btn secondary sm" data-action="book-1on1" data-id="${esc(p.id)}">${t('book a 1:1')}</button>
+        <button class="btn secondary sm" data-action="edit-person" data-id="${esc(p.id)}">${t('edit')}</button>
+        <button class="btn danger sm" data-action="delete-person" data-id="${esc(p.id)}">${t('delete')}</button>
       </div>`);
   }
   function personForm(p, opts = {}) {
     const isNew = !p; p = p || { name: '', role: '', company: '', persona: 'client', topics: [], status: opts.status || 'met', priority: 'warm', lookingFor: '', canOffer: '', notes: '', metAt: opts.metAt || '', day: currentDay(), followUp: { action: '', due: Math.min(currentDay() + 1, state.me.days + 2), done: false } };
     const allTopics = [...new Set([...SUGGESTED_TOPICS, ...state.people.flatMap((x) => x.topics), ...state.me.interests])];
     openSheet(isNew ? (opts.title || t('log a person')) : t('edit {name}', { name: p.name }), `
-      <form data-form="person" data-id="${isNew ? '' : p.id}" data-pitch="${opts.pitchId || ''}">
+      <form data-form="person" data-id="${isNew ? '' : esc(p.id)}" data-pitch="${esc(opts.pitchId || '')}">
         <div class="field"><label>${t('name')} *</label><input name="name" required value="${esc(p.name)}" placeholder="${t('first last')}" data-autofocus /></div>
         <div class="field-row"><div class="field"><label>${t('role')}</label><input name="role" value="${esc(p.role)}" /></div><div class="field"><label>${t('company')}</label><input name="company" value="${esc(p.company)}" /></div></div>
         <div class="field"><label>${t('persona')}</label><div class="chips">${Object.entries(PERSONAS).map(([k, ps]) => `<label class="chip ${p.persona === k ? 'on' : ''}" style="cursor:pointer"><input type="radio" name="persona" value="${k}" ${p.persona === k ? 'checked' : ''} hidden />${t(ps.label)}</label>`).join('')}</div></div>
@@ -1218,7 +1213,7 @@
     const isNew = !s;
     s = s || { type: defaults.type || 'session', title: defaults.title || '', day: defaults.day ?? ui.day ?? currentDay(), start: defaults.start || '09:00', end: defaults.end || fromMin(toMin(defaults.start || '09:00') + (defaults.type === 'work' ? 60 : 45)), location: '', topic: defaults.topic || '', status: 'going', notes: '', attendees: defaults.attendees || [] };
     openSheet(isNew ? t('add to agenda') : t('edit'), `
-      <form data-form="session" data-id="${isNew ? '' : s.id}" data-attendees="${esc(s.attendees.join(','))}">
+      <form data-form="session" data-id="${isNew ? '' : esc(s.id)}" data-attendees="${esc(s.attendees.join(','))}">
         ${s.featured ? `<p class="small" style="background:#fff1d6;color:#7a3c00;padding:10px;border-radius:10px;margin-bottom:12px">${t('the time and room are placeholders. check the official r4 agenda and update them here so the countdown and alerts are right.')}</p>` : ''}
         <div class="field"><label>${t('type')}</label><div class="chips">${Object.entries(TYPES).map(([k, x]) => `<label class="chip ${s.type === k ? 'on' : ''}" style="cursor:pointer"><input type="radio" name="type" value="${k}" ${s.type === k ? 'checked' : ''} hidden />${t(x.label)}</label>`).join('')}</div></div>
         <div class="field"><label>${t('title')} *</label><input name="title" required value="${esc(s.title)}" data-autofocus /></div>
@@ -1241,21 +1236,21 @@
     openSheet(s.title, `
       ${s.featured ? `<div class="headliner" style="margin:0 0 14px"><div class="hl-top"><span class="chip star">★ ${t('headliner')}</span><span class="hl-when">${esc(relDay(s))} · ${fmtTime(s.start)}</span></div>
         <div class="hl-name">${esc(hlName(s))}</div>${live ? `<p class="hl-hype" style="margin-top:8px"><b data-cd="short"></b></p><p class="hl-hype" data-cd="hype"></p>` : ''}
-        <div class="row wrap" style="gap:8px"><button class="btn coral sm" data-action="hl-ics" data-id="${s.id}">${t('add to calendar with reminders')}</button><button class="btn light sm" data-action="enable-alerts">${t('turn on alerts')}</button></div></div>` : ''}
+        <div class="row wrap" style="gap:8px"><button class="btn coral sm" data-action="hl-ics" data-id="${esc(s.id)}">${t('add to calendar with reminders')}</button><button class="btn light sm" data-action="enable-alerts">${t('turn on alerts')}</button></div></div>` : ''}
       <div class="row wrap" style="gap:6px;margin-bottom:12px"><span class="chip" style="background:${TYPES[s.type].color};color:#fff">${t(TYPES[s.type].label)}</span><span class="chip">${dayN(s.day)} · ${fmtTime(s.start)}–${fmtTime(s.end)}</span>${s.location ? `<span class="chip">${esc(s.location)}</span>` : ''}${conflicts.has(s.id) ? `<span class="chip bad">${t('conflict')}</span>` : ''}${s.topic ? `<span class="chip good">${esc(s.topic)}</span>` : ''}</div>
       <div class="card"><div class="row between"><h3>${t('people here')}</h3><span class="chip">${people.length}</span></div>
-        ${people.map((p) => `<div class="row" style="padding:6px 0">${avatar(p)}<div class="grow" data-action="person" data-id="${p.id}" style="cursor:pointer"><b>${esc(p.name)}</b><div class="small muted">${esc(p.company)}</div></div><button class="btn ghost sm" data-action="unlink" data-sid="${s.id}" data-pid="${p.id}">${t('remove')}</button></div>`).join('') || `<p class="small muted">${t('no one linked yet.')}</p>`}
-        <div class="row" style="margin-top:10px"><select id="link-person" class="search" style="margin:0"><option value="">${t('link someone…')}</option>${others.map((p) => `<option value="${p.id}">${esc(p.name)}${p.company ? ` (${esc(p.company)})` : ''}</option>`).join('')}</select><button class="btn sm" data-action="link" data-sid="${s.id}">${t('link')}</button></div>
-        <button class="btn ghost sm" style="margin-top:6px" data-action="add-person-at" data-sid="${s.id}">+ ${t('log someone new here')}</button></div>
-      <form class="card" data-form="session-notes" data-id="${s.id}">
+        ${people.map((p) => `<div class="row" style="padding:6px 0">${avatar(p)}<div class="grow" data-action="person" data-id="${esc(p.id)}" style="cursor:pointer"><b>${esc(p.name)}</b><div class="small muted">${esc(p.company)}</div></div><button class="btn ghost sm" data-action="unlink" data-sid="${esc(s.id)}" data-pid="${esc(p.id)}">${t('remove')}</button></div>`).join('') || `<p class="small muted">${t('no one linked yet.')}</p>`}
+        <div class="row" style="margin-top:10px"><select id="link-person" class="search" style="margin:0"><option value="">${t('link someone…')}</option>${others.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}${p.company ? ` (${esc(p.company)})` : ''}</option>`).join('')}</select><button class="btn sm" data-action="link" data-sid="${esc(s.id)}">${t('link')}</button></div>
+        <button class="btn ghost sm" style="margin-top:6px" data-action="add-person-at" data-sid="${esc(s.id)}">+ ${t('log someone new here')}</button></div>
+      <form class="card" data-form="session-notes" data-id="${esc(s.id)}">
         <div class="field"><label>${s.type === 'bof' ? t('discussion notes') : t('notes')}</label><textarea name="notes">${esc(s.notes)}</textarea></div>
         <div class="field"><label>${t('takeaways (one per line, goes in your report)')}</label><textarea name="takeaways">${esc(s.takeaways)}</textarea></div>
         <button class="btn sm">${t('save notes')}</button></form>
       <div class="row wrap" style="gap:8px">
-        <button class="btn secondary sm" data-action="toggle-going" data-id="${s.id}">${s.status === 'going' ? t('mark as maybe') : t('mark as going')}</button>
-        <button class="btn secondary sm" data-action="export-one" data-id="${s.id}">${t('add to calendar')}</button>
-        <button class="btn secondary sm" data-action="edit-session" data-id="${s.id}">${t('edit')}</button>
-        <button class="btn danger sm" data-action="delete-session" data-id="${s.id}">${t('delete')}</button></div>`);
+        <button class="btn secondary sm" data-action="toggle-going" data-id="${esc(s.id)}">${s.status === 'going' ? t('mark as maybe') : t('mark as going')}</button>
+        <button class="btn secondary sm" data-action="export-one" data-id="${esc(s.id)}">${t('add to calendar')}</button>
+        <button class="btn secondary sm" data-action="edit-session" data-id="${esc(s.id)}">${t('edit')}</button>
+        <button class="btn danger sm" data-action="delete-session" data-id="${esc(s.id)}">${t('delete')}</button></div>`);
     updateCountdowns();
   }
   function settingsSheet() {
@@ -1269,13 +1264,13 @@
         <div class="field-row"><div class="field"><label>${t('days')}</label><input type="number" min="1" max="7" name="days" value="${m.days}" /></div><div class="field"><label>${t('day hours')}</label><div class="row"><input type="time" name="dayStart" value="${m.dayStart}" /><input type="time" name="dayEnd" value="${m.dayEnd}" /></div></div></div>
         <button class="btn block">${t('save')}</button></form>
       <div class="card" style="margin-top:14px"><h3>${t('your data')}</h3><p class="small muted" style="margin-bottom:10px">${t('everything stays on this device (browser storage). back it up or move it to another device with export / import.')}</p>
-        <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
+        <div class="row wrap" style="gap:8px"><button class="btn secondary sm" data-action="export-json">${t('export')}</button><button class="btn secondary sm" data-action="export-previous">${t('export previous backup')}</button><button class="btn secondary sm" data-action="import-json">${t('import')}</button>
         <button class="btn secondary sm" data-action="reset-demo">${t('reset to demo data')}</button><button class="btn danger sm" data-action="clear-all">${t('start fresh (empty)')}</button></div>
         <input type="file" id="json-file" accept="application/json,.json" hidden /></div>`);
   }
   function goalsSheet() {
-    openSheet(t('my goals'), `<form data-form="goals">${state.goals.map((g) => `<div class="card tight"><div class="field"><label>${g.auto ? t('goal (auto-tracked)') : t('goal (tracked by hand)')}</label><input name="text-${g.id}" value="${esc(goalText(g))}" /></div>
-      <div class="row between"><div class="field" style="margin:0;max-width:120px"><label>${t('target')}</label><input type="number" min="1" name="target-${g.id}" value="${g.target}" /></div><button type="button" class="btn ghost sm" data-action="del-goal" data-id="${g.id}">${t('remove')}</button></div></div>`).join('')}
+    openSheet(t('my goals'), `<form data-form="goals">${state.goals.map((g) => `<div class="card tight"><div class="field"><label>${g.auto ? t('goal (auto-tracked)') : t('goal (tracked by hand)')}</label><input name="text-${esc(g.id)}" value="${esc(goalText(g))}" /></div>
+      <div class="row between"><div class="field" style="margin:0;max-width:120px"><label>${t('target')}</label><input type="number" min="1" name="target-${esc(g.id)}" value="${g.target}" /></div><button type="button" class="btn ghost sm" data-action="del-goal" data-id="${esc(g.id)}">${t('remove')}</button></div></div>`).join('')}
       <div class="card tight"><div class="field"><label>${t('new goal (tracked by hand)')}</label><input name="newText" placeholder="${t('e.g. find 2 pursuit partners')}" /></div><div class="field" style="max-width:120px"><label>${t('target')}</label><input type="number" min="1" name="newTarget" value="3" /></div></div>
       <button class="btn block">${t('save goals')}</button></form>`);
   }
@@ -1288,9 +1283,9 @@
     $('#lang-switch').innerHTML = Object.entries(LANGS).map(([k, l]) => `<button class="${lang() === k ? 'on' : ''}" data-action="set-lang" data-lang="${k}" aria-label="${k}">${l.label}</button>`).join('');
     $('#tabbar').innerHTML = TABS.map(([k, l]) => `<button class="tab ${ui.tab === k ? 'active' : ''}" data-action="go" data-tab="${k}"><span class="tab-ico">${I[k]}</span>${t(l)}</button>`).join('');
     const hl = headliner();
-    $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${hl.id}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
+    $('#hl-strip').innerHTML = hl && ui.tab !== 'today' ? `<button class="hl-strip" data-action="session" data-id="${esc(hl.id)}">★ ${esc(hlName(hl))} · ${esc(relDay(hl))} ${fmtTime(hl.start)} · <b data-cd="short"></b></button>` : '';
     const views = { today: viewToday, people: viewPeople, agenda: viewAgenda, connect: viewConnect, agents: viewAgents, pitch: viewPitch, report: viewReport };
-    $('#view').innerHTML = views[ui.tab]();
+    $('#view').innerHTML = (loadWarning ? `<div class="card"><p>${t('recovery mode: changes are not saved until you accept this recovered project.')}</p><button class="btn" data-action="accept-recovery">${t('keep recovered project')}</button></div>` : '') + views[ui.tab]();
     if (ui.tab === 'pitch') tick();
     updateCountdowns();
   }
@@ -1305,6 +1300,7 @@
     'go-connect': (el) => { ui.connectSeg = el.dataset.seg; go('connect'); },
     'go-recap': () => { ui.reportSeg = 'recap'; ui.recapDay = currentDay(); go('report'); },
     'open-settings': settingsSheet,
+    'accept-recovery': () => { loadWarning = false; try { save(); } catch (error) { loadWarning = true; toast(error.message); return; } render(); toast(t('saved')); },
     'set-lang': (el) => { state.me.lang = el.dataset.lang; save(); const inSheet = !!el.closest('.sheet'); render(); if (inSheet) settingsSheet(); },
     'close-sheet': closeSheet,
     'close-sheet-bg': (el, e) => { if (e.target === el) closeSheet(); },
@@ -1401,6 +1397,7 @@
     'report-print': () => window.print(),
     'export-json': () => download(`r4-networking-backup-${isoOf(new Date())}.json`, JSON.stringify(state, null, 2), 'application/json'),
     'import-json': () => $('#json-file').click(),
+    'export-previous': () => { const previous = localStorage.getItem(KEY + '.previous'); if (previous) download('r4-networking-previous.json', previous, 'application/json'); else toast(t('no previous backup')); },
     'reset-demo': () => { if (!confirm(t('replace everything with demo data?'))) return; const l = lang(); state = seed(); state.me.lang = l; save(); closeSheet(); resetTimer(); render(); toast(t('demo data loaded')); },
     'clear-all': () => {
       if (!confirm(t('start fresh? this clears all people, sessions and pitches.'))) return;
@@ -1451,11 +1448,12 @@
       const days = Math.max(1, Math.min(7, Number(fd.get('days')) || 3));
       Object.assign(state.me, { name: fd.get('name').trim() || 'me', team: fd.get('team').trim() || 'my team', interests: parseTopics(fd.get('interests')), eventName: fd.get('eventName').trim() || 'r4', eventStart: fd.get('eventStart') || state.me.eventStart, days, dayStart: fd.get('dayStart') || '08:00', dayEnd: fd.get('dayEnd') || '18:00' });
       state.sessions.forEach((s) => { if (s.day >= days) s.day = days - 1; });
+      (state.agents?.proposals || []).forEach((p) => { if (p.day >= days) p.day = days - 1; });
       ui.day = null; ui.recapDay = null;
       save(); closeSheet(); render(); toast(t('saved'));
     },
     goals: (fd) => {
-      state.goals.forEach((g) => { const v = fd.get(`text-${g.id}`).trim(); if (v && v !== goalText(g)) g.text = v; g.target = Math.max(1, Number(fd.get(`target-${g.id}`)) || g.target); });
+      state.goals.forEach((g) => { const v = fd.get(`text-${esc(g.id)}`).trim(); if (v && v !== goalText(g)) g.text = v; g.target = Math.max(1, Number(fd.get(`target-${esc(g.id)}`)) || g.target); });
       if (fd.get('newText').trim()) state.goals.push({ id: uid(), text: fd.get('newText').trim(), target: Math.max(1, Number(fd.get('newTarget')) || 1), auto: '', count: 0 });
       save(); closeSheet(); render(); toast(t('goals saved'));
     },
@@ -1482,25 +1480,31 @@
       x.closest('.chips').querySelectorAll('label.chip').forEach((l) => l.classList.toggle('on', l.contains(x)));
     }
     if (x.id === 'ics-file' && x.files[0]) {
+      if (x.files[0].size > 2 * 1024 * 1024) { toast('Calendar exceeds 2 MiB'); x.value = ''; return; }
       x.files[0].text().then((text) => {
-        const evs = parseIcs(text); let added = 0;
+        const evs = parseIcs(text), additions = [];
         evs.forEach((ev) => {
           const day = Math.round((new Date(ev.start.getFullYear(), ev.start.getMonth(), ev.start.getDate()) - dayDate(0)) / 86400000);
           if (day < 0 || day >= state.me.days) return;
           const start = fromMin(ev.start.getHours() * 60 + ev.start.getMinutes());
-          let endM = ev.end.getHours() * 60 + ev.end.getMinutes(); if (ev.end.getDate() !== ev.start.getDate()) endM = 23 * 60 + 55;
-          if (state.sessions.some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
-          state.sessions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(Math.max(endM, toMin(start) + 15)), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
-          added++;
+          const endM = ev.end.getHours() * 60 + ev.end.getMinutes();
+          if (isoOf(ev.end) !== isoOf(ev.start) || endM <= toMin(start)) throw new Error('Import same-day events lasting at least one minute; split overnight events first.');
+          if ([...state.sessions, ...additions].some((s) => s.type === 'work' && s.day === day && s.start === start && s.title === ev.title)) return;
+          additions.push({ id: uid(), type: 'work', title: ev.title, day, start, end: fromMin(endM), location: ev.location, notes: t('imported from work calendar'), takeaways: '', topic: '', attendees: [], status: 'going' });
         });
-        save(); render(); toast(added ? t('{n} work events imported', { n: added }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
-      });
+        if (additions.length) {
+          const next = { ...state, sessions: [...state.sessions, ...additions] };
+          state = loadWarning ? window.R4_BACKUP.prepare(next, migrate) : window.R4_BACKUP.restore(next, state, localStorage, KEY, migrate);
+        }
+        render(); toast(additions.length ? t('{n} work events imported', { n: additions.length }) : t('no events found on conference days ({n} in file)', { n: evs.length }));
+      }).catch(error => toast(error.message));
       x.value = '';
     }
     if (x.id === 'json-file' && x.files[0]) {
+      if (x.files[0].size > 20 * 1024 * 1024) { toast(t('that file does not look like a backup') + ': 20 MiB maximum'); x.value = ''; return; }
       x.files[0].text().then((text) => {
-        try { const data = JSON.parse(text); if (!data.people || !data.sessions) throw new Error('bad file'); state = data; migrate(); save(); closeSheet(); render(); toast(t('imported')); } catch { toast(t('that file does not look like a backup')); }
-      });
+        try { state = window.R4_BACKUP.restore(JSON.parse(text), state, localStorage, KEY, migrate); loadWarning = false; closeSheet(); render(); toast(t('imported')); } catch (error) { toast(t('that file does not look like a backup') + ': ' + error.message); }
+      }).catch(() => toast(t('that file does not look like a backup')));
       x.value = '';
     }
   });
@@ -1518,6 +1522,7 @@
   window.addEventListener('hashchange', handleAgentHash);
   render();
   handleAgentHash();
+  if (loadWarning) toast(t('saved data could not be loaded; the original was kept. export a backup before editing.'));
   setInterval(() => { updateCountdowns(); checkAlerts(); }, 1000);
   setTimeout(checkAlerts, 1500);
 })();

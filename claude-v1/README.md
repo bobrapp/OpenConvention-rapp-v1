@@ -48,8 +48,8 @@ Whatever is read, by rules or by Claude, is shown for you to check before it is 
 
 | File | What it is |
 |---|---|
-| `app.html` | The source: the page body exactly as published to a Claude artifact. Edit this one. |
-| `index.html` | The standalone page, generated from `app.html`. |
+| `app.html` | Source page body; uses the local `vendor/qrcode.js`. Edit this one. |
+| `index.html` | Self-contained page generated from `app.html`, including the pinned QR library and its license. Use this bundled page when publishing an artifact without local assets. |
 | `build.py` | Regenerates `index.html` after an edit: `python3 build.py`. |
 | `examples/examples.json` | Invented people, sessions, goals and pitches. None of it is real. |
 | `examples/load.html` | Loads the examples into the browser and opens the app. |
@@ -61,7 +61,7 @@ Whatever is read, by rules or by Claude, is shown for you to check before it is 
 
 ```
 cd claude-v1/tests
-npm install
+npm ci
 npm test
 ```
 
@@ -73,4 +73,8 @@ Set `CHROMIUM_PATH` to reuse a Chromium you already have.
 - The look approximates Slalom's colours and tone. It uses no Slalom logo or wordmark.
 - Matching is rule-based, built from what you enter. Summaries are templates unless Claude is available on the page.
 - The tests use a stand-in for Claude. Real replies from Claude are not covered by them.
-- The scannable code on the agent card loads a small library from cdnjs, so it needs a connection. Fonts come from Google Fonts and fall back to system fonts offline.
+- QR generation is local: the existing MIT-licensed generator is vendored and SHA-256 pinned (see `vendor/README.md`). Fonts are system fonts; neither requires a CDN. Missing/broken QR support shows a copy-card fallback, and tests cover all three states. Actual phone scanning is not automated.
+
+The browser tests block HTTP(S) requests and use synthetic Claude replies only.
+Run `python3 claude-v1/build.py` from the repository root after source changes;
+the builder verifies the vendor pin before regenerating the standalone page.

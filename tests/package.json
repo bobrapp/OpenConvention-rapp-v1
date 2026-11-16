@@ -1,0 +1,9 @@
+{
+  "name": "r4-root-regressions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node backup-identifiers.mjs && node backup-state.mjs && node calendar.mjs && node i18n-check.mjs && node smoke.mjs"
+  },
+  "devDependencies": { "playwright": "1.64.0" }
+}
